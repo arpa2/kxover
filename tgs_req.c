@@ -1,5 +1,4 @@
-#include <krb5.h>
-#include "lookup.h"
+#include "tgs_req.h"
 
 
 
@@ -10,10 +9,11 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	char *hostname = NULL;
 	char cleanname[1024];
 	char *query;
-	int ret;
+	int ret,i;
 	int max = 5;
-	char* array[max]
+	char* array[max];
 	int size = 0;
+	char *realm;
 
 	/*	Initiate context	*/
 	retval = krb5_init_context(&context);
@@ -33,14 +33,14 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	/*	Obtaine hostname	*/
 	hostname = data2string(krb5_princ_component(context, request->server, 1));
 	if (hostname == NULL) {
-		return ENOMEM
+		return -1;
 	}
 
 	/* 	Clean hostname		*/
 	retval = k5_clean_hostname(context, hostname, cleanname, sizeof(cleanname));
 	if (retval) {
 		com_err("kxover-deamon", retval, "while cleaning hostname");
-		return retval
+		return retval;
 	}
 	
 	/*	Issue TXT record query		*/
@@ -55,12 +55,12 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	}
 	/*	-> call lookup function		*/
 	ret = lookupTXT(query, max, array, &size);
-	for(int i = 0; i < size; i++) {
+	for(i = 0; i < size; i++) {
 		//choose the appropiate realm name
 		realm = array[i];
 	}
 	
 	/*	Issue SRV record query		*/
-	
+	return 0;
 
 }

@@ -85,8 +85,9 @@ int lookupTXT(char* query, int max, char* results[], int* size) {
 		this_ret = getdns_dict_get_list(this_answer,"answer", &answer);
 		
 		this_ret = getdns_list_get_length(answer, &num_addresses);
-		
-		for(size_t rec_count = 0; rec_count < num_addresses && rec_count < max; ++rec_count) {
+	
+		size_t rec_count;	
+		for(rec_count = 0; rec_count < num_addresses && rec_count < max; ++rec_count) {
 			getdns_dict * this_realm;
 			this_ret = getdns_list_get_dict(answer, rec_count, &this_realm);
 			
