@@ -1,5 +1,4 @@
-#include <krb5.h>
-#include <os-proto.h>
+#include <k5-int.h>
 #include "util.h"
 #include "lookup.h"
 

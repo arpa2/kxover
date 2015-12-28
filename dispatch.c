@@ -1,10 +1,10 @@
-#include <krb5.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <stdio.h>
 #include <sys/un.h>
 #include <string.h>
 #include "tgs_req.h"
+#include <krb5.h>
 
 #define ADDRESS "/tmp/sckt"
 
@@ -29,7 +29,7 @@ void dispatch(krb5_data *pkt) {
 int main() {
 char c[256] = {""};
         int fromlen, ret;
-        register int i, s, ns, len;
+        register int  s, ns, len;
         struct sockaddr_un saun, fsaun;
 	krb5_data packet;
 
@@ -64,11 +64,9 @@ char c[256] = {""};
                         if(ret == 0) {
                                 break;
                         }
-                        printf("received msg. From: %s\n",fsaun.sun_path);
 			packet.data = c;
 			packet.length = sizeof(c);
 			dispatch(&packet);
-                        puts(c);
                         memset(&c[0],0,sizeof(c));
                 }
         }
