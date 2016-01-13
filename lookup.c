@@ -1,6 +1,57 @@
 #include "lookup.h"
 
 
+
+int lookupIP(char* query, getdns_list * addresses) {
+        getdns_return_t this_ret;
+        getdns_context *this_context = NULL;
+        getdns_return_t context_create_return = getdns_context_create(&this_context, 1);
+
+        if(context_create_return != GETDNS_RETURN_GOOD) {
+                fprintf(stdout, "Trying to create the context failed: %d\n", context_create_return);
+                return(GETDNS_RETURN_GENERIC_ERROR);
+        }
+
+
+        getdns_dict * this_response = NULL;
+
+        getdns_return_t dns_request_return = getdns_address_sync(this_context, query, NULL , &this_response);
+        if(dns_request_return == GETDNS_RETURN_BAD_DOMAIN_NAME) {
+                fprintf(stdout, "A bad domain name was used: %s. Exiting.\n", query);
+                getdns_dict_destroy(this_response);
+                getdns_context_destroy(this_context);
+                return(GETDNS_RETURN_GENERIC_ERROR);
+        }
+        
+        else {
+                uint32_t this_error;
+                this_ret = getdns_dict_get_int(this_response, "status", &this_error);
+                if(this_error != GETDNS_RESPSTATUS_GOOD) {
+                        fprintf(stdout, "The search had no results, and a return value of %d. Exiting.\n", this_error);
+                        getdns_dict_destroy(this_response);
+                        getdns_context_destroy(this_context);
+                        return(GETDNS_RETURN_GENERIC_ERROR);
+                }
+                getdns_list * addrs;
+                this_ret = getdns_dict_get_list(this_response, "just_address_answers", &addrs);
+		int i;
+		size_t len;
+		this_ret = getdns_list_get_length(addrs, &len);
+		for(i = 0; i < len; i++) {
+			getdns_dict * dict;
+			this_ret = getdns_list_get_dict(addrs, i, &dict);
+			this_ret = getdns_list_set_dict(addresses, i, dict);
+		}
+        }
+        getdns_dict_destroy(this_response);
+        getdns_context_destroy(this_context);
+        /* Assuming we get here, leave gracefully */
+        return(0);
+}
+
+
+
+
 int lookupTXT(char* query, int max, char* results[], int* size) {
 	size_t num_addresses;
 	getdns_return_t this_ret;

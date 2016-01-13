@@ -1,6 +1,6 @@
 CC=gcc
 CFLAGS=-g -O2 -I/usr/local/lib -I/home/oriol/kerberos/krb5-1.13.2/src/include -I/home/oriol/kerberos/krb5-1.13.2/src/lib -Wall -c
-LDFLAGS=-lgetdns -lrt -lresolv 
+LDFLAGS=-lgetdns -lrt -lresolv -lssl -lcrypto 
 KRBLIBS=-Xlinker -rpath=/home/oriol/kerberos/krb5-1.13.2/src/lib /home/oriol/kerberos/krb5-1.13.2/src/lib/libkrb5.so /home/oriol/kerberos/krb5-1.13.2/src/lib/libcom_err.so /home/oriol/kerberos/krb5-1.13.2/src/lib/libkadm5srv_mit.so
 
 all: deamon 
