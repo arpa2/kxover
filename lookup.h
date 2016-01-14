@@ -11,4 +11,4 @@ int lookupSRV(char* query, char* target, int* port);
 
 int lookupTXT(char* query, int max, char* results[], int* size);
 
-int lookupTLSA(char* query, getdns_bindata * cert_data);
+int lookupTLSA(char* query, getdns_list * certs);

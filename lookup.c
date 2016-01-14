@@ -235,7 +235,7 @@ int lookupSRV(char* query, char* target, int* port) {
 	return(0);
 }
 
-int lookupTLSA(char* query, getdns_bindata * cert_data) {
+int lookupTLSA(char* query, getdns_list * certs) {
         getdns_return_t this_ret;
         getdns_context *this_context = NULL;
         getdns_return_t context_create_return = getdns_context_create(&this_context, 1);
@@ -298,19 +298,16 @@ int lookupTLSA(char* query, getdns_bindata * cert_data) {
                 
 		getdns_list * answer_list;
                 this_ret = getdns_dict_get_list(this_answer,"answer", &answer_list);
-
-		getdns_dict * tlsa;
-		this_ret = getdns_list_get_dict(answer_list, 0, &tlsa);
-
-		getdns_dict * rdata;
-		this_ret = getdns_dict_get_dict(tlsa, "rdata", &rdata);
 		
-		getdns_bindata * cert;
-		this_ret = getdns_dict_get_bindata(rdata, "certificate_association_data", &cert);
-		
-		uint32_t usage;
-		this_ret = getdns_dict_get_int(rdata, "certificate_usage", &usage);
-		memcpy(cert_data, cert, sizeof(getdns_bindata));
+		int i;
+		size_t nanswers;
+		this_ret = getdns_list_get_length(answer_list, &nanswers);
+
+		for(i = 0; i < nanswers; i++) {
+			getdns_dict * ansdict;
+			this_ret = getdns_list_get_dict(answer_list, i, &ansdict);
+			this_ret = getdns_list_set_dict(certs, i, ansdict);
+		}
 
         }
         getdns_dict_destroy(this_response);
