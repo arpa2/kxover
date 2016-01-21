@@ -111,6 +111,8 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	}
 
 	/*	Start PKINIT		*/
+	krb5_kdc_req * request;
+	krb5_principal 
 	
 
 	return 0;
