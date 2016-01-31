@@ -12,6 +12,8 @@ lookup.o: lookup.c
 	$(CC) $(CFLAGS) lookup.c
 tlsa_openssl.o: tlsa_openssl.c
 	$(CC) $(CFLAGS) tlsa_openssl.c
+ecdh_openssl.o: ecdh_openssl.c
+	$(CC) $(CFLAGS) ecdh_openssl.c
 dispatch.o: dispatch.c
 	$(CC) $(CFLAGS) dispatch.c
 tgs_req.o: tgs_req.c
