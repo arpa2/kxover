@@ -15,6 +15,11 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	char *realm;
 	char *target;
 	int port = 0;
+	char *cname;
+	char *sname;
+	char * own_realm;
+	char * as_req;
+	int as_req_size = 0;
 
 	/*	Initiate context	*/
 	retval = krb5_init_context(&context);
@@ -29,6 +34,13 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		com_err("kxover-deamon", retval, "while decoding request");
 		return retval;
 	}
+
+	retval = krb5_get_default_realm(context, &own_realm);
+	if (retval) {
+		com_err("kxover-deamon", retval, "while getting default realm");
+		return retval;
+	}
+		
 	
 	/*	Obtain hostname	*/
 	hostname = data2string(krb5_princ_component(context, request->server, 1));
@@ -81,7 +93,7 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 
 	/*	Issue TLSA record query		*/
 	/*	-> compose query		*/
-	char port_string[5];
+/*	char port_string[5];
 	sprintf(port_string, "%d", port); 
 	if((query = malloc(strlen(realm) + strlen("_._udp.")+strlen(port_string)+1)) != NULL) {
 		query[0] = '\0';
@@ -93,29 +105,109 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	} else {
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
-	}
+	}*/
 	/*	-> call the lookup function	*/
-	getdns_list * tlsas;
+	/*getdns_list * tlsas;
 	tlsas = getdns_list_create();
 	ret = lookupTLSA(query, tlsas);
 	if(ret != 0) {
 		com_err("kxover-deamon", ret, "while issuing TLSA lookup");
 		return ret;
-	}
+	}*/
 	
 	/*	Check TLSA record	*/
-	ret = checkTLSA(tlsas, target, port);
+	/*ret = checkTLSA(tlsas, target, port);
 	if(ret != 0) {
 		com_err("kxover-deamon", ret, "while checking TLSA");
 		return ret;
+	}*/
+
+	/*	Generate AS-REQ		*/
+	if((sname = malloc(strlen("kxover@")+strlen(realm)+1)) != NULL) {
+		sname[0] = '\0';
+		strcat(sname, "kxover@");
+		strcat(sname, realm);
+	} else {
+		com_err("kxover-deamon", -1, "while allocating memory");
+		return -1;
+	}
+	if((cname = malloc(strlen("kxover@")+strlen(own_realm)+1)) != NULL) {
+		cname[0] = '\0';
+		strcat(cname, "kxover@");
+		strcat(cname, own_realm);
+	} else {
+		com_err("kxover-deamon", -1, "while allocating memory");
+		return -1;
+	}
+	
+	as_req = (char *)malloc(1024*sizeof(char));
+	ret = create_as_req(cname, sname, realm, as_req, &as_req_size);
+	if(ret != 0) {
+		com_err("kxover-deamon", -1, "while creating AS-REQ");
+		return -1;
+	}
+	printf("AS-REQ created, size: %d\n",as_req_size);
+
+	/*	Send AS-REQ	*/
+	/*	-> Bind the local address and port to act as the KDC	*/
+	int fd;
+	/*int fd;
+	struct ifreq ifr;
+	fd = socket(AF_INET, SOCK_DGRAM, 0);
+	ifr.ifr_addr.sa_family = AF_INET;
+	strncpy(ifr.ifr_name, "wlan0", IFNAMSIZ-1);
+	ioctl(fd, SIOCGIFADDR, &ifr);
+	close(fd);
+	localaddr.sin_family = AF_INET;
+	localaddr.sin_addr.s_addr = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+	localaddr.sin_port = 88;
+	bind(fd, (struct sockaddr *)&localaddr, sizeof(localaddr));
+*/
+	/*	-> Connect to the remote KDC	*/
+	struct addrinfo hints, *res;
+	struct in_addr addr;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_family = AF_INET;
+	
+	if(( ret = getaddrinfo(target, NULL, &hints, &res)) != 0) {
+		printf("error while getting address: %d\n", ret);
+		return -1;
+	}
+	addr.s_addr = ((struct sockaddr_in *)(res->ai_addr))->sin_addr.s_addr;
+
+
+	struct sockaddr_in server;
+
+	fd = socket(AF_INET, SOCK_STREAM, 0);
+	if(fd == -1) {
+		puts("error creating socket");
+		return -1;
+	}
+	
+	server.sin_addr = addr;
+	server.sin_family = AF_INET;
+	server.sin_port = htons(port);
+	
+	if(connect(fd, (struct sockaddr *)&server, sizeof(server))<0) {
+		puts("error when connecting");
+		return -1;
+	}
+	
+	uint32_t nl_as_req_size = htonl(as_req_size);
+
+	if(send(fd, &nl_as_req_size, sizeof(nl_as_req_size), 0) < 0) {
+		puts("error when sending length");
+		return -1;
 	}
 
-	/*	Start PKINIT		*/
-	krb5_kdc_req * request;
-	krb5_principal 
-	
+	if(send(fd, as_req, as_req_size, 0) < 0) {
+		puts("error when sending");
+		return -1;
+	}
+	puts("message sent");
 
 	return 0;
 
 }
-

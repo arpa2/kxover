@@ -1,8 +1,4 @@
-#if HAVE_CONFIG_H
-# include "config.h"
-#endif
-
-#include <libtasn1.h>
+#include "array.h"
 
 const asn1_static_node kerberosV5spec2_asn1_tab[] = {
   { "KerberosV5Spec2", 536872976, NULL },

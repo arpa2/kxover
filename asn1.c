@@ -1,13 +1,8 @@
-#include "array.c"
-#include <libtasn1.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "asn1.h"
 
 int generateKeys(char * public_key_hex);
 
-int main() {
+int create_as_req(char * cname, char * sname, char * realm, char * as_req, int * as_req_size) {
 	asn1_retCode ret;
 	char * error = NULL;
 	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
@@ -15,11 +10,11 @@ int main() {
 	time_t now;
 	struct tm * till_tm;
 	struct tm * now_tm;
-	char till[15];	
+	char till[16];	
 
-	char * cname = "kxover@RHCP.DEV.ARPA2.ORG";
-	char * sname = "kxover@SOAD.DEV.ARPA2.ORG";
-	char * realm = "SOAD.DEV.ARPA2.ORG";
+	//char * cname = "kxover@RHCP.DEV.ARPA2.ORG";
+	//char * sname = "kxover@SOAD.DEV.ARPA2.ORG";
+	//char * realm = "SOAD.DEV.ARPA2.ORG";
 	int nonce;
 	char nonce_char[1024];
 
@@ -98,12 +93,24 @@ int main() {
 		printf("error while writing value, %d\n", ret);
 		return 1;
 	}
-	//	till -> expiration date of the ticket
+
+	//	from
+	char now_ch[16];
 	time(&now);
 	now_tm = gmtime(&now);
+	strftime( now_ch,15 , "%Y%m%d%H%M%S", now_tm);
+	strcat(now_ch, "Z");
+	ret = asn1_write_value(message, "req-body.from", now_ch, 15);
+	if(ret) {
+		printf("error while writing value, %d\n", ret);
+		return 1;
+	}
+
+	//	till -> expiration date of the ticket
 	till_tm = gmtime(&now);
 	till_tm->tm_mon += 1;
-	strftime( till,15 , "%Y%m%d%H%M%SZ", till_tm);
+	strftime( till,15 , "%Y%m%d%H%M%S", till_tm);
+	strcat(till, "Z");
 
 	ret = asn1_write_value(message, "req-body.till", till, 15);	
 	if(ret) {
@@ -111,14 +118,6 @@ int main() {
 		return 1;
 	}
 
-	//	from
-	char now_ch[15];
-	strftime( now_ch,15 , "%Y%m%d%H%M%SZ", now_tm);
-	ret = asn1_write_value(message, "req-body.from", now_ch, 15);
-	if(ret) {
-		printf("error while writing value, %d\n", ret);
-		return 1;
-	}
 
 	//	kdc-options
 	ret = asn1_write_value(message, "req-body.kdc-options", "\x00\x00\x00\x00", 32);
@@ -160,7 +159,7 @@ int main() {
 		printf("error while writing value, %d\n", ret);
 		return 1;
 	}
-	ret = asn1_write_value(message, "padata.?1.padata-type", "18", 0);
+	ret = asn1_write_value(message, "padata.?1.padata-type", "28", 0);
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return 1;
@@ -191,6 +190,7 @@ int main() {
 		printf("error on second der coding, %d, len: %d, error Description: %s\n", ret, size, errorDescription);
 		return 1;
 	}
+	
 	
 	
 
@@ -257,9 +257,6 @@ int main() {
 		return 1;
 	}
 
-	printf("AuthPack\n");
-	asn1_print_structure(stdout,authPack, "", ASN1_PRINT_ALL);
-	printf("--------\n");
 
 	//	DER-Encoding authPack
 	size = 0;
@@ -334,9 +331,6 @@ int main() {
 		printf("error while writing value, %d\n", ret);
 		return 1;
 	}
-	printf("contentInfo\n");
-	asn1_print_structure(stdout,contentInfo, "", ASN1_PRINT_ALL);
-	printf("--------\n");
 
 	// 	DER-encoding contentInfo
 	size = 0;
@@ -361,9 +355,6 @@ int main() {
 		return 1;
 	}
 	
-	printf("PA-PK-AS-REQ\n");
-	asn1_print_structure(stdout,pa_data, "", ASN1_PRINT_ALL);
-	printf("--------\n");
 
 	//	DER-encoding PA-PK-AS-REQ
 	size = 0;
@@ -397,6 +388,7 @@ int main() {
 		return 1;
 	}
 
+
 	//encode final request
 	size = 0;
 	ret = asn1_der_coding(message,"" , NULL, &size, errorDescription);
@@ -404,15 +396,21 @@ int main() {
 		printf("error on first message der coding, %d, len: %d, error Description: %s\n", ret, size, errorDescription);
 		return ret;
 	}
+	printf("size of full message: %d\n", size);
+	unsigned char data2[size];
 	data = malloc(size);
+	*as_req_size = size;
 
-	ret = asn1_der_coding(message, "", data, &size, errorDescription);
-	if(ret) {
+
+	ret = asn1_der_coding(message, "", data2, &size, errorDescription);
+	if(ret != ASN1_SUCCESS) {
 		printf("error on second message der coding, %d, len: %d, error Description: %s\n", ret, size, errorDescription);
 		return 1;
 	}
+	
 
-	printf("encoded message: %s\n", (char *)data);
+	memcpy(as_req, data2, size);
+
 
 	return 0;
 }
