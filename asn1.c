@@ -1,8 +1,7 @@
 #include "asn1.h"
 
-int generateKeys(char * public_key_hex);
 
-int create_as_req(char * cname, char * sname, char * realm, char * as_req, int * as_req_size) {
+int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * as_req, int * as_req_size) {
 	asn1_retCode ret;
 	char * error = NULL;
 	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
@@ -12,13 +11,9 @@ int create_as_req(char * cname, char * sname, char * realm, char * as_req, int *
 	struct tm * now_tm;
 	char till[16];	
 
-	//char * cname = "kxover@RHCP.DEV.ARPA2.ORG";
-	//char * sname = "kxover@SOAD.DEV.ARPA2.ORG";
-	//char * realm = "SOAD.DEV.ARPA2.ORG";
 	int nonce;
 	char nonce_char[1024];
 
-	void *data = NULL;
 	char errorDescription[ASN1_MAX_ERROR_DESCRIPTION_SIZE];
 	asn1_node dst_node;
 	void *der_data = NULL;
@@ -27,7 +22,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * as_req, int *
 	void *der_contentInfo = NULL;
 	void *der_paData = NULL;
 	int size = 0;
-	char * ecdh_public_key;
 	
 
 
@@ -216,12 +210,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * as_req, int *
 		return 1;
 	}
 	//	->-> Elliptic Curve parameters
-	ecdh_public_key = (char *) malloc(66);
-	ret = generateKeys(ecdh_public_key);
-	if(ret != 0) {
-		puts("error while generating public key");
-		return 1;
-	}
 	ret = asn1_write_value(authPack, "clientPublicValue.subjectPublicKey", ecdh_public_key, strlen(ecdh_public_key));
 	if(ret) {
 		printf("error while writing public key, %d", ret);
@@ -397,19 +385,18 @@ int create_as_req(char * cname, char * sname, char * realm, char * as_req, int *
 		return ret;
 	}
 	printf("size of full message: %d\n", size);
-	unsigned char data2[size];
-	data = malloc(size);
+	unsigned char data[size];
 	*as_req_size = size;
 
 
-	ret = asn1_der_coding(message, "", data2, &size, errorDescription);
+	ret = asn1_der_coding(message, "", data, &size, errorDescription);
 	if(ret != ASN1_SUCCESS) {
 		printf("error on second message der coding, %d, len: %d, error Description: %s\n", ret, size, errorDescription);
 		return 1;
 	}
 	
 
-	memcpy(as_req, data2, size);
+	memcpy(as_req, data, size);
 
 
 	return 0;

@@ -8,4 +8,4 @@
 
 
 
-int create_as_req(char * cname, char * sname, char * realm, char * as_req, int * as_req_size);
+int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * as_req, int * as_req_size);

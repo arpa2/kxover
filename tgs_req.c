@@ -1,6 +1,7 @@
 #include "tgs_req.h"
 
 
+int generateKeys(char * public_key_hex);
 
 int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a krb5_data
 	krb5_error_code retval;	
@@ -73,10 +74,10 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	
 	/*	Issue SRV record query		*/
 	/*	-> compose query		*/
-	if((query = malloc(strlen(hostname) + strlen("_kerberos._udp.")+1)) != NULL) {
+	if((query = malloc(strlen(realm) + strlen("_kerberos._udp.")+1)) != NULL) {
 		query[0] = '\0';
 		strcat(query, "_kerberos._udp.");
-		strcat(query, hostname);
+		strcat(query, realm);
 	} else {
 		com_err("kxover-deamon", retval, "while allocating memory");
 		return -1;
@@ -93,7 +94,7 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 
 	/*	Issue TLSA record query		*/
 	/*	-> compose query		*/
-/*	char port_string[5];
+	char port_string[5];
 	sprintf(port_string, "%d", port); 
 	if((query = malloc(strlen(realm) + strlen("_._udp.")+strlen(port_string)+1)) != NULL) {
 		query[0] = '\0';
@@ -105,22 +106,33 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	} else {
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
-	}*/
+	}
 	/*	-> call the lookup function	*/
-	/*getdns_list * tlsas;
+	getdns_list * tlsas;
 	tlsas = getdns_list_create();
 	ret = lookupTLSA(query, tlsas);
 	if(ret != 0) {
 		com_err("kxover-deamon", ret, "while issuing TLSA lookup");
 		return ret;
-	}*/
+	}
 	
 	/*	Check TLSA record	*/
-	/*ret = checkTLSA(tlsas, target, port);
+	ret = checkTLSA(tlsas, target, port);
 	if(ret != 0) {
 		com_err("kxover-deamon", ret, "while checking TLSA");
 		return ret;
-	}*/
+	}
+	
+	/*	Create ECDH Public Key	*/
+	char * ecdh_public_key;
+	ecdh_public_key = (char *) malloc(66);
+	ret = generateKeys(ecdh_public_key);
+	if(ret != 0) {
+		puts("error while generating public key");
+		return -1;
+	}
+
+
 
 	/*	Generate AS-REQ		*/
 	if((sname = malloc(strlen("kxover@")+strlen(realm)+1)) != NULL) {
@@ -141,7 +153,7 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	}
 	
 	as_req = (char *)malloc(1024*sizeof(char));
-	ret = create_as_req(cname, sname, realm, as_req, &as_req_size);
+	ret = create_as_req(cname, sname, realm,ecdh_public_key, as_req, &as_req_size);
 	if(ret != 0) {
 		com_err("kxover-deamon", -1, "while creating AS-REQ");
 		return -1;
@@ -149,20 +161,7 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	printf("AS-REQ created, size: %d\n",as_req_size);
 
 	/*	Send AS-REQ	*/
-	/*	-> Bind the local address and port to act as the KDC	*/
 	int fd;
-	/*int fd;
-	struct ifreq ifr;
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-	ifr.ifr_addr.sa_family = AF_INET;
-	strncpy(ifr.ifr_name, "wlan0", IFNAMSIZ-1);
-	ioctl(fd, SIOCGIFADDR, &ifr);
-	close(fd);
-	localaddr.sin_family = AF_INET;
-	localaddr.sin_addr.s_addr = inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
-	localaddr.sin_port = 88;
-	bind(fd, (struct sockaddr *)&localaddr, sizeof(localaddr));
-*/
 	/*	-> Connect to the remote KDC	*/
 	struct addrinfo hints, *res;
 	struct in_addr addr;
@@ -207,7 +206,11 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		return -1;
 	}
 	puts("message sent");
-
+	/*
+	 *	Add REALM to list of sent requests
+	 *	-> also add the generated key pair for ecdh
+	 *
+	 * */
 	return 0;
 
 }
