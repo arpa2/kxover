@@ -39,11 +39,16 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		
 	
 	/*	Obtain client realm 	*/
-	realm = data2string(krb5_princ_realm(context, request->client));
-	if (realm == NULL) {
+	cname = data2string(krb5_princ_name(context, request->client));
+	if (cname == NULL) {
 		return -1;
 	}
+	//	kxover@ -> 7 chars
+	realm = (char *) malloc(strlen(cname)-6);
+	strncpy(realm, cname+7, strlen(cname)-7);	
+	strcat(realm, "\0");
 
+	printf("client name: %s\n" , cname);
 	printf("realm: %s\n", realm);
 	
 	/*	Issue SRV record query		*/
