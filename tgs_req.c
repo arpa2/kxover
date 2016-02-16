@@ -117,12 +117,12 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	}
 	
 	/*	Check TLSA record	*/
-	ret = checkTLSA(tlsas, target, port);
+	/*ret = checkTLSA(tlsas, target, port);
 	if(ret != 0) {
 		com_err("kxover-deamon", ret, "while checking TLSA");
 		return ret;
 	}
-	
+	*/
 	/*	Create ECDH Public Key	*/
 	char * ecdh_public_key;
 	ecdh_public_key = (char *) malloc(66);

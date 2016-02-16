@@ -55,6 +55,7 @@ int main() {
                 exit(1);
         }
         puts("Listening...");
+	fromlen = sizeof(fsaun);
         while(1) {
                 if((ns = accept(s, (struct sockaddr *)&fsaun, &fromlen)) < 0) {
                         perror("server: accept");

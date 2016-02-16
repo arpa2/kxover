@@ -39,7 +39,7 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		
 	
 	/*	Obtain client realm 	*/
-	realm = data2string(krb5_princ_component(context, request->client, 1));
+	realm = data2string(krb5_princ_realm(context, request->client));
 	if (realm == NULL) {
 		return -1;
 	}
@@ -91,12 +91,12 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	}
 	
 	/*	Check TLSA record	*/
-	ret = checkTLSA(tlsas, target, port);
+	/*ret = checkTLSA(tlsas, target, port);
 	if(ret != 0) {
 		com_err("kxover-deamon", ret, "while checking TLSA");
 		return ret;
 	}
-
+*/
 	/*	Obtain ECDH parameters		*/
 
 	/*	Create ECDH shared secret	*/
