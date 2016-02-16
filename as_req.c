@@ -103,6 +103,20 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	}
 */
 	/*	Obtain ECDH parameters		*/
+	
+	krb5_pa_data ** padata;
+        for(padata = request->padata; *padata; padata++) {
+                printf("padata type: %d\n", (*padata)->pa_type);
+		krb5_data kxover_data;
+		kxover_data.length = (*padata)->length;
+		kxover_data.data = (char *)(*padata)->contents;
+		printf("padata data: %s\n", kxover_data.data);
+		if((*padata)->pa_type == 16) {
+			ret = check_certificate(pkt.data, pkt.length);
+			if(ret < 0) puts("error on check");
+		}
+        }
+
 
 	/*	Create ECDH shared secret	*/
 
