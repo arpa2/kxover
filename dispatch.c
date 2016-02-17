@@ -54,9 +54,9 @@ int main() {
                 perror("server: listen");
                 exit(1);
         }
-        puts("Listening...");
 	fromlen = sizeof(fsaun);
         while(1) {
+		puts("Listening...");
                 if((ns = accept(s, (struct sockaddr *)&fsaun, &fromlen)) < 0) {
                         perror("server: accept");
                         exit(1);
@@ -70,6 +70,7 @@ int main() {
 			packet.length = sizeof(c);
 			dispatch(&packet);
                         memset(&c[0],0,sizeof(c));
+			break;
                 }
         }
 
