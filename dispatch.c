@@ -67,7 +67,7 @@ int main() {
                                 break;
                         }
 			packet.data = c;
-			packet.length = sizeof(c);
+			packet.length = ret;
 			dispatch(&packet);
                         memset(&c[0],0,sizeof(c));
 			break;

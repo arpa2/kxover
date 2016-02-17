@@ -1,6 +1,42 @@
 #include "asn1.h"
 
 
+
+int check_certificate(char * data, int size) {	// data contains AS-REQ
+	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
+	asn1_node message;
+	asn1_retCode ret;
+	char * error = NULL;
+	char errorDescription[ASN1_MAX_ERROR_DESCRIPTION_SIZE];
+	unsigned char der_data[size];
+
+	memcpy(der_data, data, size);
+	
+	ret = asn1_array2tree(kerberosV5spec2_asn1_tab, &def, error);
+	if(ret) {
+		printf("error: %s\n", error);
+		return -1;
+	}
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.AS-REQ", &message);
+	if(ret) {
+		printf("error while creating pa-data, %d\n", ret);
+		return -1;
+	}
+	hexdump(der_data, size);
+
+	ret = asn1_der_decoding(&message, der_data, size, errorDescription); 
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding pa-data, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+	asn1_print_structure(stdout, message, "", ASN1_PRINT_ALL);
+	
+	return 0;
+}
+
+
 int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * as_req, int * as_req_size) {
 	asn1_retCode ret;
 	char * error = NULL;
@@ -26,7 +62,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 
 
 	ret = asn1_array2tree(kerberosV5spec2_asn1_tab, &def, error);
-
 	if(ret) {
 		printf("error: %s\n", error);
 		return 1;
