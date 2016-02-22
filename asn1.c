@@ -180,7 +180,12 @@ int check_certificate(char * data, int size, char * ecdh_public_key) {	// data c
 
 	memcpy(ecdh_public_key,key, len);
 
-	
+	free(der_padata);
+	free(der_authPack);
+	free(der_signedData);
+	free(signedAuthPack);
+	free(pubKey);
+
 	return 0;
 }
 
@@ -588,6 +593,12 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	
 
 	memcpy(as_req, data, size);
+
+	free(der_authPack);
+	free(der_paData);
+	free(der_contentInfo);
+	free(der_signedData);
+	free(der_data);
 
 
 	return 0;

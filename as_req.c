@@ -204,6 +204,11 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		return -1;
 	}
 */	puts("message sent");
+
+	free(realm);
+	free(query);
+	free(target);
+	free(remote_pub_key);
 	return 0;
 
 }
