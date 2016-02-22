@@ -9,3 +9,4 @@
 
 
 int generateKeys(char *public_key_hex);
+int generateSecret(char * remote_key_hex, char * public_key_hex, char * secret);

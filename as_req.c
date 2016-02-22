@@ -103,22 +103,32 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	}
 */
 	/*	Obtain ECDH parameters		*/
+	printf("message received, size: %d\n", pkt.length);
 	
+	char * remote_pub_key;
 	krb5_pa_data ** padata;
+	remote_pub_key = (char *)malloc(66);
         for(padata = request->padata; *padata; padata++) {
-                printf("padata type: %d\n", (*padata)->pa_type);
 		krb5_data kxover_data;
 		kxover_data.length = (*padata)->length;
 		kxover_data.data = (char *)(*padata)->contents;
-		printf("padata data: %s\n", kxover_data.data);
 		if((*padata)->pa_type == 16) {
-			ret = check_certificate(pkt.data, pkt.length);
+			ret = check_certificate(pkt.data, pkt.length, remote_pub_key);
 			if(ret < 0) puts("error on check");
 		}
         }
 
-
+	printf("remote public key hex: %s\n", remote_pub_key);
 	/*	Create ECDH shared secret	*/
+	char * public_key;
+	char * secret;
+	ret = generateSecret(remote_pub_key, public_key, secret); 
+	if(ret != 0) {
+		printf("error when generating shared secret, %d\n", ret);
+		return -1;
+	}
+
+	printf("Shared secret: %s\n", secret);
 
 	/*	Create principal in the DB	*/
 
