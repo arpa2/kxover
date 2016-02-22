@@ -265,7 +265,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 
 	//	-> clientPublicValue
 	//	--> algorithm identifier: id-ecPublicKey
-	asn1_print_structure(stdout, authPack,"", ASN1_PRINT_ALL); 
 
 	ret = asn1_write_value(authPack, "clientPublicValue.algorithm.algorithm", "1.2.840.10045.2.1",17); 
 	if(ret) {
@@ -282,13 +281,12 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 
 	//	->-> Elliptic Curve parameters
 	printf("ecdh public key: %s, size: %d \n", ecdh_public_key, strlen(ecdh_public_key));
-	ret = asn1_write_value(authPack, "clientPublicValue.subjectPublicKey", "\x00\x00", 16);
+	ret = asn1_write_value(authPack, "clientPublicValue.subjectPublicKey", ecdh_public_key, strlen(ecdh_public_key)*8);
 	if(ret) {
 		printf("error while writing public key, %d", ret);
 		return 1;
 	}
 	
-	asn1_print_structure(stdout, authPack, "", ASN1_PRINT_ALL);
 
 	//	DER-Encoding authPack
 	size = 0;
@@ -305,7 +303,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		return 1;
 	}
 
-	hexdump(der_authPack, size);
 
 	/*	CREATE SIGNED_AUTH_PACK		*/
 	// 	-> Create SignedData
