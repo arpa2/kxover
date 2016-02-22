@@ -1,4 +1,8 @@
-#include "array.h"
+#if HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#include <libtasn1.h>
 
 const asn1_static_node kerberosV5spec2_asn1_tab[] = {
   { "KerberosV5Spec2", 536872976, NULL },
@@ -18,6 +22,21 @@ const asn1_static_node kerberosV5spec2_asn1_tab[] = {
   { "internet", 1073741825, "1"},
   { "security", 1073741825, "5"},
   { "kerberosV5", 1, "2"},
+  { "id-ecPublicKey", 1879048204, NULL },
+  { "iso", 1073741825, "1"},
+  { "member-body", 1073741825, "2"},
+  { "us", 1073741825, "840"},
+  { "ansi-X9-62", 1073741825, "10045"},
+  { "keyType", 1073741825, "2"},
+  { NULL, 1, "1"},
+  { "secp256r1", 1879048204, NULL },
+  { "iso", 1073741825, "1"},
+  { "member-body", 1073741825, "2"},
+  { "us", 1073741825, "840"},
+  { "ansi-X9-62", 1073741825, "10045"},
+  { "curves", 1073741825, "3"},
+  { "prime", 1073741825, "1"},
+  { NULL, 1, "7"},
   { "ContentInfo", 1610612741, NULL },
   { "contentType", 1073741826, "ContentType"},
   { "content", 541073421, NULL },
@@ -42,10 +61,11 @@ const asn1_static_node kerberosV5spec2_asn1_tab[] = {
   { "eContentType", 1073741826, "ContentType"},
   { "eContent", 536895495, NULL },
   { NULL, 2056, "0"},
+  { "ECParameters", 1610612754, NULL },
+  { "namedCurve", 12, NULL },
   { "AlgorithmIdentifier", 1610612741, NULL },
   { "algorithm", 1073741836, NULL },
-  { "parameters", 541081613, NULL },
-  { "algorithm", 1, NULL },
+  { "parameters", 16386, "ECParameters"},
   { "SubjectPublicKeyInfo", 1610612741, NULL },
   { "algorithm", 1073741826, "AlgorithmIdentifier"},
   { "subjectPublicKey", 6, NULL },

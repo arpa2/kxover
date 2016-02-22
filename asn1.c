@@ -367,24 +367,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		printf("error while creating authPack, %d\n", ret);
 		return 1;
 	}
-	//	-> clientPublicValue
-	ret = asn1_write_value(authPack, "clientPublicValue.algorithm.algorithm", "1.2.840.10045",10); 
-	if(ret) {
-		printf("error while writing value, %d\n", ret);
-		return 1;
-	}
-	//	->-> Elliptic Curve parameters
-	ret = asn1_write_value(authPack, "clientPublicValue.subjectPublicKey", ecdh_public_key, strlen(ecdh_public_key));
-	if(ret) {
-		printf("error while writing public key, %d", ret);
-		return 1;
-	}
-
-	ret = asn1_write_value(authPack, "clientPublicValue.algorithm.parameters", "1.2.840.10045.3.1.7",19);
-	if(ret) {
-		printf("error while writing algorithm parameters, %d\n", ret); 
-		return 1;
-	}
 
 	//	-> PKAuthenticator
 	ret = asn1_write_value(authPack, "pkAuthenticator.ctime",now_ch ,15); 
@@ -397,6 +379,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		printf("error while writing value, %d\n", ret);
 		return 1;
 	}
+
 	
 	ret = asn1_write_value(authPack, "pkAuthenticator.paChecksum", der_data, size);
 	if(ret) {
@@ -409,6 +392,32 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		return 1;
 	}
 
+	//	-> clientPublicValue
+	//	--> algorithm identifier: id-ecPublicKey
+	asn1_print_structure(stdout, authPack,"", ASN1_PRINT_ALL); 
+
+	ret = asn1_write_value(authPack, "clientPublicValue.algorithm.algorithm", "1.2.840.10045.2.1",17); 
+	if(ret) {
+		printf("error while writing value, %d\n", ret);
+		return 1;
+	}
+
+
+	ret = asn1_write_value(authPack, "clientPublicValue.algorithm.parameters.namedCurve", "1.2.840.10045.3.1.7",19);
+	if(ret) {
+		printf("error while writing algorithm parameters, %d\n", ret); 
+		return 1;
+	}
+
+	//	->-> Elliptic Curve parameters
+	printf("ecdh public key: %s, size: %d \n", ecdh_public_key, strlen(ecdh_public_key));
+	ret = asn1_write_value(authPack, "clientPublicValue.subjectPublicKey", "\x00\x00", 16);
+	if(ret) {
+		printf("error while writing public key, %d", ret);
+		return 1;
+	}
+	
+	asn1_print_structure(stdout, authPack, "", ASN1_PRINT_ALL);
 
 	//	DER-Encoding authPack
 	size = 0;
@@ -425,6 +434,8 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		return 1;
 	}
 
+	hexdump(der_authPack, size);
+
 	/*	CREATE SIGNED_AUTH_PACK		*/
 	// 	-> Create SignedData
 	ret = asn1_create_element(def, "KerberosV5Spec2.SignedData", &signedData);
@@ -433,7 +444,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		return 1;
 	}
 
-	ret = asn1_write_value(signedData, "version", "1", 1);
+	ret = asn1_write_value(signedData, "version", "1", 0);
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return 1;
@@ -444,7 +455,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		return 1;
 	}
 
-	ret = asn1_write_value(signedData, "encapContentInfo.eContent", der_authPack, sizeof(der_authPack));
+	ret = asn1_write_value(signedData, "encapContentInfo.eContent", der_authPack, size);
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return 1;
@@ -478,7 +489,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		return 1;
 	}
 
-	ret = asn1_write_value(contentInfo, "content", der_signedData, sizeof(der_signedData));
+	ret = asn1_write_value(contentInfo, "content", der_signedData, size);
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return 1;
@@ -501,7 +512,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	
 
 	//	ADD DER-encoded ContentInfo to PA-PK-AS-REQ
-	ret = asn1_write_value(pa_data, "signedAuthPack", der_contentInfo, sizeof(der_contentInfo));
+	ret = asn1_write_value(pa_data, "signedAuthPack", der_contentInfo, size);
 	if(ret) {
 		printf("error while writing signedAuthPack, %d\n", ret);
 		return 1;
@@ -534,7 +545,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		printf("error while writing value, %d\n", ret);
 		return 1;
 	}
-	ret = asn1_write_value(message, "padata.?2.padata-value",der_paData, sizeof(der_paData));
+	ret = asn1_write_value(message, "padata.?2.padata-value",der_paData, size);
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return 1;
