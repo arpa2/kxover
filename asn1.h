@@ -8,5 +8,5 @@
 
 
 
-int check_certificate(char * data, int size); 
+int check_certificate(char * data, int size, char * ecdh_public_key); 
 int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * as_req, int * as_req_size);

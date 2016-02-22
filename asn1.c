@@ -2,7 +2,7 @@
 
 
 
-int check_certificate(char * data, int size) {	// data contains AS-REQ
+int check_certificate(char * data, int size, char * ecdh_public_key) {	// data contains AS-REQ
 	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
 	asn1_node message;
 	asn1_node pa_pk_as_req;
@@ -19,6 +19,7 @@ int check_certificate(char * data, int size) {	// data contains AS-REQ
 	void * signedAuthPack = NULL;
 	void * der_signedData = NULL;
 	void * der_authPack = NULL;
+	void * pubKey = NULL;
 
 	memcpy(der_data, data, size);
 	
@@ -143,7 +144,6 @@ int check_certificate(char * data, int size) {	// data contains AS-REQ
 		return -1;
 	}
 
-	hexdump(der_authPack, len);
 
 	ret = asn1_create_element(def, "KerberosV5Spec2.AuthPack", &authPack);
 	if(ret != ASN1_SUCCESS) {
@@ -151,7 +151,6 @@ int check_certificate(char * data, int size) {	// data contains AS-REQ
 		return -1;
 	}
 
-	asn1_print_structure(stdout, authPack, "", ASN1_PRINT_ALL);
 	
 
 	ret = asn1_der_decoding(&authPack, der_authPack, len, errorDescription);
@@ -161,6 +160,26 @@ int check_certificate(char * data, int size) {	// data contains AS-REQ
 	}
 
 	asn1_print_structure(stdout, authPack, "", ASN1_PRINT_ALL);
+
+	len = 0;
+	ret = asn1_read_value(authPack, "clientPublicValue.subjectPublicKey", NULL, &len);
+	if(ret != ASN1_MEM_ERROR) {
+		printf("error when reading subjectPublicKey, %d\n", ret);
+		return -1;
+	}
+	pubKey = malloc(len);
+	ret = asn1_read_value(authPack, "clientPublicValue.subjectPublicKey", pubKey, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error when reading subjectPublicKey, %d\n", ret);
+		return -1;
+	}
+
+	char * key;
+	key = (char *)pubKey;
+	printf("len: %d\n", len);
+
+	memcpy(ecdh_public_key,key, len);
+
 	
 	return 0;
 }
