@@ -5,10 +5,20 @@
 int check_certificate(char * data, int size) {	// data contains AS-REQ
 	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
 	asn1_node message;
+	asn1_node pa_pk_as_req;
+	asn1_node authPack;
+	asn1_node contentInfo;
+	asn1_node signedData;
 	asn1_retCode ret;
 	char * error = NULL;
 	char errorDescription[ASN1_MAX_ERROR_DESCRIPTION_SIZE];
 	unsigned char der_data[size];
+
+	void * der_padata = NULL;
+	int len = 0;
+	void * signedAuthPack = NULL;
+	void * der_signedData = NULL;
+	void * der_authPack = NULL;
 
 	memcpy(der_data, data, size);
 	
@@ -23,15 +33,134 @@ int check_certificate(char * data, int size) {	// data contains AS-REQ
 		printf("error while creating pa-data, %d\n", ret);
 		return -1;
 	}
-	hexdump(der_data, size);
 
 	ret = asn1_der_decoding(&message, der_data, size, errorDescription); 
 	if(ret != ASN1_SUCCESS) {
-		printf("error while decoding pa-data, %s, %d\n", errorDescription, ret);
+		printf("error while decoding message, %s, %d\n", errorDescription, ret);
 		return -1;
 	}
 
-	asn1_print_structure(stdout, message, "", ASN1_PRINT_ALL);
+	
+	//	Get PA-DATA
+	//	-> get der-encoded data
+	ret = asn1_read_value(message, "padata.?2.padata-value", NULL, &len);
+	if(ret != ASN1_MEM_ERROR){
+		printf("error while reading padata value, %d\n", ret);
+		return -1;
+	}
+	der_padata = malloc(len);
+	ret = asn1_read_value(message, "padata.?2.padata-value", der_padata, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading padata value, %d\n", ret);
+		return -1;
+	}
+
+
+	//	-> decode into PA-PK-AS-REQ
+	ret = asn1_create_element(def, "KerberosV5Spec2.PA-PK-AS-REQ", &pa_pk_as_req);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating element, %d\n", ret);
+		return -1;
+	}
+
+	
+
+	ret = asn1_der_decoding(&pa_pk_as_req, der_padata, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding pa-pk-as-req, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+
+
+	len = 0;
+	ret = asn1_read_value(pa_pk_as_req, "signedAuthPack", NULL, &len);
+	if(ret != ASN1_MEM_ERROR){
+		printf("error while reading signedAuthPack, %d\n", ret);
+		return -1;
+	}
+	signedAuthPack = malloc(len);
+	ret = asn1_read_value(pa_pk_as_req, "signedAuthPack", signedAuthPack, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading signedAuthPack, %d\n", ret);
+		return -1;
+	}
+	//	signedAuthPack is a der-encoded ContentInfo
+
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.ContentInfo", &contentInfo);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating contentInfo, %d\n", ret);
+		return -1;
+	}
+
+	ret = asn1_der_decoding(&contentInfo, signedAuthPack, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding contentInfo, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+	
+	len = 0;
+	ret = asn1_read_value(contentInfo, "content", NULL, &len);
+	if(ret != ASN1_MEM_ERROR) {
+		printf("error while reading signedData, %d\n", ret);
+		return -1;
+	}
+	der_signedData = malloc(len);
+	ret = asn1_read_value(contentInfo, "content", der_signedData, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading signedData, %d\n", ret);
+		return -1;
+	}
+
+
+	//	SignedData is der-encoded instead of signed (SHOULD BE CHANGED)
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.SignedData", &signedData);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating SignedData, %d\n", ret);
+		return -1;
+	}
+
+	ret = asn1_der_decoding(&signedData, der_signedData, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding SignedData, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+	
+
+	len = 0;
+	ret = asn1_read_value(signedData, "encapContentInfo.eContent", NULL, &len);
+	if(ret != ASN1_MEM_ERROR) {
+		printf("error while reading eContent, %d\n", ret);
+		return -1;
+	}
+	der_authPack = malloc(len);
+	ret = asn1_read_value(signedData, "encapContentInfo.eContent", der_authPack, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading eContent, %d\n", ret);
+		return -1;
+	}
+
+	hexdump(der_authPack, len);
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.AuthPack", &authPack);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating authPack, %d\n", ret);
+		return -1;
+	}
+
+	asn1_print_structure(stdout, authPack, "", ASN1_PRINT_ALL);
+	
+
+	ret = asn1_der_decoding(&authPack, der_authPack, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding authPack, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+	asn1_print_structure(stdout, authPack, "", ASN1_PRINT_ALL);
 	
 	return 0;
 }

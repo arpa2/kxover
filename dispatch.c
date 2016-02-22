@@ -28,7 +28,7 @@ void dispatch(krb5_data *pkt) {
 
 
 int main() {
-	char c[256] = {""};
+	char c[1024] = {""};
         int fromlen, ret;
         register int  s, ns, len;
         struct sockaddr_un saun, fsaun;
