@@ -106,17 +106,21 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	printf("message received, size: %d\n", pkt.length);
 	
 	char * remote_pub_key;
+	char * nonce;
 	krb5_pa_data ** padata;
 	remote_pub_key = (char *)malloc(66);
+	nonce = (char *)malloc(32);
         for(padata = request->padata; *padata; padata++) {
 		krb5_data kxover_data;
 		kxover_data.length = (*padata)->length;
 		kxover_data.data = (char *)(*padata)->contents;
 		if((*padata)->pa_type == 16) {
-			ret = check_certificate(pkt.data, pkt.length, remote_pub_key);
+			ret = extract_public_key(pkt.data, pkt.length, remote_pub_key, nonce);
 			if(ret < 0) puts("error on check");
 		}
         }
+
+	printf("nonce: %s\n");
 	/*	Create key pair		*/
 	EC_KEY * key;
 	key = generateKeys();
@@ -141,33 +145,52 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	printf("Shared secret: %s\n", secret);
 
 	/*	Create principal in the DB	*/
-
-	/*	Generate AS-REP		*/
-	/*if((sname = malloc(strlen("kxover@")+strlen(realm)+1)) != NULL) {
+	char * princ_name;
+	
+	if((princ_name = malloc(strlen("krbtgt/@")+strlen(realm)+strlen(own_realm)+1)) != NULL) {
 		sname[0] = '\0';
-		strcat(sname, "kxover@");
-		strcat(sname, realm);
+		strcat(princ_name, "krbtgt/");
+		strcat(princ_name, realm);
+		strcat(princ_name, "@");
+		strcat(princ_name, own_realm);
 	} else {
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
 	}
-	if((cname = malloc(strlen("kxover@")+strlen(own_realm)+1)) != NULL) {
+	ret = create_princ(princ_name, secret);
+	if(ret != 0) {
+		com_err("kxover-deamon", -1, "while creating principal");
+		return -1;	
+	}
+
+	/*	Get public key		*/
+	char * ecdh_public_key;
+	ecdh_public_key = (char *) malloc(66);
+	ret = getPublicKey(key, ecdh_public_key);
+	if(ret != 0) {
+		com_err("kxover-deamon", -1, "while getting public key");
+		return -1;	
+	}
+			
+
+	/*	Generate AS-REP		*/
+	if((cname = malloc(strlen("kxover@")+strlen(realm)+1)) != NULL) {
 		cname[0] = '\0';
 		strcat(cname, "kxover@");
-		strcat(cname, own_realm);
+		strcat(cname, realm);
 	} else {
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
 	}
 	
 	as_rep = (char *)malloc(1024*sizeof(char));
-	ret = create_as_rep(cname, sname, realm, as_rep, &as_rep_size);
+	ret = create_as_rep(cname, realm,nonce, ecdh_public_key, as_rep, &as_rep_size);
 	if(ret != 0) {
-		com_err("kxover-deamon", -1, "while creating AS-REQ");
+		com_err("kxover-deamon", -1, "while creating AS-REP");
 		return -1;
 	}
-	printf("AS-REQ created, size: %d\n",as_rep_size);
-	*/
+	printf("AS-REP created, size: %d\n",as_rep_size);
+	
 	/*	Send AS-REP	*/
 	int fd;
 	/*	-> Connect to the remote KDC	*/
