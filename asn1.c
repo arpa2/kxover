@@ -159,7 +159,6 @@ int check_certificate(char * data, int size, char * ecdh_public_key) {	// data c
 		return -1;
 	}
 
-	asn1_print_structure(stdout, authPack, "", ASN1_PRINT_ALL);
 
 	len = 0;
 	ret = asn1_read_value(authPack, "clientPublicValue.subjectPublicKey", NULL, &len);
@@ -167,18 +166,18 @@ int check_certificate(char * data, int size, char * ecdh_public_key) {	// data c
 		printf("error when reading subjectPublicKey, %d\n", ret);
 		return -1;
 	}
-	pubKey = malloc(len);
+	printf("public key length: %d\n", len);
+	pubKey = malloc(len/8);
 	ret = asn1_read_value(authPack, "clientPublicValue.subjectPublicKey", pubKey, &len);
 	if(ret != ASN1_SUCCESS) {
 		printf("error when reading subjectPublicKey, %d\n", ret);
 		return -1;
 	}
 
-	char * key;
-	key = (char *)pubKey;
-	printf("len: %d\n", len);
+//	char * key;
+//	key = (char *)pubKey;
 
-	memcpy(ecdh_public_key,key, len);
+	memcpy(ecdh_public_key,pubKey, len/8);
 
 	free(der_padata);
 	free(der_authPack);

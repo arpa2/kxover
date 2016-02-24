@@ -1,7 +1,7 @@
 #include "tgs_req.h"
 
 
-int generateKeys(char * public_key_hex);
+//EC_KEY * generateKeys();
 
 int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a krb5_data
 	krb5_error_code retval;	
@@ -123,16 +123,22 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		return ret;
 	}
 	*/
-	/*	Create ECDH Public Key	*/
-	char * ecdh_public_key;
-	ecdh_public_key = (char *) malloc(66);
-	ret = generateKeys(ecdh_public_key);
-	if(ret != 0) {
+	/*	Create ECDH Key	Pair*/
+	EC_KEY * key;
+	key = generateKeys();
+	if(key == NULL) {
 		puts("error while generating public key");
 		return -1;
 	}
 
-
+	/*	Obtain public key	*/
+	char * ecdh_public_key;
+	ecdh_public_key = (char *) malloc(66);
+	ret = getPublicKey(key, ecdh_public_key);
+	if(ret != 0) {
+		puts("error while obaining public key hex");
+		return -1;
+	}
 
 	/*	Generate AS-REQ		*/
 	if((sname = malloc(strlen("kxover@")+strlen(realm)+1)) != NULL) {

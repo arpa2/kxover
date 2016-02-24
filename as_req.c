@@ -117,16 +117,26 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 			if(ret < 0) puts("error on check");
 		}
         }
+	/*	Create key pair		*/
+	EC_KEY * key;
+	key = generateKeys();
+	if(key == NULL) {
+		puts("error while generating key pair");
+		return -1;
+	}
 
-	printf("remote public key hex: %s\n", remote_pub_key);
+
 	/*	Create ECDH shared secret	*/
-	char * public_key;
 	char * secret;
-	ret = generateSecret(remote_pub_key, public_key, secret); 
+	int len;
+	secret = malloc(65);
+	ret = generateSecret(remote_pub_key, key, secret, &len); 
 	if(ret != 0) {
 		printf("error when generating shared secret, %d\n", ret);
 		return -1;
 	}
+
+	hexdump(secret, len);
 
 	printf("Shared secret: %s\n", secret);
 
