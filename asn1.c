@@ -20,7 +20,6 @@ int extract_public_key(char * data, int size, char * ecdh_public_key, char * non
 	void * der_signedData = NULL;
 	void * der_authPack = NULL;
 	void * pubKey = NULL;
-	void * aux = NULL;
 
 	memcpy(der_data, data, size);
 	
@@ -43,24 +42,29 @@ int extract_public_key(char * data, int size, char * ecdh_public_key, char * non
 	}
 
 	//	Get nonce
-	ret = asn1_read_value(message, "req-body.nonce", NULL, &len);
-	if(ret != ASN1_MEM_ERROR) {
-		printf("error while reading nonce, %d\n", ret);
-		return -1;
-	}
-	aux = malloc(len);
-	ret = asn1_read_value(message, "req-body.nonce", aux, &len);
+	uint8_t noncint[5];
+	int nonclen = sizeof(noncint);
+
+	ret = asn1_read_value(message, "req-body.nonce", noncint, &nonclen);
 	if(ret != ASN1_SUCCESS) {
 		printf("error while reading nonce, %d\n", ret);
 		return -1;
 	}
-	//convert hex to decimal before copying
-	printf("nonce: %s\n", aux);
-	hexdump(aux, len);
 
-	memcpy(nonce, aux, len);
+	char * hexout;
+	hexout = malloc(32);
+	sprintf(hexout, "%02x%02x%02x%02x", noncint[0],noncint[1],noncint[2],noncint[3]);
 
-	asn1_print_structure(stdout, message, "", ASN1_PRINT_ALL);
+
+	long int n;
+	n = strtol(hexout, NULL, 16);
+	
+	char nonce_char[32];
+	sprintf(nonce_char, "%d", n);
+	
+
+	strcpy(nonce, nonce_char);
+
 	
 	//	Get PA-DATA
 	//	-> get der-encoded data
@@ -647,27 +651,28 @@ int create_as_rep(char * cname, char * realm, char * nonce, char * ecdh_public_k
 		return -1;
 	}
 	/*		CREATE FULL MESSAGE			*/
-	ret = asn1_create_element(def, "KerberosV5Spec2.AS-REQ", &message);
+	ret = asn1_create_element(def, "KerberosV5Spec2.AS-REP", &message);
 	if(ret) {
 		printf("error while creating element, %d\n", ret);
 		return -1;
 	}
+	asn1_print_structure(stdout,message, "", ASN1_PRINT_ALL);
 	//	pvno = 5
 	ret = asn1_write_value(message, "pvno", "5", 0 );
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing pvno, %d\n", ret);
 		return -1;
 	}
 	//	msg-type = 10 (AS-REQ) / 11 (AS-REP)
 	ret = asn1_write_value(message, "msg-type", "11", 0 );
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing msg-type, %d\n", ret);
 		return -1;
 	}
 	//	client name
 	ret = asn1_write_value(message, "cname.name-type", "2", 0 );
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing name-type, %d\n", ret);
 		return -1;
 	}
 	ret = asn1_write_value(message, "cname.name-string", "NEW", 1 );
@@ -677,13 +682,13 @@ int create_as_rep(char * cname, char * realm, char * nonce, char * ecdh_public_k
 	}
 	ret = asn1_write_value(message, "cname.name-string.?1", cname,strlen(cname) );
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing name-string, %d\n", ret);
 		return -1;
 	}
 	//	realm
-	ret = asn1_write_value(message, "realm",realm , strlen(realm) );
+	ret = asn1_write_value(message, "crealm",realm , strlen(realm) );
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing realm, %d\n", ret);
 		return -1;
 	}
 
@@ -692,17 +697,17 @@ int create_as_rep(char * cname, char * realm, char * nonce, char * ecdh_public_k
 	//	pa-kxover
 	ret = asn1_write_value(message, "padata", "NEW", 1);
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing padata, %d\n", ret);
 		return -1;
 	}
 	ret = asn1_write_value(message, "padata.?1.padata-value", "pa-kxover", 9);
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing padata-value, %d\n", ret);
 		return -1;
 	}
 	ret = asn1_write_value(message, "padata.?1.padata-type", "28", 0);
 	if(ret) {
-		printf("error while writing value, %d\n", ret);
+		printf("error while writing padata-type, %d\n", ret);
 		return -1;
 	}
 	

@@ -12,7 +12,6 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	char *target;
 	int port = 0;
 	char *cname;
-	char *sname;
 	char * own_realm;
 	char * as_rep;
 	int as_rep_size = 0;
@@ -120,7 +119,7 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		}
         }
 
-	printf("nonce: %s\n");
+	printf("nonce: %s\n", nonce);
 	/*	Create key pair		*/
 	EC_KEY * key;
 	key = generateKeys();
@@ -140,15 +139,13 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		return -1;
 	}
 
-	hexdump(secret, len);
-
 	printf("Shared secret: %s\n", secret);
 
 	/*	Create principal in the DB	*/
 	char * princ_name;
 	
 	if((princ_name = malloc(strlen("krbtgt/@")+strlen(realm)+strlen(own_realm)+1)) != NULL) {
-		sname[0] = '\0';
+		princ_name[0] = '\0';
 		strcat(princ_name, "krbtgt/");
 		strcat(princ_name, realm);
 		strcat(princ_name, "@");
@@ -157,11 +154,12 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
 	}
-	ret = create_princ(princ_name, secret);
+	printf("principal name: %s\n", princ_name);
+	/*ret = create_princ(princ_name, secret);
 	if(ret != 0) {
 		com_err("kxover-deamon", -1, "while creating principal");
 		return -1;	
-	}
+	}*/
 
 	/*	Get public key		*/
 	char * ecdh_public_key;
