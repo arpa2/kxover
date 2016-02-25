@@ -218,11 +218,6 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	 *
 	 * */
 
-	free(realm);
-	free(cname);
-	free(as_req);
-	free(query);
-	free(target);
 	return 0;
 
 }
