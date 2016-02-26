@@ -6,7 +6,7 @@ KRBLIBS=-Xlinker -rpath=/home/oriol/kerberos/krb5-1.13.2/src/lib /home/oriol/ker
 all: deamon 
 
 deamon: dispatch.o lookup.o tlsa_openssl.o asn1.o array.o ecdh_openssl.o util.o db.o tgs_req.o as_req.o 
-	$(CC) dispatch.o lookup.o tlsa_openssl.o asn1.o array.o ecdh_openssl.o util.o tgs_req.o as_req.o $(LDFLAGS) -o deamon $(KRBLIBS)
+	$(CC) dispatch.o lookup.o tlsa_openssl.o asn1.o array.o ecdh_openssl.o util.o db.o tgs_req.o as_req.o $(LDFLAGS) -o deamon $(KRBLIBS)
 
 lookup.o: lookup.c
 	$(CC) $(CFLAGS) lookup.c
