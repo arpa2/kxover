@@ -656,7 +656,6 @@ int create_as_rep(char * cname, char * realm, char * nonce, char * ecdh_public_k
 		printf("error while creating element, %d\n", ret);
 		return -1;
 	}
-	asn1_print_structure(stdout,message, "", ASN1_PRINT_ALL);
 	//	pvno = 5
 	ret = asn1_write_value(message, "pvno", "5", 0 );
 	if(ret) {
@@ -736,11 +735,13 @@ int create_as_rep(char * cname, char * realm, char * nonce, char * ecdh_public_k
 	}
 
 	/*	--> nonce		*/
-	ret = asn1_write_value(dhInfo, "nonce", nonce, strlen(nonce));
+	ret = asn1_write_value(dhInfo, "nonce", nonce, 0);
 	if(ret) {
 		printf("error while writing nonce, %d\n", ret);
 		return -1;
 	}
+
+	
 
 	//	DER-Encoding authPack
 	size = 0;
