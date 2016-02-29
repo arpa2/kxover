@@ -822,7 +822,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		printf("error on first message der coding, %d, len: %d, error Description: %s\n", ret, size, errorDescription);
 		return ret;
 	}
-	printf("size of full message: %d\n", size);
 	unsigned char data[size];
 	*as_req_size = size;
 
