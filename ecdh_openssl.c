@@ -52,7 +52,7 @@ int getPublicKey(EC_KEY * key, char * public_key_hex) {
 int generateSecret(char * remote_key_hex, EC_KEY * key, char * secret, int *len) {
 	EC_POINT * remote_key;
 	EC_GROUP * ec_group;
-	int field_size, secret_len, ret;
+	int field_size, secret_len;
 	
 
 	ec_group = EC_KEY_get0_group(key);

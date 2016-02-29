@@ -73,13 +73,13 @@ int lookupTXT(char* query, int max, char* results[], int* size) {
         	getdns_context_destroy(this_context);
         	return(GETDNS_RETURN_GENERIC_ERROR);
 	}
-	/*this_ret = getdns_dict_set_int(this_extensions, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE);
+	this_ret = getdns_dict_set_int(this_extensions, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE);
 	if(this_ret != GETDNS_RETURN_GOOD) {
 		fprintf(stdout, "Trying to set an extension do only dnssec secure failed: %d\n", this_ret);
 	        getdns_dict_destroy(this_extensions);
         	getdns_context_destroy(this_context);
         	return(GETDNS_RETURN_GENERIC_ERROR);
-	}*/
+	}
 	getdns_dict * this_response = NULL;
 
 	getdns_return_t dns_request_return = getdns_general_sync(this_context, query, this_request_type, this_extensions, &this_response);
@@ -165,13 +165,13 @@ int lookupSRV(char* query, char* target, int* port) {
         	getdns_context_destroy(this_context);
         	return(GETDNS_RETURN_GENERIC_ERROR);
 	}
-	/*this_ret = getdns_dict_set_int(this_extensions, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE);
+	this_ret = getdns_dict_set_int(this_extensions, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE);
 	if(this_ret != GETDNS_RETURN_GOOD) {
 		fprintf(stdout, "Trying to set an extension do only dnssec secure failed: %d\n", this_ret);
 	        getdns_dict_destroy(this_extensions);
         	getdns_context_destroy(this_context);
         	return(GETDNS_RETURN_GENERIC_ERROR);
-	}*/
+	}
 	getdns_dict * this_response = NULL;
 
 	getdns_return_t dns_request_return = getdns_general_sync(this_context, query, this_request_type, this_extensions, &this_response);
@@ -255,13 +255,13 @@ int lookupTLSA(char* query, getdns_list * certs) {
                 getdns_context_destroy(this_context);
                 return(GETDNS_RETURN_GENERIC_ERROR);
         }
-        /*this_ret = getdns_dict_set_int(this_extensions, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE);
+        this_ret = getdns_dict_set_int(this_extensions, "dnssec_return_only_secure", GETDNS_EXTENSION_TRUE);
         if(this_ret != GETDNS_RETURN_GOOD) {
                 fprintf(stdout, "Trying to set an extension do only dnssec secure failed: %d\n", this_ret);
                 getdns_dict_destroy(this_extensions);
                 getdns_context_destroy(this_context);
                 return(GETDNS_RETURN_GENERIC_ERROR);
-        }*/
+        }
         getdns_dict * this_response = NULL;
 
         getdns_return_t dns_request_return = getdns_general_sync(this_context, query, this_request_type, this_extensions, &this_response);
