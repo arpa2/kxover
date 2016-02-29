@@ -147,19 +147,19 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	if((princ_name = malloc(strlen("krbtgt/@")+strlen(realm)+strlen(own_realm)+1)) != NULL) {
 		princ_name[0] = '\0';
 		strcat(princ_name, "krbtgt/");
-		strcat(princ_name, realm);
-		strcat(princ_name, "@");
 		strcat(princ_name, own_realm);
+		strcat(princ_name, "@");
+		strcat(princ_name, realm);
 	} else {
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
 	}
 	printf("principal name: %s\n", princ_name);
-	/*ret = create_princ(princ_name, secret);
+	ret = create_princ(princ_name, secret);
 	if(ret != 0) {
 		com_err("kxover-deamon", -1, "while creating principal");
 		return -1;	
-	}*/
+	}
 
 	/*	Get public key		*/
 	char * ecdh_public_key;
@@ -182,7 +182,7 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	}
 	
 	as_rep = (char *)malloc(1024*sizeof(char));
-	ret = create_as_rep(cname, realm,nonce, ecdh_public_key, as_rep, &as_rep_size);
+	ret = create_as_rep(cname, own_realm,nonce, ecdh_public_key, as_rep, &as_rep_size);
 	if(ret != 0) {
 		com_err("kxover-deamon", -1, "while creating AS-REP");
 		return -1;
@@ -192,7 +192,7 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 	/*	Send AS-REP	*/
 	int fd;
 	/*	-> Connect to the remote KDC	*/
-/*	struct addrinfo hints, *res;
+	struct addrinfo hints, *res;
 	struct in_addr addr;
 
 	memset(&hints, 0, sizeof(hints));
@@ -234,7 +234,7 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		puts("error when sending");
 		return -1;
 	}
-*/	puts("message sent");
+	puts("message sent");
 
 	free(realm);
 	free(query);
