@@ -1,14 +1,6 @@
 #include "request_list.h"
 
 
-struct request_list {
-
-	char * target;
-	char * nonce;
-	EC_KEY * key;
-	
-	struct request_list *next;
-};
 
 struct request_list *head = NULL;
 struct request_list *curr = NULL;

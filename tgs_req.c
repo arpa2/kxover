@@ -151,7 +151,6 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 
 	
 
-	add_to_list(target, key, nonce_char);
 	
 
 	/*	Generate AS-REQ		*/
@@ -225,12 +224,10 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		puts("error when sending");
 		return -1;
 	}
+	//Adding request info to the list
+	add_to_list(realm, key, nonce_char);
+
 	puts("message sent");
-	/*
-	 *	Add REALM to list of sent requests
-	 *	-> also add the generated key pair for ecdh
-	 *
-	 * */
 
 	return 0;
 

@@ -4,6 +4,14 @@
 #include <string.h>
 #include <openssl/ec.h>
 
+struct request_list {
+
+	char * target;
+	char * nonce;
+	EC_KEY * key;
+	
+	struct request_list *next;
+};
 
 struct request_list * create_list(char * target, EC_KEY * key, char * nonce);
 
