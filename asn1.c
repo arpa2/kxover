@@ -1,6 +1,232 @@
 #include "asn1.h"
 
 
+int check_reply(char * data, int size, char * realm, char *nonce, char * public_key) {
+	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
+	asn1_node message;
+	asn1_node pa_pk_as_rep;
+	asn1_node contentInfo;
+	asn1_node signedData;
+	asn1_node keyInfo;
+	unsigned char der_data[size];
+	asn1_retCode ret;
+	char * error = NULL;
+	char errorDescription[ASN1_MAX_ERROR_DESCRIPTION_SIZE];
+	int len = 0;
+	char * aux;
+
+	void * der_padata;
+	void * dhSignedData;
+	void * der_signedData;
+	void * der_KDCDHKeyInfo;
+	void * pubKey;
+	
+	
+	memcpy(der_data, data, size);
+	
+	ret = asn1_array2tree(kerberosV5spec2_asn1_tab, &def, error);
+	if(ret) {
+		printf("error: %s\n", error);
+		return -1;
+	}
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.AS-REP", &message);
+	if(ret) {
+		printf("error while creating pa-data, %d\n", ret);
+		return -1;
+	}
+
+	ret = asn1_der_decoding(&message, der_data, size, errorDescription); 
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding message, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+	/*	Get realm	*/
+	ret = asn1_read_value(message, "crealm", NULL, &len);
+	if(ret != ASN1_MEM_ERROR) {
+		printf("error while reading realm, %d\n", ret);
+		return -1;
+	}
+	aux = malloc(len);
+	ret = asn1_read_value(message, "crealm", aux, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading realm, %d\n", ret);
+		return -1;
+	}
+
+	strcpy(realm, aux);
+
+	/*	Get Padata	*/
+	//	-> get der-encoded data
+	len = 0;
+	ret = asn1_read_value(message, "padata.?2.padata-value", NULL, &len);
+	if(ret != ASN1_MEM_ERROR){
+		printf("error while reading padata value, %d\n", ret);
+		return -1;
+	}
+	der_padata = malloc(len);
+	ret = asn1_read_value(message, "padata.?2.padata-value", der_padata, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading padata value, %d\n", ret);
+		return -1;
+	}
+
+
+	//	-> decode into PA-PK-AS-REP
+	ret = asn1_create_element(def, "KerberosV5Spec2.PA-PK-AS-REP", &pa_pk_as_rep);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating element, %d\n", ret);
+		return -1;
+	}
+
+	
+
+	ret = asn1_der_decoding(&pa_pk_as_rep, der_padata, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding pa-pk-as-rep, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+	
+	len = 0;
+	ret = asn1_read_value(pa_pk_as_rep, "dhInfo.dhSignedData", NULL, &len);
+	if(ret != ASN1_MEM_ERROR){
+		printf("error while reading dhSignedData, %d\n", ret);
+		return -1;
+	}
+	dhSignedData = malloc(len);
+	ret = asn1_read_value(pa_pk_as_rep, "dhInfo.dhSignedData", dhSignedData, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading dhSignedData, %d\n", ret);
+		return -1;
+	}
+
+	//	dhSignedData is a der-encoded ContentInfo
+
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.ContentInfo", &contentInfo);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating contentInfo, %d\n", ret);
+		return -1;
+	}
+
+	ret = asn1_der_decoding(&contentInfo, dhSignedData, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding contentInfo, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+	
+	len = 0;
+	ret = asn1_read_value(contentInfo, "content", NULL, &len);
+	if(ret != ASN1_MEM_ERROR) {
+		printf("error while reading signedData, %d\n", ret);
+		return -1;
+	}
+	der_signedData = malloc(len);
+	ret = asn1_read_value(contentInfo, "content", der_signedData, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading signedData, %d\n", ret);
+		return -1;
+	}
+
+
+	//	SignedData is der-encoded instead of signed (SHOULD BE CHANGED)
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.SignedData", &signedData);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating SignedData, %d\n", ret);
+		return -1;
+	}
+
+	ret = asn1_der_decoding(&signedData, der_signedData, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding SignedData, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+	
+
+	len = 0;
+	ret = asn1_read_value(signedData, "encapContentInfo.eContent", NULL, &len);
+	if(ret != ASN1_MEM_ERROR) {
+		printf("error while reading eContent, %d\n", ret);
+		return -1;
+	}
+	der_KDCDHKeyInfo = malloc(len);
+	ret = asn1_read_value(signedData, "encapContentInfo.eContent", der_KDCDHKeyInfo, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading eContent, %d\n", ret);
+		return -1;
+	}
+
+
+	ret = asn1_create_element(def, "KerberosV5Spec2.KDCDHKeyInfo", &keyInfo);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while creating authPack, %d\n", ret);
+		return -1;
+	}
+
+	
+
+	ret = asn1_der_decoding(&keyInfo, der_KDCDHKeyInfo, len, errorDescription);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while decoding authPack, %s, %d\n", errorDescription, ret);
+		return -1;
+	}
+
+	asn1_print_structure(stdout, keyInfo, "", ASN1_PRINT_ALL);
+
+	/*	Get Nonce		*/
+
+ 	uint8_t noncint[5];
+        int nonclen = sizeof(noncint);
+
+        ret = asn1_read_value(keyInfo, "nonce", noncint, &nonclen);
+        if(ret != ASN1_SUCCESS) {
+                printf("error while reading nonce, %d\n", ret);
+                return -1;
+        }
+
+        char * hexout;
+        hexout = malloc(32);
+        sprintf(hexout, "%02x%02x%02x%02x", noncint[0],noncint[1],noncint[2],noncint[3]);
+
+
+        long int n;
+        n = strtol(hexout, NULL, 16);
+
+        char nonce_char[32];
+        sprintf(nonce_char, "%d", n);
+
+
+        strcpy(nonce, nonce_char);
+
+	
+	/*	Get Public Key	*/
+	len = 0;
+	ret = asn1_read_value(keyInfo, "subjectPublicKey", NULL, &len);
+	if(ret != ASN1_MEM_ERROR) {
+		printf("error while reading public key, %d\n", ret);
+		return -1;
+	}
+	pubKey = malloc(len/8);
+	ret = asn1_read_value(keyInfo, "subjectPublicKey", pubKey, &len);
+	if(ret != ASN1_SUCCESS) {
+		printf("error while reading public key, %d\n", ret);
+		return -1;
+	}
+
+	memcpy(public_key, pubKey, len/8);
+
+	free(der_padata);
+	free(der_signedData);
+	free(signedData);
+	free(pubKey);
+
+	return 0;
+}
+
 
 int extract_public_key(char * data, int size, char * ecdh_public_key, char * nonce) {	// data contains AS-REQ
 	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
@@ -214,7 +440,7 @@ int extract_public_key(char * data, int size, char * ecdh_public_key, char * non
 }
 
 
-int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * as_req, int * as_req_size) {
+int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * nonce, char * as_req, int * as_req_size) {
 	asn1_retCode ret;
 	char * error = NULL;
 	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
@@ -223,9 +449,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	struct tm * till_tm;
 	struct tm * now_tm;
 	char till[16];	
-
-	int nonce;
-	char nonce_char[1024];
 
 	char errorDescription[ASN1_MAX_ERROR_DESCRIPTION_SIZE];
 	asn1_node dst_node;
@@ -333,9 +556,8 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	}
 
 	//	nonce
-	nonce = rand();
-	sprintf(nonce_char, "%d", nonce);
-	ret = asn1_write_value(message, "req-body.nonce", nonce_char, 0);	
+	printf("nonce: %s\n", nonce);
+	ret = asn1_write_value(message, "req-body.nonce", nonce, 0);	
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return -1;
@@ -434,7 +656,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		printf("error while writing value, %d\n", ret);
 		return -1;
 	}
-	ret = asn1_write_value(authPack, "pkAuthenticator.nonce", nonce_char, 0);	
+	ret = asn1_write_value(authPack, "pkAuthenticator.nonce", nonce, 0);	
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return -1;

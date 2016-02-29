@@ -5,6 +5,7 @@
 #include <string.h>
 #include "tgs_req.h"
 #include "as_req.h"
+#include "as_rep.h"
 #include <krb5.h>
 
 #define ADDRESS "/tmp/sckt"
@@ -21,9 +22,9 @@ void dispatch(krb5_data *pkt) {
 		retval = process_as_req(*pkt);
 	}
 
-	/*else if(krb5_is_as_rep(pkt)) {
+	else if(krb5_is_as_rep(pkt)) {
 		retval = process_as_rep(*pkt);
-	}*/
+	}
 }
 
 
