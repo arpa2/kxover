@@ -210,7 +210,7 @@ int extract_public_key(char * data, int size, char * ecdh_public_key, char * non
 }
 
 
-int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * as_req, int * as_req_size) {
+int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_key, char * nonce, char * as_req, int * as_req_size) {
 	asn1_retCode ret;
 	char * error = NULL;
 	ASN1_TYPE def=ASN1_TYPE_EMPTY;	
@@ -219,9 +219,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	struct tm * till_tm;
 	struct tm * now_tm;
 	char till[16];	
-
-	int nonce;
-	char nonce_char[1024];
 
 	char errorDescription[ASN1_MAX_ERROR_DESCRIPTION_SIZE];
 	asn1_node dst_node;
@@ -329,9 +326,8 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	}
 
 	//	nonce
-	nonce = rand();
-	sprintf(nonce_char, "%d", nonce);
-	ret = asn1_write_value(message, "req-body.nonce", nonce_char, 0);	
+	printf("nonce: %s\n", nonce);
+	ret = asn1_write_value(message, "req-body.nonce", nonce, 0);	
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return -1;
@@ -430,7 +426,7 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 		printf("error while writing value, %d\n", ret);
 		return -1;
 	}
-	ret = asn1_write_value(authPack, "pkAuthenticator.nonce", nonce_char, 0);	
+	ret = asn1_write_value(authPack, "pkAuthenticator.nonce", nonce, 0);	
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
 		return -1;

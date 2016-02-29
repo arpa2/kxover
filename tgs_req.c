@@ -21,6 +21,10 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	char * own_realm;
 	char * as_req;
 	int as_req_size = 0;
+	int nonce;
+	char * nonce_char;
+
+
 
 	/*	Initiate context	*/
 	retval = krb5_init_context(&context);
@@ -140,6 +144,16 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		return -1;
 	}
 
+	/*	Generate Nonce		*/
+	nonce_char = (char*)malloc(32);
+	nonce = rand();
+	sprintf(nonce_char, "%d", nonce);
+
+	
+
+	add_to_list(target, key, nonce_char);
+	
+
 	/*	Generate AS-REQ		*/
 	if((sname = malloc(strlen("kxover@")+strlen(realm)+1)) != NULL) {
 		sname[0] = '\0';
@@ -159,7 +173,7 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 	}
 	
 	as_req = (char *)malloc(1024*sizeof(char));
-	ret = create_as_req(cname, sname, realm,ecdh_public_key, as_req, &as_req_size);
+	ret = create_as_req(cname, sname, realm,ecdh_public_key, nonce_char, as_req, &as_req_size);
 	if(ret != 0) {
 		com_err("kxover-deamon", -1, "while creating AS-REQ");
 		return -1;
