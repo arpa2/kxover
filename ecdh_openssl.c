@@ -70,7 +70,6 @@ int generateSecret(char * remote_key_hex, EC_KEY * key, char * secret, int *len)
 	
 	field_size = EC_GROUP_get_degree(ec_group);
 	secret_len = (field_size+7)/8;
-	printf("secret_len: %d\n", secret_len);
 	char * sec;
 	size_t sharedsecret_len;
 	sec = OPENSSL_malloc(secret_len);

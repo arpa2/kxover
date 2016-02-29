@@ -175,8 +175,6 @@ int check_reply(char * data, int size, char * realm, char *nonce, char * public_
 		return -1;
 	}
 
-	asn1_print_structure(stdout, keyInfo, "", ASN1_PRINT_ALL);
-
 	/*	Get Nonce		*/
 
  	uint8_t noncint[5];
@@ -217,7 +215,8 @@ int check_reply(char * data, int size, char * realm, char *nonce, char * public_
 		return -1;
 	}
 
-	memcpy(public_key, pubKey, len/8);
+	memcpy(public_key, pubKey, len/8+1);
+
 
 	free(der_padata);
 	free(der_signedData);
@@ -417,7 +416,6 @@ int extract_public_key(char * data, int size, char * ecdh_public_key, char * non
 		printf("error when reading subjectPublicKey, %d\n", ret);
 		return -1;
 	}
-	printf("public key length: %d\n", len);
 	pubKey = malloc(len/8);
 	ret = asn1_read_value(authPack, "clientPublicValue.subjectPublicKey", pubKey, &len);
 	if(ret != ASN1_SUCCESS) {
@@ -556,7 +554,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	}
 
 	//	nonce
-	printf("nonce: %s\n", nonce);
 	ret = asn1_write_value(message, "req-body.nonce", nonce, 0);	
 	if(ret) {
 		printf("error while writing value, %d\n", ret);
@@ -679,7 +676,6 @@ int create_as_req(char * cname, char * sname, char * realm, char * ecdh_public_k
 	}
 
 	//	->-> Elliptic Curve parameters
-	printf("ecdh public key: %s, size: %d \n", ecdh_public_key, strlen(ecdh_public_key));
 	ret = asn1_write_value(authPack, "clientPublicValue.subjectPublicKey", ecdh_public_key, strlen(ecdh_public_key)*8);
 	if(ret) {
 		printf("error while writing public key, %d", ret);

@@ -119,7 +119,6 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		}
         }
 
-	printf("nonce: %s\n", nonce);
 	/*	Create key pair		*/
 	EC_KEY * key;
 	key = generateKeys();
@@ -139,7 +138,6 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		return -1;
 	}
 
-	printf("Shared secret: %s\n", secret);
 
 	/*	Create principal in the DB	*/
 	char * princ_name;
@@ -154,7 +152,6 @@ int process_as_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of a
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
 	}
-	printf("principal name: %s\n", princ_name);
 	ret = create_princ(princ_name, secret);
 	if(ret != 0) {
 		com_err("kxover-deamon", -1, "while creating principal");

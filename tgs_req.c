@@ -93,8 +93,6 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		com_err("kxover-deamon", retval, "while issuing SRV lookup");
 		return retval;
 	}
-	printf("target found: %s\n", target);
-	printf("port found: %d\n", port);
 
 	/*	Issue TLSA record query		*/
 	/*	-> compose query		*/
@@ -106,7 +104,6 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		strcat(query, port_string);
 		strcat(query, "._udp.");
 		strcat(query, realm);
-		printf("query: %s\n", query);
 	} else {
 		com_err("kxover-deamon", -1, "while allocating memory");
 		return -1;
@@ -177,7 +174,6 @@ int process_tgs_req( krb5_data pkt) {	//maybe you get a krb5_kdc_req instead of 
 		com_err("kxover-deamon", -1, "while creating AS-REQ");
 		return -1;
 	}
-	printf("AS-REQ created, size: %d\n",as_req_size);
 
 	/*	Send AS-REQ	*/
 	int fd;
