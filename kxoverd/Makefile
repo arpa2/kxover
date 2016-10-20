@@ -4,10 +4,10 @@ CFLAGS=-g -O2 -I/usr/local/lib -I$(KRBPATH)/include -I$(KRBPATH)/lib -Wall -c
 LDFLAGS=-lgetdns -lrt -lresolv -lssl -lcrypto -ltasn1
 KRBLIBS=-Xlinker -rpath=$(KRBPATH)/lib $(KRBPATH)/lib/libkrb5.so $(KRBPATH)/lib/libcom_err.so $(KRBPATH)/lib/libkadm5srv_mit.so
 
-all: deamon 
+all: kxoverd 
 
-deamon: dispatch.o lookup.o tlsa_openssl.o asn1.o array.o ecdh_openssl.o util.o db.o request_list.o tgs_req.o as_req.o as_rep.o
-	$(CC) dispatch.o lookup.o tlsa_openssl.o asn1.o array.o ecdh_openssl.o util.o db.o request_list.o tgs_req.o as_req.o as_rep.o $(LDFLAGS) -o deamon $(KRBLIBS)
+kxoverd: dispatch.o lookup.o tlsa_openssl.o asn1.o array.o ecdh_openssl.o util.o db.o request_list.o tgs_req.o as_req.o as_rep.o
+	$(CC) dispatch.o lookup.o tlsa_openssl.o asn1.o array.o ecdh_openssl.o util.o db.o request_list.o tgs_req.o as_req.o as_rep.o $(LDFLAGS) -o kxoverd $(KRBLIBS)
 
 lookup.o: lookup.c
 	$(CC) $(CFLAGS) lookup.c

@@ -13,6 +13,10 @@ This package builds `kxoverd`, a stand-alone daemon that communicates with
 remote KDCs.  In doing so, it uses DANE and DNSSEC to establish the security
 of the remote; the remote is assumed to do the same in opposite direction.
 
+It is vital to understand that the client and service code does not need to
+be modified to use KXOVER; only the KDCs on the two realms need to be setup
+with the `kxoverd` and corresponding DNS structures.
+
 The idea is that a KDC receiving a TGS-REQ for an unknown server hostname in
 a domain that is not configured locally, can cross-over to another realm
 with the following steps:
@@ -68,6 +72,8 @@ Using
 -----
 
 TODO
+
+DNS: _kerberos TXT, DANE, DNSSEC
 
 Note: Timeouts in clients may be problematic; this may be overcome by setting
 up alternate SRV records in DNS to reach the server; the client will try each

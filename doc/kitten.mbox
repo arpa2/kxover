@@ -1,0 +1,236 @@
+Message-ID: <56E17292.4020302@openfortress.nl>
+Date: Thu, 10 Mar 2016 14:11:46 +0100
+From: Rick van Rein <rick@openfortress.nl>
+User-Agent: Postbox 3.0.11 (Macintosh/20140602)
+MIME-Version: 1.0
+To: "kitten@ietf.org" <kitten@ietf.org>
+Subject: Kerberos Realm Crossover with DNSSEC/DANE
+X-Enigmail-Version: 1.2.3
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+Over the past months, I've had a student working on a proof-of-concept
+for Realm Crossover with Kerberos, based on DNSSEC/DANE.  He will soon
+deliver his MSc thesis, which I might forward to interested parties.
+
+The work done concludes that it is not possible to entirely base it on
+PKINIT and AS-REQ/AS-REP, so I set out to define alternative message
+structures.  I have reached a stage where things almost seem simple to
+me :) so may I ask for feedback on those?
+
+I created a heavily commented ASN.1 module in a number of formats,
+available on
+
+http://realm-xover.arpa2.net/spec/KXOVER.html
+http://realm-xover.arpa2.net/spec/KXOVER.txt
+http://realm-xover.arpa2.net/spec/KXOVER.epub
+http://realm-xover.arpa2.net/spec/KXOVER.asn1
+http://realm-xover.arpa2.net/spec/KXOVER.pdf
+
+This is in preparation of an I-D.  As far as I'm concerned, this could
+be a useful topic for discussion at IETF 95.
+
+
+Thanks,
+ -Rick
+
+Subject: Re: [kitten] Kerberos Realm Crossover with DNSSEC/DANE
+To: Rick van Rein <rick@openfortress.nl>, "kitten@ietf.org" <kitten@ietf.org>
+References: <56E17292.4020302@openfortress.nl>
+From: Greg Hudson <ghudson@mit.edu>
+X-Enigmail-Draft-Status: N1110
+Message-ID: <56EAD282.5090708@mit.edu>
+Date: Thu, 17 Mar 2016 11:51:30 -0400
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:38.0) Gecko/20100101
+ Thunderbird/38.6.0
+MIME-Version: 1.0
+In-Reply-To: <56E17292.4020302@openfortress.nl>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+X-Brightmail-Tracker: H4sIAAAAAAAAA+NgFnrDIsWRmVeSWpSXmKPExsUixCmqrdt26VWYwZYmK4ujm1exWDx9dY/N
+	gcljyZKfTB4b/jWxBTBFcdmkpOZklqUW6dslcGWsmPuPvWAud8W8z9kNjL2cXYycHBICJhIf
+	l3xl62Lk4hASaGOSmPt/KyuEs5FR4s/26cwQzhEmiZl3HzOCtAgL2EusXLyLHcQWEfCV+DG1
+	hQ3EFhLQkzjTsJIZxGYTUJZYv38rC8QKOYne7klgNq+AmsT9O3vBalgEVCU+3rwHFhcViJB4
+	MvckI0SNoMTJmU/A4pwC+hKXr14D28UMNH/H9V+sELa8RPPW2cwTGAVmIWmZhaRsFpKyBYzM
+	qxhlU3KrdHMTM3OKU5N1i5MT8/JSi3QN9XIzS/RSU0o3MYIDVZJnB+OZN16HGAU4GJV4eFec
+	fhkmxJpYVlyZe4hRkoNJSZR3165XYUJ8SfkplRmJxRnxRaU5qcWHGCU4mJVEeNkOAeV4UxIr
+	q1KL8mFS0hwsSuK8hftPhwkJpCeWpGanphakFsFkZTg4lCR4qy8CNQoWpaanVqRl5pQgpJk4
+	OEGG8wANXwpSw1tckJhbnJkOkT/FqCglznsVJCEAksgozYPrBSeSVI7eV4ziQK8I8z4CqeIB
+	JiG47ldAg5mABh+LAxtckoiQkmpgZF3deshx3QeJEBYHlXtKXiZTvhz/EjBddUNWj899xarz
+	9cXliTYKvw7UNdqtiL/7ZYK5+62zFxK5V2zbHGjNLBkb4XaS65ahy5RkNq4f0xdMnHjsnLjx
+	GSbpF1rr/mis2GjX1b3s3tr9hhKpnM5bLk+/oLS4Z862o6b/Y/kmtOpVxh6NdMmaocRSnJFo
+	qMVcVJwIAH2YzFH/AgAA
+
+On 03/10/2016 08:11 AM, Rick van Rein wrote:
+> http://realm-xover.arpa2.net/spec/KXOVER.html
+
+I have a few comments, although I haven't dug too deeply.
+
+* Are you sending these messages to the regular KDC ports, and then
+having the KDC dispatch them to a different process, or are you using a
+separate daemon?  I'm not sure whether these messages are part of the
+Kerberos protocol or not.
+
+* Wrapping the messages in padata and
+KX-REQ/KDC-REQ-MOD/KX-REP/KDC-REP-MOD seems to add a lot of complexity
+for no obvious benefit.  Can KX-PA-DATA messages be sent directly
+instead?  (With an application tag, if they're part of the Kerberos
+protocol, and of course with a different sequence name.)  If there is a
+need for a typed hole in the new message type, a pa-data sequence can be
+included in the KX messages.  Or the ASN.1 sequences can be made
+extensible (a good practice anyway) and extensions can require
+standardization, if we don't think there is likely to be lots of
+independent interest in extending this particular message type.
+
+* Since DANE is being leveraged as an anchor, I wonder if it would be
+possible to cut out X.509 and PKIX, without having to reinvent them.
+Could we store eddsa public keys in DNS and send eddsa signatures, for
+instance?  I realize there might be issues with key rollover and DNS
+caching, but I don't know whether those issues are automatically solved
+by using certificates.
+
+Message-ID: <56EAE1DA.3070701@openfortress.nl>
+Date: Thu, 17 Mar 2016 17:56:58 +0100
+From: Rick van Rein <rick@openfortress.nl>
+User-Agent: Postbox 3.0.11 (Macintosh/20140602)
+MIME-Version: 1.0
+To: Greg Hudson <ghudson@mit.edu>
+CC: "kitten@ietf.org" <kitten@ietf.org>, 
+ Nico Williams <nico@cryptonector.com>
+Subject: Re: [kitten] Kerberos Realm Crossover with DNSSEC/DANE
+References: <56E17292.4020302@openfortress.nl> <56EAD282.5090708@mit.edu>
+In-Reply-To: <56EAD282.5090708@mit.edu>
+X-Enigmail-Version: 1.2.3
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+
+Hello Greg,
+
+Thanks for looking into this.
+
+>
+> * Are you sending these messages to the regular KDC ports, and then
+> having the KDC dispatch them to a different process, or are you using a
+> separate daemon?  I'm not sure whether these messages are part of the
+> Kerberos protocol or not.
+
+
+Yes, this is the intention.  That's why I've used [APPLICATION] tags
+that differ from what Kerberos is using now (according to my grep over
+RFCs that responded to "grep Kerberos").
+
+The reason for coupling KDCs directly is so we can establish crossover
+keys between realms that service all their users at once, for the
+agreed-upon period of time.  Also, the KDC can be expected to have
+access to DNSSEC/DANE validation, which may be more questionable for
+clients behind uncontrollable middle boxes.
+
+The reason for a different process to which the KDC dispatches is to
+avoid filling up the KDC with slow external communication including
+timeouts.
+
+FYI, a student of mine (Oriol Caño) worked this flow into AS, in a
+different daemon/process, and got it working (with syntax violations for
+not passing back a Ticket) as the intended DANE-based construction of
+ECDH crossover keys.  The only issue we ran into with the kdb API was
+that we needed to supply a NUL-terminated ASCII string with a password,
+while binary key computations are probably better in this case.
+
+
+>
+> * Wrapping the messages in padata and
+> KX-REQ/KDC-REQ-MOD/KX-REP/KDC-REP-MOD seems to add a lot of complexity
+> for no obvious benefit.  Can KX-PA-DATA messages be sent directly
+> instead?
+
+
+Yes, I think this would be fine.  I have tried to stay as close to the
+existing packet structure to reduce the chances of trouble, hence the
+Reserved fields.  But this is certainly something I can use this sort of
+input on :)
+
+>
+> (With an application tag, if they're part of the Kerberos
+> protocol, and of course with a different sequence name.)
+
+
+Yes, of course.
+
+>
+> If there is a
+> need for a typed hole in the new message type, a pa-data sequence can be
+> included in the KX messages.
+
+
+I see no such reason as yet.  I'm curious what Nico thinks though; he
+has done some preliminary work on PKCROSS which approaches the problem
+from a client.  That's another reason for the Reserved fields in the
+*-MOD structures, to give that approach some wiggling room.
+
+>
+> Or the ASN.1 sequences can be made
+> extensible (a good practice anyway) and extensions can require
+> standardization, if we don't think there is likely to be lots of
+> independent interest in extending this particular message type.
+
+
+OK.  I saw no ",..." in RFC 4120 so I decided not to use it, but I am
+quite happy to move in this direction.  You're actually saying the
+things that I didn't dare to propose!
+
+>
+> * Since DANE is being leveraged as an anchor, I wonder if it would be
+> possible to cut out X.509 and PKIX, without having to reinvent them.
+> Could we store eddsa public keys in DNS and send eddsa signatures, for
+> instance?
+
+
+That would simplify matters, but also disable a few potential benefits:
+
+* certificates signed by a federation CA could be used to mark the
+boundaries of that federation
+* extended key usage can be helpful to signal that a cert is indeed
+meant to be used this way; that enables listing certain client
+certificates, if the intention were to let those contact a KDC directly
+(as under PKCROSS)
+* extended key usage sets the certificates intended for KXOVER apart
+from those that, say, merely identify the KDC to their clients as part
+of PKINIT
+
+The first may be resolved by explicitly mentioning acceptable pubkeys in
+an accepted-remote list in the KDC config.
+
+The second may be resolved if PKCROSS uses its own mechanisms (I can't
+think of other EKU signals that could matter).
+
+The third seems important, but may be resolved with a _kxover prefix in DNS.
+
+> I realize there might be issues with key rollover and DNS
+> caching, but I don't know whether those issues are automatically solved
+> by using certificates.
+
+I would love to get rid of the timing restrictions in certificates for
+KDC use, indeed.
+
+DNS timing issues are probably the same as for DANE.  We should
+carefully choose our semantics here; it seemds reasonable to state that
+the negotiated validity period for a crossover key (bounded by each
+KDC's max setting) cannot be reduced by a retraction in DANE.  Or we
+could state that no new crossovers should be created if DANE is
+retracted.  Kerberos doesn't seem to be prepared for keys being
+withdrawn after they are handed out in client TGTs.  Then again, the
+situation we're talking about now is drastic.
+
+I wonder if there is a suitable DNS RRtype to do what you are proposing
+here?
+ * CERT stores X.509 and OpenPGP keys
+ * IPSECKEY and TKEY have dedicated/other purposes
+We might define an extra case for TLSA, using the public key (or its
+hash).  Or we might specify to ignore surrounding certificates by
+default and strip it down to the public key.
+
+Thanks!
+ -Rick
+
