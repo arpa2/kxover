@@ -116,7 +116,7 @@ The following parties, in order of appearance, have contributed to this project:
     thesis](https://research.arpa2.org/library/bellatriu-2016-kerberos-realm-crossover.pdf)
     about his proof-of-concept code
 
--   [SURFnet](https://www.surf.nl/over-surf/werkmaatschappijen/surfnethttps://www.surf.nl/en/about-surf/subsidiaries/surfsara/)
+-   [SURFnet](https://www.surf.nl/en/about-surf/subsidiaries/surfsara/)
     funded the further development to setup a pilot project with [SURFsara]
     (https://www.surf.nl/en/about-surf/subsidiaries/surfsara/)
 
