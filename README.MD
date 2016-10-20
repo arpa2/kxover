@@ -1,10 +1,10 @@
-Kerberos Realm Crossover (via DANE)
-===================================
+Kerberos Realm Crossover (using DANE)
+=====================================
 
->   *The KXOVER project provisions Kerberos’ Key Distribution Centres with a
+>   *The KXOVER daemon extends Kerberos’ Key Distribution Centres with a
 >   secure, impromptu method for realm crossover.  Meaning, realms that never
->   met before have a secure method of exchanging identities and keys, based on
->   DANE and DNSSEC.*
+>   met before have a secure method of exchanging Principal Names and session keys,
+>   based on DANE and DNSSEC.*
 
 Introduction
 ------------
@@ -29,7 +29,7 @@ based on a server hostname.  This can be done with [\_kerberos
 TXT](https://datatracker.ietf.org/doc/draft-vanrein-dnstxt-krb1/) records (which
 is currently with the RFC Editor).
 
-**Privacy:​** Under KXOVER, a ticket can be obtained to securely access any
+**Privacy:** Under KXOVER, a ticket can be obtained to securely access any
 remote service.  When doing this, we do share our client identity.  Kerberos
 offers [Anonymity Support](https://tools.ietf.org/html/rfc6112), but when we
 hand out no details about our identity we cannot recall information from an
@@ -62,3 +62,4 @@ The following parties, in order of appearance, have contributed to this project:
 
 -   [SURFnet](https://www.surf.nl/over-surf/werkmaatschappijen/surfnethttps://www.surf.nl/en/about-surf/subsidiaries/surfsara/)
     funded the further development to setup a pilot project with [SURFsara]
+    (https://www.surf.nl/en/about-surf/subsidiaries/surfsara/)
