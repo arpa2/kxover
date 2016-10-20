@@ -110,7 +110,7 @@ The following parties, in order of appearance, have contributed to this project:
     collaborated to initiate the [InternetWide](http://internetwide.org) /
     [ARPA2](http://arpa2.net) project
 
--   Orial Caño ended his [TU/e](http://tue.nl) study signed up for [the
+-   Orial Caño Bellatriu ended his [TU/e](http://tue.nl) study signed up for [the
     project](https://research.arpa2.org/projects/2014-pkcross-dane.html) and
     wrote his [MSc
     thesis](https://research.arpa2.org/library/bellatriu-2016-kerberos-realm-crossover.pdf)
