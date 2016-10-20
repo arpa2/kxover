@@ -1,0 +1,454 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="rfc2629.xslt"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<?rfc toc="yes" ?>
+<?rfc compact="yes" ?>
+<?rfc symrefs="yes" ?>
+<?rfc subcompact="no" ?>
+<?rfc comments="yes" ?>
+<?rfc inline="yes" ?>
+
+<rfc ipr="trust200902" docName="draft-vanrein-kitten-kxover-pre00" category="std">
+
+<front>
+
+	<title abbrev="Kerberos Realm Crossover">Kerberos on-demand Realm Crossover (KREALM-XOVER)</title>
+
+	<author initials="R" surname="Van Rein" fullname="Rick van Rein">
+		<organization>ARPA2.net</organization>
+		<address>
+			<postal>
+				<street>Haarlebrink 5</street>
+				<city>Enschede</city>
+				<region>Overijssel</region>
+				<code>7544 WP</code>
+				<country>The Netherlands</country>
+			</postal>
+			<email>rick@openfortress.nl</email>
+		</address>
+	</author>
+
+	<date day="4" month="April" year="2015"/>
+
+	<abstract>
+	<t>Kerberos has traditionally been configured manually for crossover between
+	realms.  With the recent broad adoption of DNSSEC, a possibility has arrived
+	to automate this process, and make Key Distribution Centres connect securely
+	to hitherto unknown realms.</t>
+	</abstract>
+
+</front>
+
+
+<middle>
+
+<section title="Introduction" anchor="intro">
+
+<t>The Kerberos protocol is widely used as an authentication mechanism in the
+internal infrastructure of a security realm; in addition, befriended realms can
+manually setup key exchanges that allows clients in one realm to use services
+in another.  This sort of exchange is often done bidirectionally, leading to
+realms that treat each other's naming schemes as though they were local.</t>
+
+<t>This mechanism is not suitable for general use as a general authentication
+mechanism for the Internet, due to the manual key exchange involved.  Public
+key infrastructures could resolve this, and indeed pre-authentication mechanisms
+exist that introduce public key cryptography extensions to Kerberos, but there is
+no practice of having the keys used signed by a trusted party.</t>
+
+<t>Recently however, two practices have created possibilities to evaluate trust
+on public key certificates, namely DNSSEC en DANE.  These mechanisms can be used
+to publish the PKINIT certificates for a Key Distribution Centre (KDC) and
+evaluate their trustworthyness.</t>
+
+<t>The mechanism specified here will be abbreviated as KREALM-XOVER.  This mechanism
+may be implemented either in Kerberos clients or in the KDC.  The latter option
+should scale better, since less public key cryptography is involved.  Moreover,
+it is usually simpler to operate DNSSEC secure resolvers on a KDC than on all
+clients of a realm.</t>
+
+</section>
+
+<section title="Discovering a Service's Realm" anchor="discovery">
+
+<t>Kerberos clients can securely establish a relationship with their KDC, based
+on the secret shared between them.  This means that a client can make use of
+unreliable mechanisms, such as SRV records in insecure DNS
+[Section 7.2.3.3 of <xref target="RFC4120"/>], to locate the KDC
+for their realm.  A mapping from domain style realm names
+[Section 6.1 of <xref target="RFC4120"/>] to DNS has been defined
+[Section TODO of <xref target="RFC4120"/>],
+and in general realm names can be explicitly configured in the client.</t>
+
+<t>There is no generally accepted method for mapping a DNS name to a realm name,
+so some form of a discovery process is required to make this mapping.  A
+separate specification introduces the KREALM record
+<xref target="draft-vanrein-dnstxt-krb1"/>
+in DNS, and
+requires DNSSEC to protect it.  This record provides a secure manner to
+translate a DNS name for a service or a domain name to a Kerberos realm name.</t>
+
+<t>The protection by DNSSEC is a requirement for this discovery process, and
+although this could be implemented on the client, it is operationally attractice
+to do this on the KDC, which is a single node in a realm and already a
+secure system.</t>
+
+<t>Clients will initially assume that any service runs under their own realm,
+and so they will ask the KDC for a service ticket in the name of the targeted
+service, under their already-shared realm.  When the KDC finds no service with
+the given name, it MAY fallback to a KREALM record lookup, validating it with
+DNSSEC, and use the result to learn about the realm for the record.  It can
+use this to return a redirection to that realm in the form of a
+server referral [Section 8 of <xref target="RFC6806"/>].</t>
+
+<t>The server referral takes the form of a new ticket-granting ticket, and
+it includes a key to be used between the client and the service's realm,
+specifically to encrypt the TGS-REQ for the desired service name under the newly
+provided realm name.  The ticket-granting ticket is encrypted with a secret
+shared between the client's realm and the service's realm; traditionally, such keys
+are configured on the KDC.  This specification adds a fallback mechanism based
+on PKINIT with DNSSEC and DANE to derive a shared secret without manual
+intervention.</t>
+
+<t>The KDC is permitted [Section 3.3.1 of <xref target="RFC4120"/>] to respond to
+a TGS-REQ with a ticket-granting ticket that is "closer" to the service KDC, and
+the client would normally process this when it did not include a "canonicalize"
+flag in the TGS-REQ.</t>
+
+</section>
+
+<section title="Secure Key Agreement between KDCs" anchor="keyagreement">
+
+<t>This section details how the client's KDC agrees on a symmetric key to use
+in relation to the service's KDC.  This symmetric key is needed to create server
+referrals targeting for the service's realm; such keys SHOULD be cached in the
+client's realm and MUST be cached in the service's realm for the period
+agreed on during the following PKINIT procedure.  This caching facility is
+useful in avoidance of public-key procedures for future client requests
+targeting the service's realm.</t>
+
+<t>To achieve the most general model possible, the key agreement between a
+client's KDC and a service's KDC is not symmetric.  This means that one side
+is setup as a client realm and the other as a service realm, but the opposite
+direction must be setup in a separate key agreement process.  This is not what
+is usually done with manual key agreement procedures, but situations may exist
+where a realm only hosts clients, and another may only host services, in which
+case it may be useful to have policy deny attempts to connect in the "wrong"
+direction.  In the interest of an Internet-wide system for realm crossover
+however, it is generally a good idea to permit key agreement in both
+directions.</t>
+
+<t>As part of the key exchange between two KDC's, they should practice mutual
+authentication, because it would otherwise be a security error to derive mutual
+authentication between a client and a service.  This procedure is commonly done
+when a client contacts its KDC through a PKINIT procedure
+<xref target="RFC4556"/>; the same is done
+here, where the client's KDC acts as a PKINIT client, except that it will use
+its KDC certificate, meaning that both ends employ a certificate marked as a
+PKINIT server certificate.</t>
+
+<t>When a KDC is contacted over PKINIT by a client that presents a KDC server
+certificate, the special procedure specified below is engaged, leading to the
+desired key agreement between the two KDC's.</t>
+
+<t>Each KDC receives the PKINIT certificate of the remote end, and validates it
+using DANE <xref target="RFC6698"/> and DNSSEC.  The port and protocol for the
+DANE record match the contact information of the remote KDC; this information
+is published in the usual SRV records, which are also used to determine how to
+contact the remote KDC in the first place.</t>
+
+<t>Unlike a client that contacts its KDC, a connection from a client's KDC to a
+service's KDC cannot rely on the prior existence of a shared secret.  It is
+because of this that the SRV records used to locate a remote KDC MUST be validated
+through DNSSEC, a more stringent requirement than the requirement for the
+client.</t>
+
+<t>It is strongly advised to negotiate key agreement with Diffie-Hellman during
+key agreement, so as to establish forward secrecy for the relationship between
+the client's KDC and the service's KDC.  For reasons of efficiency, the
+Elliptic-Curve Diffie-Hellman variant <xref target="RFC5349"/> is preferred.</t>
+
+<t>The key agreed between the two KDC's MUST be negotiated with a maximum
+lifetime.  The service's KDC MUST retain the key for at least this lifetime,
+and the client's KDC SHOULD retain the key for no more than this lifetime.
+Each side may implement safety margins to avoid race conditions.</t>
+
+<t>Any ticket based on a shared key between two KDCs MUST NOT have an expiration
+time that exceeds the expiration time of the shared secret.  An uninterrupted
+sequence of keys between any two KDCs will have to use an increasing kvno values;
+this is a 32-bit unsigned integer, so even a KDC-crossover lifetime as short as
+one day would work for an uninterrupted service for tens of thousands of
+millenia.  When no prior key exists however, it may restart at zero.</t>
+
+</section>
+
+<section title="Privacy of Client Principal Names" anchor="privacy">
+
+<t>When a client can access services in arbitrary remote realms on the Internet,
+as is the intention of this specification, then the client's principal name is
+spread across all those services.  This may not always be desirable for reasons
+of privacy; a client's principal name may be meant for internal use and call
+for concealment.  Depending on the desired privacy level, it may even be
+desirable to tailor the identity revealed to the service being addressed.</t>
+
+<t>To answer to these requirements, the KDC may return a service ticket with a
+modified client pricipal name.  This may be fully decided by the KDC, or the KDC
+may impose constraints but otherwise honour client requests for an alternate
+principal name.  The latter scheme is more in line with the usual allocation of
+responsibilities, where the KDC wards security constraints and the client relates
+to its user's wishes.</t>
+
+<t>This specification introduces two AuthorizationData types, named
+AD-REQUESTED-CNAME and AD-REQUESTED-CREALM, whose values are typed as a
+PrincipalName and Realm, respectively.  They are to occur as part of the
+AD-MANDATORY-FOR-KDC wrapper, which makes them obligatory for the KDC or
+else an error will be returned.  Clients that intend to receive a service
+ticket in another name SHOULD use at least the AD-REQUESTED-CNAME
+to change their principal name and MAY add AD-REQUESTED-CREALM to change
+their realm from the client realm in the ticket-granting ticket used in
+the TGS-REQ.  The KDC MUST validate that the
+the requested client identity change from the ticket-granting ticket owner to
+the AD-REQUESTED-CNAME under the AD-REQUESTED-CREALM (or, when absent, the client
+realm submitted in the TGT as part of the TGS-REQ) is
+permitted.  Independently, a KDC MAY also enforce policy that forbids the
+disclosure of certain client identities to services in some or all realms.</t>
+
+</section>
+
+<section title="Example Exchange" anchor="example">
+
+<t>This section is non-normative; it provides an example flow of the realm
+crossover mechanisms described in this specification.</t>
+
+<t><list style="symbols">
+<t>A client has authenticated to its local KDC, and holds a ticket named
+<![CDATA[
+
+         krbtgt/EXAMPLE.COM@EXAMPLE.COM
+
+]]>
+This ticket is made out to the client's principal identity
+<![CDATA[
+
+         john@EXAMPLE.COM
+
+]]></t>
+<t>This client now wants to access a service through a URL, say
+<![CDATA[
+
+         http://www.example.org
+
+]]>
+for which it has no configured DNS-to-realm mapping.</t>
+<t>The client assumes it may be a local service, and issues a TGS-REQ to its KDC,
+asking for
+<![CDATA[
+
+         HTTP/www.example.org@EXAMPLE.COM
+
+]]>
+As part of the TGS-REQ, the client wants the ticket made out to sales@EXAMPLE.COM, which requires a change of the client principal name from john@EXAMPLE.COM, so it includes AuthorizationData
+<![CDATA[
+
+         AD-MANDATORY-FOR-KDC {
+	         AD-REQUESTED-CNAME {
+		         "sales"
+	         }
+         }
+
+]]></t>
+<t>The KDC has no ticket for the given name, nor does it have a DNS-to-realm
+mapping configured for www.example.org.  So, it sends a DNS query,
+<![CDATA[
+
+         www.example.org. KREALM ?
+
+]]></t>
+<t>The KDC receives a KREALM record that is validated by DNSSEC:
+<![CDATA[
+
+         www.example.org. KREALM "r=EXAMPLE.ORG"
+
+]]>
+TODO: base64 encoded?
+</t>
+<t>The KDC now knows that it should issue a server referral in its TGS-REP,
+using the name
+<![CDATA[
+
+         krbtgt/EXAMPLE.ORG@EXAMPLE.COM
+
+]]>
+which the client will interpret as a hint to try again under EXAMPLE.ORG.
+The KDC needs to find a key for the TGT to return.</t>
+<t>The KDC checks, and it finds no (cached) key with sufficient lifetime for the
+intended name; so it falls back to PKINIT between KDC's.</t>
+<t>The KDC, which is the client's KDC, has no mapping for EXAMPLE.ORG to DNS so
+it applies the standard mapping and looks in DNS to find the service's KDC:
+<![CDATA[
+
+         _kerberos._udp.example.org. IN SRV 10 10 88 kdc.example.org.
+
+]]>
+Since there is no prior key between the two KDCs, this information is validated
+through DNSSEC.
+</t>
+<t>The client's KDC connects to the service's KDC at UDP port 88, and initiates
+PKINIT, using its KDC service key.</t>
+<t>The service's KDC receives a request that claims to come from EXAMPLE.COM, and
+lacking a local mapping for this realm to DNS it looks in DNS to find the service's KDC:
+<![CDATA[
+
+         _kerberos._udp.example.com. IN SRV 0 0 88 kdc1.example.com.
+
+]]>
+Since there is no prior key between the two KDCs, this information is validated
+through DNSSEC.</t>
+<t>The PKINIT exchange supplies a KDC server certificate to each side; this is
+now validated on each end, by looking up the DANE records for the protocol, port
+and domain name found through the SRV record used.  The DANE records are
+validated through DNSSEC.</t>
+<t>The two KDC's decide that they can trust each other.  They perform a
+Diffie-Hellman key exchange, agree on a lifetime for the derived session key,
+and finish the PKINIT exchange.  Each now caches a ticket with that session key
+and the following name:
+<![CDATA[
+
+         krbtgt/EXAMPLE.ORG@EXAMPLE.COM
+
+]]>
+This finally provides the client's KDC with the session key from which it can
+derive a TGT with the same name to the client.  In constructing the response,
+the TGT will be made out to a client named
+<![CDATA[
+
+         sales@EXAMPLE.COM
+
+]]>
+as requested in the AuthorizationData portion of the TGS-REQ.</t>
+<t>Upon receiving the TGT with the new name, the client understands it is being
+referred to EXAMPLE.ORG with this key.  Lacking both a realm-to-KDC and
+realm-to-domain mapping in its
+setup, it will turn to DNS to find the KDC; it finds the same value as the KDC
+did, namely
+<![CDATA[
+
+         _kerberos_udp.example.org. IN SRV 10 10 88 kdc.example.org.
+
+]]>
+Unlike the KDC however, it does not have to demand DNSSEC validation; this is
+because its KDC supplied the client with a key that is known to work only with
+the designated KDC.</t>
+<t>The client now resends its TGS-REQ, with a slightly modified name as per the
+server referral:
+<![CDATA[
+
+         HTTP/www.example.org@EXAMPLE.ORG
+
+]]>
+Since this is a referred inquiry, and thus considered non-local, the client will
+not include a request to change the client principal name; in fact, the server
+referral was already made out to sales@EXAMPLE.COM</t>
+<t>Upon receiving the request, the service's KDC recognises that it is based on
+the krbtgt/EXAMPLE.ORG@EXAMPLE.COM ticket that it holds in its cache, as a result
+of the PKINIT procedure between the two KDCs.  Based on this, mutual authentication
+can be relied upon and the service ticket is issued to sales@EXAMPLE.COM.</t>
+<t>Based on the service ticket, the client can now commence in the usual Kerberos
+exchange between
+<![CDATA[
+
+         sales@EXAMPLE.COM
+
+]]>
+and
+<![CDATA[
+
+         HTTP/www.example.org@EXAMPLE.ORG
+
+]]></t>
+</list></t>
+
+<t>The above example places most responsibility at the KDC, with the pleasant
+result that clients do not require DNSSEC validation during realm crossover.
+When functions are pulled into a client, so do the corresponding responsibilities;
+when performing the KREALM DNS query in the client, it will need to ensure the
+validity of the record through DNSSEC; similarly, when performing the PKINIT
+exchange with a hitherto unknown service KDC, the client will be required to
+perform the DANE check and the related DNSSEC validation.  Without taking these
+responsibilities, there would be immediate security risks.</t>
+
+<t>The client is most likely not aware that it is crossing over to another realm
+when it submits its query for the service HTTP/www.example.org; still, it submits
+its TGS-REQ with AuthorizationData specifying another cname.  This other cname is
+based on the domain name, which has the advantage that it need not re-request
+the service ticket with new AuthorizationData.  In case a client policy desires
+to consider the service's realm when selecting the cname (and possibly crealm)
+requested, it might have to re-request.  As an optimisation, the client might
+use the KREALM record in DNS as a hint; no definitive decisions may however be
+founded on it until the hinted realm is confirmed by the KDC.</t>
+
+</section>
+
+<section title="IANA Considerations">
+
+<t>This document introduces the AuthorizationData types (or ad-types)
+AD-REQUESTED-CNAME and AD-REQUESTED-CREALM.  Currently, IANA does not monitor
+a corresponding registry, but draft-ietf-kitten-kerberos-iana-registries
+proposes that it should.  When it does gain control over this registry, IANA
+will ensure that unique values are registered for these two ad-types.</t>
+
+</section>
+
+<section title="Security Considerations">
+
+<t>TODO: DNStrust=>KRBtrust, MITM, lack-of-DH, symmetric-key-domino</t>
+
+</section>
+
+</middle>
+
+
+<back>
+
+<references title="Normative References">
+<?rfc include="reference.RFC.4120.xml"?>
+<?rfc include="reference.RFC.6806.xml"?>
+<?rfc include="reference.RFC.4556.xml"?>
+<?rfc include="reference.RFC.5349.xml"?>
+<?rfc include="reference.RFC.6698.xml"?>
+
+<reference anchor="draft-vanrein-dnstxt-krb1">
+ <front>
+  <title>Kerberos Realm Descriptors in DNS (KREALM)</title>
+  <author initials="R." surname="Van Rein" fullname="Rick van Rein">
+   <organization>ARPA2.net</organization>
+   <address><email>rick@openfortress.nl</email></address>
+  </author>
+  <date day="13" month="November" year="2014"/>
+  <abstract>
+        <t>This specification defines methods to determine Kerberos realm
+        descriptive information for services that are known by their DNS name.
+        Currently, finding such information is done through static mappings or
+        educated guessing.
+        DNS can make this process more dynamic, provided that DNSSEC is used
+        to ensure authenticity of resource records.</t>
+  </abstract>
+ </front>
+ <format type="TXT" target="https://tools.ietf.org/html/draft-vanrein-dnstxt-krb1"/>
+</reference>
+
+</references>
+
+<!--
+<references title="Informative References">
+<?rfc include="reference.RFC.3579.xml"?>
+<?rfc include="reference.RFC.4121.xml"?>
+<?rfc include="reference.RFC.5246.xml"?>
+<?rfc include="reference.RFC.7055.xml"?>
+</references>
+-->
+
+</back>
+
+</rfc>
