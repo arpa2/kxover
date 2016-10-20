@@ -1,0 +1,109 @@
+*** krb5-1.13.2/src/kdc/do_as_req.c	2016-02-16 14:29:17.870003766 +0100
+--- original/krb5-1.13.3/src/kdc/do_as_req.c	2015-12-04 19:51:34.000000000 +0100
+***************
+*** 73,84 ****
+  #include <kadm5/admin.h>
+  #include "adm_proto.h"
+  #include "extern.h"
+-  /*  kxover includes   */ 
+- #include <sys/un.h>
+- #include <sys/socket.h>
+- #include <sys/types.h> 
+- 
+-  #define ADDRESS "/tmp/sckt"
+  
+  static krb5_error_code
+  prepare_error_as(struct kdc_request_state *, krb5_kdc_req *,
+--- 73,78 ----
+***************
+*** 483,494 ****
+      krb5_enctype useenctype;
+      struct as_req_state *state;
+      krb5_audit_state *au_state = NULL;
+-         /*kxover variables  */
+-     int sock, len;
+-     struct sockaddr_un c_sock;
+-     krb5_data *packet;
+-     krb5_pa_data ** padata;
+-     krb5_data kxover_data;
+  
+      state = k5alloc(sizeof(*state), &errcode);
+      if (state == NULL) {
+--- 477,482 ----
+***************
+*** 606,654 ****
+          state->status = "CLIENT_NOT_FOUND";
+          if (vague_errors)
+              errcode = KRB5KRB_ERR_GENERIC;
+!         else {
+              errcode = KRB5KDC_ERR_C_PRINCIPAL_UNKNOWN;
+- 
+-             /*
+-              * We haven't found the principal in the 
+-              * database, maybe it is requesting kxover,
+-              * we should check if it's kxover, and if so,
+-              * send the request to the deamon
+-              */
+-              // Checking if kxover
+-              // 28 is the type of pa-kxover for now
+-              if(state->request->padata) {
+-                 for (padata = state->request->padata; *padata; padata++) {
+-                     if ((*padata)->pa_type == 28) {
+-                         
+-                         kxover_data.length = (*padata)->length;
+-                         kxover_data.data = (char *)(*padata)->contents;
+-                         if(strcmp(kxover_data.data, "pa-kxover")==0) {
+-                             // Sending request to the deamon
+-                             encode_krb5_as_req(request, &packet);
+- 
+-                             if((sock = socket( AF_UNIX, SOCK_STREAM, 0)) < 0 ) {
+-                                     perror("socket creation");
+-                                     goto errout;
+-                             }
+-                             c_sock.sun_family = AF_UNIX;
+-                             strcpy(c_sock.sun_path, ADDRESS);
+-                             len = sizeof(c_sock.sun_family) + strlen(c_sock.sun_path);
+-                             if(connect(sock,(struct sockaddr *) &c_sock, len) < 0) {
+-                                     perror("socket connect error");
+-                                     goto errout;
+-                             }
+-                             if(send(sock, packet->data, packet->length,0) < 0) {
+-                                     perror("send error");
+-                                     goto errout;
+-                             }
+-                             break;
+-                         }
+- 
+-                     }
+-                 }
+-              }
+-          }
+          goto errout;
+      } else if (errcode) {
+          state->status = "LOOKING_UP_CLIENT";
+--- 594,601 ----
+          state->status = "CLIENT_NOT_FOUND";
+          if (vague_errors)
+              errcode = KRB5KRB_ERR_GENERIC;
+!         else
+              errcode = KRB5KDC_ERR_C_PRINCIPAL_UNKNOWN;
+          goto errout;
+      } else if (errcode) {
+          state->status = "LOOKING_UP_CLIENT";
+***************
+*** 848,854 ****
+          return retval;
+      errpkt.error = error;
+      errpkt.server = request->server;
+!     errpkt.client = (error == KRB5KDC_ERR_WRONG_REALM) ? canon_client :
+          request->client;
+      errpkt.text = string2data((char *)status);
+  
+--- 795,801 ----
+          return retval;
+      errpkt.error = error;
+      errpkt.server = request->server;
+!     errpkt.client = (error == KDC_ERR_WRONG_REALM) ? canon_client :
+          request->client;
+      errpkt.text = string2data((char *)status);
+  

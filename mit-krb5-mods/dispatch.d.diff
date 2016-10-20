@@ -1,0 +1,60 @@
+*** krb5-1.13.2/src/kdc/dispatch.c	2016-02-29 11:47:54.913093436 +0100
+--- original/krb5-1.13.3/src/kdc/dispatch.c	2015-12-04 19:51:34.000000000 +0100
+***************
+*** 32,43 ****
+  #include <netinet/in.h>
+  #include <arpa/inet.h>
+  #include <string.h>
+-   /*  kxover includes   */ 
+- #include <sys/un.h>
+- #include <sys/socket.h>
+- #include <sys/types.h> 
+- 
+- #define ADDRESS "/tmp/sckt"
+  
+  static krb5_int32 last_usec = 0, last_os_random = 0;
+  
+--- 32,37 ----
+***************
+*** 135,143 ****
+      struct dispatch_state *state;
+      struct server_handle *handle = cb;
+      krb5_context kdc_err_context = handle->kdc_err_context;
+-     /*kxover variables  */
+-     int sock, len;
+-     struct sockaddr_un c_sock;
+  
+      state = k5alloc(sizeof(*state), &retval);
+      if (state == NULL) {
+--- 129,134 ----
+***************
+*** 204,231 ****
+                  krb5_free_kdc_req(kdc_err_context, as_req);
+              }
+          }
+-     } else if(krb5_is_as_rep(pkt)) {
+-         /*
+-          * exclusive case for kxover protocol
+-          */
+- 
+-         // Sending request to the deamon
+- 
+-         if((sock = socket( AF_UNIX, SOCK_STREAM, 0)) < 0 ) {
+-                 perror("socket creation");
+-         }
+-         c_sock.sun_family = AF_UNIX;
+-         strcpy(c_sock.sun_path, ADDRESS);
+-         len = sizeof(c_sock.sun_family) + strlen(c_sock.sun_path);
+-         if(connect(sock,(struct sockaddr *) &c_sock, len) < 0) {
+-                 perror("socket connect error");
+-                 
+-         }
+-         if(send(sock, pkt->data, pkt->length,0) < 0) {
+-                 perror("send error");
+-                 
+-         }
+-                             
+      } else
+          retval = KRB5KRB_AP_ERR_MSG_TYPE;
+  
+--- 195,200 ----

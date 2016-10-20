@@ -1,0 +1,112 @@
+*** krb5-1.13.2/src/kdc/do_tgs_req.c	2016-03-01 14:55:25.293304544 +0100
+--- original/krb5-1.13.3/src/kdc/do_tgs_req.c	2015-12-04 19:51:34.000000000 +0100
+***************
+*** 68,80 ****
+  #include "extern.h"
+  #include "adm_proto.h"
+  #include <ctype.h>
+- /*  kxover includes   */ 
+- #include <sys/un.h>
+- #include <sys/socket.h>
+- #include <sys/types.h> 
+- 
+- #define ADDRESS "/tmp/sckt"
+- 
+  
+  static krb5_error_code
+  find_alternate_tgs(kdc_realm_t *, krb5_principal, krb5_db_entry **,
+--- 68,73 ----
+***************
+*** 1069,1075 ****
+      krb5_principal *plist = NULL, *pl2;
+      krb5_data tmp;
+      krb5_db_entry *server = NULL;
+-     
+  
+      *server_ptr = NULL;
+      assert(is_cross_tgs_principal(princ));
+--- 1062,1067 ----
+***************
+*** 1103,1112 ****
+  cleanup:
+      if (retval == 0 && *server_ptr == NULL)
+          retval = KRB5_KDB_NOENTRY;
+!     if (retval != 0) {
+          *status = "UNKNOWN_SERVER";
+-         
+-     }
+  
+      krb5_free_realm_tree(kdc_context, plist);
+      krb5_db_free_principal(kdc_context, server);
+--- 1095,1102 ----
+  cleanup:
+      if (retval == 0 && *server_ptr == NULL)
+          retval = KRB5_KDB_NOENTRY;
+!     if (retval != 0)
+          *status = "UNKNOWN_SERVER";
+  
+      krb5_free_realm_tree(kdc_context, plist);
+      krb5_db_free_principal(kdc_context, server);
+***************
+*** 1187,1193 ****
+      krb5_error_code retval = KRB5KDC_ERR_S_PRINCIPAL_UNKNOWN;
+      char **realms = NULL, *hostname = NULL;
+      krb5_data srealm = request->server->realm;
+-     
+  
+      if (!is_referral_req(kdc_active_realm, request))
+          goto cleanup;
+--- 1177,1182 ----
+***************
+*** 1204,1211 ****
+      retval = krb5_get_host_realm(kdc_context, hostname, &realms);
+      if (retval) {
+          /* no match found */
+-         
+- 
+          kdc_err(kdc_context, retval, "unable to find realm of host");
+          goto cleanup;
+      }
+--- 1193,1198 ----
+***************
+*** 1249,1258 ****
+      krb5_principal princ = req->server;
+      krb5_principal reftgs = NULL;
+      krb5_boolean allow_referral;
+-     /*kxover variables  */
+-     int sock, len;
+-     struct sockaddr_un c_sock;
+-     krb5_data *packet;
+  
+      /* Do not allow referrals for u2u or ticket modification requests, because
+       * the server is supposed to match an already-issued ticket. */
+--- 1236,1241 ----
+***************
+*** 1275,1300 ****
+          princ = reftgs;
+      }
+      ret = find_alternate_tgs(kdc_active_realm, princ, server, status);
+-     if (ret != 0) {
+-     /* Let's send the request to the kxover deamon  */
+-       encode_krb5_tgs_req(req, &packet);
+- 
+-       if((sock = socket( AF_UNIX, SOCK_STREAM, 0)) < 0 ) {
+-               perror("socket creation");
+-               goto cleanup;
+-       }
+-       c_sock.sun_family = AF_UNIX;
+-       strcpy(c_sock.sun_path, ADDRESS);
+-       len = sizeof(c_sock.sun_family) + strlen(c_sock.sun_path);
+-       if(connect(sock,(struct sockaddr *) &c_sock, len) < 0) {
+-               perror("socket connect error");
+-               goto cleanup;
+-       }
+-       if(send(sock, packet->data, packet->length,0) < 0) {
+-               perror("send error");
+-               goto cleanup;
+-       }
+-     }
+  
+  cleanup:
+      if (ret != 0 && ret != KRB5KDC_ERR_SVC_UNAVAILABLE) {
+--- 1258,1263 ----
