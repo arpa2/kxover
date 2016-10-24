@@ -1,0 +1,618 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" 
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head profile="http://www.w3.org/2006/03/hcard http://dublincore.org/documents/2008/08/04/dc-html/">
+  <meta http-equiv="Content-Type" content="text/html; charset=us-ascii" />
+
+  <title>Declaring Kerberos Realm Names in DNS (_kerberos TXT)</title>
+
+  <style type="text/css" title="Xml2Rfc (sans serif)">
+  /*<![CDATA[*/
+	  a {
+	  text-decoration: none;
+	  }
+      /* info code from SantaKlauss at http://www.madaboutstyle.com/tooltip2.html */
+      a.info {
+          /* This is the key. */
+          position: relative;
+          z-index: 24;
+          text-decoration: none;
+      }
+      a.info:hover {
+          z-index: 25;
+          color: #FFF; background-color: #900;
+      }
+      a.info span { display: none; }
+      a.info:hover span.info {
+          /* The span will display just on :hover state. */
+          display: block;
+          position: absolute;
+          font-size: smaller;
+          top: 2em; left: -5em; width: 15em;
+          padding: 2px; border: 1px solid #333;
+          color: #900; background-color: #EEE;
+          text-align: left;
+      }
+	  a.smpl {
+	  color: black;
+	  }
+	  a:hover {
+	  text-decoration: underline;
+	  }
+	  a:active {
+	  text-decoration: underline;
+	  }
+	  address {
+	  margin-top: 1em;
+	  margin-left: 2em;
+	  font-style: normal;
+	  }
+	  body {
+	  color: black;
+	  font-family: verdana, helvetica, arial, sans-serif;
+	  font-size: 10pt;
+	  max-width: 55em;
+	  
+	  }
+	  cite {
+	  font-style: normal;
+	  }
+	  dd {
+	  margin-right: 2em;
+	  }
+	  dl {
+	  margin-left: 2em;
+	  }
+	
+	  ul.empty {
+	  list-style-type: none;
+	  }
+	  ul.empty li {
+	  margin-top: .5em;
+	  }
+	  dl p {
+	  margin-left: 0em;
+	  }
+	  dt {
+	  margin-top: .5em;
+	  }
+	  h1 {
+	  font-size: 14pt;
+	  line-height: 21pt;
+	  page-break-after: avoid;
+	  }
+	  h1.np {
+	  page-break-before: always;
+	  }
+	  h1 a {
+	  color: #333333;
+	  }
+	  h2 {
+	  font-size: 12pt;
+	  line-height: 15pt;
+	  page-break-after: avoid;
+	  }
+	  h3, h4, h5, h6 {
+	  font-size: 10pt;
+	  page-break-after: avoid;
+	  }
+	  h2 a, h3 a, h4 a, h5 a, h6 a {
+	  color: black;
+	  }
+	  img {
+	  margin-left: 3em;
+	  }
+	  li {
+	  margin-left: 2em;
+	  margin-right: 2em;
+	  }
+	  ol {
+	  margin-left: 2em;
+	  margin-right: 2em;
+	  }
+	  ol p {
+	  margin-left: 0em;
+	  }
+	  p {
+	  margin-left: 2em;
+	  margin-right: 2em;
+	  }
+	  pre {
+	  margin-left: 3em;
+	  background-color: lightyellow;
+	  padding: .25em;
+	  }
+	  pre.text2 {
+	  border-style: dotted;
+	  border-width: 1px;
+	  background-color: #f0f0f0;
+	  width: 69em;
+	  }
+	  pre.inline {
+	  background-color: white;
+	  padding: 0em;
+	  }
+	  pre.text {
+	  border-style: dotted;
+	  border-width: 1px;
+	  background-color: #f8f8f8;
+	  width: 69em;
+	  }
+	  pre.drawing {
+	  border-style: solid;
+	  border-width: 1px;
+	  background-color: #f8f8f8;
+	  padding: 2em;
+	  }
+	  table {
+	  margin-left: 2em;
+	  }
+	  table.tt {
+	  vertical-align: top;
+	  }
+	  table.full {
+	  border-style: outset;
+	  border-width: 1px;
+	  }
+	  table.headers {
+	  border-style: outset;
+	  border-width: 1px;
+	  }
+	  table.tt td {
+	  vertical-align: top;
+	  }
+	  table.full td {
+	  border-style: inset;
+	  border-width: 1px;
+	  }
+	  table.tt th {
+	  vertical-align: top;
+	  }
+	  table.full th {
+	  border-style: inset;
+	  border-width: 1px;
+	  }
+	  table.headers th {
+	  border-style: none none inset none;
+	  border-width: 1px;
+	  }
+	  table.left {
+	  margin-right: auto;
+	  }
+	  table.right {
+	  margin-left: auto;
+	  }
+	  table.center {
+	  margin-left: auto;
+	  margin-right: auto;
+	  }
+	  caption {
+	  caption-side: bottom;
+	  font-weight: bold;
+	  font-size: 9pt;
+	  margin-top: .5em;
+	  }
+	
+	  table.header {
+	  border-spacing: 1px;
+	  width: 95%;
+	  font-size: 10pt;
+	  color: white;
+	  }
+	  td.top {
+	  vertical-align: top;
+	  }
+	  td.topnowrap {
+	  vertical-align: top;
+	  white-space: nowrap; 
+	  }
+	  table.header td {
+	  background-color: gray;
+	  width: 50%;
+	  }
+	  table.header a {
+	  color: white;
+	  }
+	  td.reference {
+	  vertical-align: top;
+	  white-space: nowrap;
+	  padding-right: 1em;
+	  }
+	  thead {
+	  display:table-header-group;
+	  }
+	  ul.toc, ul.toc ul {
+	  list-style: none;
+	  margin-left: 1.5em;
+	  margin-right: 0em;
+	  padding-left: 0em;
+	  }
+	  ul.toc li {
+	  line-height: 150%;
+	  font-weight: bold;
+	  font-size: 10pt;
+	  margin-left: 0em;
+	  margin-right: 0em;
+	  }
+	  ul.toc li li {
+	  line-height: normal;
+	  font-weight: normal;
+	  font-size: 9pt;
+	  margin-left: 0em;
+	  margin-right: 0em;
+	  }
+	  li.excluded {
+	  font-size: 0pt;
+	  }
+	  ul p {
+	  margin-left: 0em;
+	  }
+	
+	  .comment {
+	  background-color: yellow;
+	  }
+	  .center {
+	  text-align: center;
+	  }
+	  .error {
+	  color: red;
+	  font-style: italic;
+	  font-weight: bold;
+	  }
+	  .figure {
+	  font-weight: bold;
+	  text-align: center;
+	  font-size: 9pt;
+	  }
+	  .filename {
+	  color: #333333;
+	  font-weight: bold;
+	  font-size: 12pt;
+	  line-height: 21pt;
+	  text-align: center;
+	  }
+	  .fn {
+	  font-weight: bold;
+	  }
+	  .hidden {
+	  display: none;
+	  }
+	  .left {
+	  text-align: left;
+	  }
+	  .right {
+	  text-align: right;
+	  }
+	  .title {
+	  color: #990000;
+	  font-size: 18pt;
+	  line-height: 18pt;
+	  font-weight: bold;
+	  text-align: center;
+	  margin-top: 36pt;
+	  }
+	  .vcardline {
+	  display: block;
+	  }
+	  .warning {
+	  font-size: 14pt;
+	  background-color: yellow;
+	  }
+	
+	
+	  @media print {
+	  .noprint {
+		display: none;
+	  }
+	
+	  a {
+		color: black;
+		text-decoration: none;
+	  }
+	
+	  table.header {
+		width: 90%;
+	  }
+	
+	  td.header {
+		width: 50%;
+		color: black;
+		background-color: white;
+		vertical-align: top;
+		font-size: 12pt;
+	  }
+	
+	  ul.toc a::after {
+		content: leader('.') target-counter(attr(href), page);
+	  }
+	
+	  ul.ind li li a {
+		content: target-counter(attr(href), page);
+	  }
+	
+	  .print2col {
+		column-count: 2;
+		-moz-column-count: 2;
+		column-fill: auto;
+	  }
+	  }
+	
+	  @page {
+	  @top-left {
+		   content: "Internet-Draft"; 
+	  } 
+	  @top-right {
+		   content: "December 2010"; 
+	  } 
+	  @top-center {
+		   content: "Abbreviated Title";
+	  } 
+	  @bottom-left {
+		   content: "Doe"; 
+	  } 
+	  @bottom-center {
+		   content: "Expires June 2011"; 
+	  } 
+	  @bottom-right {
+		   content: "[Page " counter(page) "]"; 
+	  } 
+	  }
+	
+	  @page:first { 
+		@top-left {
+		  content: normal;
+		}
+		@top-right {
+		  content: normal;
+		}
+		@top-center {
+		  content: normal;
+		}
+	  }
+  /*]]>*/
+  </style>
+
+  <link href="#rfc.toc" rel="Contents"/>
+<link href="#rfc.section.1" rel="Chapter" title="1 Introduction"/>
+<link href="#rfc.section.2" rel="Chapter" title="2 Defining _kerberos TXT Resource Records"/>
+<link href="#rfc.section.3" rel="Chapter" title="3 Publishing Kerberos Realm Names"/>
+<link href="#rfc.section.4" rel="Chapter" title="4 Querying Kerberos Realm Names"/>
+<link href="#rfc.section.5" rel="Chapter" title="5 Efficiency Considerations"/>
+<link href="#rfc.section.6" rel="Chapter" title="6 Privacy Considerations"/>
+<link href="#rfc.section.7" rel="Chapter" title="7 Security Considerations"/>
+<link href="#rfc.section.8" rel="Chapter" title="8 IANA Considerations"/>
+<link href="#rfc.references" rel="Chapter" title="9 References"/>
+<link href="#rfc.references.1" rel="Chapter" title="9.1 Normative References"/>
+<link href="#rfc.references.2" rel="Chapter" title="9.2 Informative References"/>
+<link href="#rfc.appendix.A" rel="Chapter" title="A Acknowledgements"/>
+<link href="#rfc.authors" rel="Chapter"/>
+
+
+  <meta name="generator" content="xml2rfc version 2.5.1 - http://tools.ietf.org/tools/xml2rfc" />
+  <link rel="schema.dct" href="http://purl.org/dc/terms/" />
+
+  <meta name="dct.creator" content="Van Rein, R." />
+  <meta name="dct.identifier" content="urn:ietf:id:draft-vanrein-dnstxt-krb1-09" />
+  <meta name="dct.issued" scheme="ISO8601" content="2016-10-24" />
+  <meta name="dct.abstract" content="This specification defines a method to determine Kerberos realm names for services that are known by their DNS name.  Currently, such information can only be found in static mappings or through educated guesses.  DNS can make this process more flexible, provided that DNSSEC is used to assure authenticity of resource records." />
+  <meta name="description" content="This specification defines a method to determine Kerberos realm names for services that are known by their DNS name.  Currently, such information can only be found in static mappings or through educated guesses.  DNS can make this process more flexible, provided that DNSSEC is used to assure authenticity of resource records." />
+
+</head>
+
+<body>
+
+  <table class="header">
+    <tbody>
+    
+    	<tr>
+  <td class="left">Network Working Group</td>
+  <td class="right">R. Van Rein</td>
+</tr>
+<tr>
+  <td class="left">Internet-Draft</td>
+  <td class="right">ARPA2.net</td>
+</tr>
+<tr>
+  <td class="left">Intended status: Informational</td>
+  <td class="right">October 24, 2016</td>
+</tr>
+<tr>
+  <td class="left">Expires: April 27, 2017</td>
+  <td class="right"></td>
+</tr>
+
+    	
+    </tbody>
+  </table>
+
+  <p class="title">Declaring Kerberos Realm Names in DNS (_kerberos TXT)<br />
+  <span class="filename">draft-vanrein-dnstxt-krb1-09</span></p>
+  
+  <h1 id="rfc.abstract">
+  <a href="#rfc.abstract">Abstract</a>
+</h1>
+<p>This specification defines a method to determine Kerberos realm names for services that are known by their DNS name.  Currently, such information can only be found in static mappings or through educated guesses.  DNS can make this process more flexible, provided that DNSSEC is used to assure authenticity of resource records.</p>
+<h1 id="rfc.status">
+  <a href="#rfc.status">Status of This Memo</a>
+</h1>
+<p>This Internet-Draft is submitted in full conformance with the provisions of BCP 78 and BCP 79.</p>
+<p>Internet-Drafts are working documents of the Internet Engineering Task Force (IETF).  Note that other groups may also distribute working documents as Internet-Drafts.  The list of current Internet-Drafts is at http://datatracker.ietf.org/drafts/current/.</p>
+<p>Internet-Drafts are draft documents valid for a maximum of six months and may be updated, replaced, or obsoleted by other documents at any time.  It is inappropriate to use Internet-Drafts as reference material or to cite them other than as "work in progress."</p>
+<p>This Internet-Draft will expire on April 27, 2017.</p>
+<h1 id="rfc.copyrightnotice">
+  <a href="#rfc.copyrightnotice">Copyright Notice</a>
+</h1>
+<p>Copyright (c) 2016 IETF Trust and the persons identified as the document authors.  All rights reserved.</p>
+<p>This document is subject to BCP 78 and the IETF Trust's Legal Provisions Relating to IETF Documents (http://trustee.ietf.org/license-info) in effect on the date of publication of this document.  Please review these documents carefully, as they describe your rights and restrictions with respect to this document.  Code Components extracted from this document must include Simplified BSD License text as described in Section 4.e of the Trust Legal Provisions and are provided without warranty as described in the Simplified BSD License.</p>
+
+  
+  <hr class="noprint" />
+  <h1 class="np" id="rfc.toc"><a href="#rfc.toc">Table of Contents</a></h1>
+  <ul class="toc">
+
+  	<li>1.   <a href="#rfc.section.1">Introduction</a></li>
+<li>2.   <a href="#rfc.section.2">Defining _kerberos TXT Resource Records</a></li>
+<li>3.   <a href="#rfc.section.3">Publishing Kerberos Realm Names</a></li>
+<li>4.   <a href="#rfc.section.4">Querying Kerberos Realm Names</a></li>
+<li>5.   <a href="#rfc.section.5">Efficiency Considerations</a></li>
+<li>6.   <a href="#rfc.section.6">Privacy Considerations</a></li>
+<li>7.   <a href="#rfc.section.7">Security Considerations</a></li>
+<li>8.   <a href="#rfc.section.8">IANA Considerations</a></li>
+<li>9.   <a href="#rfc.references">References</a></li>
+<ul><li>9.1.   <a href="#rfc.references.1">Normative References</a></li>
+<li>9.2.   <a href="#rfc.references.2">Informative References</a></li>
+</ul><li>Appendix A.   <a href="#rfc.appendix.A">Acknowledgements</a></li>
+<li><a href="#rfc.authors">Author's Address</a></li>
+
+
+  </ul>
+
+  <h1 id="rfc.section.1"><a href="#rfc.section.1">1.</a> <a href="#intro" id="intro">Introduction</a></h1>
+<p id="rfc.section.1.p.1">When a Kerberos client contacts a service, it needs to acquire a service ticket, and for that it needs to contact the KDC for a realm under which the service is run.  To map a service name into a realm name and then into a KDC, clients tend to use static mappings or educated guesses; the client's KDC may or may not be involved in this process.  Through DNS, the static mappings could be replaced by dynamic lookups, and migrate from local client configuration into the hands of the party administrating a server's presence in DNS.  This brings improved flexibility and centralisation, which is operationally desirable.</p>
+<p id="rfc.section.1.p.2">Two mappings are needed for a client to contact a service.  One is a mapping from the FQDN of a service to its realm name; the other is a mapping from the realm name to the Kerberos-specific services such as the KDC.  The latter mapping is published in SRV records <a href="#RFC4120">[RFC4120]</a> and such traffic is usually protected by Kerberos itself.  The first mapping however, has hitherto not been standardised and is ill-advised over unsecured DNS because the published information is then neither validated by DNS nor does it lead to a protocol that could provide end-to-end validation for it.</p>
+<p id="rfc.section.1.p.3">With the recent uprise of DNSSEC, it is now possible to make a reliable judgement on the authenticity of data in DNS, which enables the standardisation of the first mapping in the form of resource records under DNSSEC.</p>
+<p id="rfc.section.1.p.4">This specification defines a method to publish and process Kerberos realm names in TXT resource records.  These records hold a case-sensitive string with the realm name.  This has been informally described and practiced, but generally considered insecure; adding DNSSEC means that much of this existing practice can now be trusted.</p>
+<p id="rfc.section.1.p.5">It is suggested to use the name "_kerberos TXT" to informally refer to the style of using DNS that is introduced in this specification.</p>
+<h1 id="rfc.section.2"><a href="#rfc.section.2">2.</a> <a href="#txtrr" id="txtrr">Defining _kerberos TXT Resource Records</a></h1>
+<p id="rfc.section.2.p.1">This specification uses the TXT resource record type in DNS to represent a Kerberos realm name.  The corresponding RDATA format is as follows:</p>
+<pre>
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+/                   REALMNAME                   /
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+</pre>
+<p id="rfc.section.2.p.2">The REALMNAME is represented as a &lt;character-string&gt; <a href="#RFC1035">[RFC1035]</a> which starts with a single-byte length, followed by as many bytes of realm name as the length byte's value.  The RDATA field therefore has a length of 1 up to 256 bytes, to hold a realm name of 0 up to 255 bytes.  For instance, a realm EXAMPLE.ORG would be represented with the following RDATA, written in the notation for unkonwn resource record types <a href="#RFC3597">[RFC3597]</a>:</p>
+<pre>
+\# 12 ( 0b 45 58 41 4d 50 4c 45 2e 4f 52 47 )
+</pre>
+<p id="rfc.section.2.p.3">The REALMNAME represents a Kerberos realm name [Section 6.1 of <a href="#RFC4120">[RFC4120]</a>], not a DNS name; invalid names SHOULD be ignored.  The empty string is considered an invalid REALMNAME, and it should be noted that a REALMNAME may exceed the size constraints of a DNS name.</p>
+<p id="rfc.section.2.p.4">The TXT record can hold one or more &lt;character-string&gt; values in an ordered sequence, and implementations of this specification MUST NOT reject TXT records with multiple &lt;character-string&gt;s.  This specification only describes the meaning of the first &lt;character-string&gt; as a REALMNAME, and leaves the interpretation of further &lt;character-string&gt;s to future specifications.  Until these specifications are adopted, master zone files SHOULD NOT introduce these extra &lt;character-string&gt;s.  If such future specifications intend to specify Kerberos aspects that do not include a realm name, then they can mention an invalid realm name such as an empty &lt;character-string&gt;.</p>
+<p id="rfc.section.2.p.5">Though any style of realm name may be published as _kerberos TXT, it is common for realm names in Kerberos to follow the domain style [Section 6.1 of <a href="#RFC4120">[RFC4120]</a>], in which case they look like DNS names but are case sensitive; unlike the DNS names used as lookup keys in the DNS hierarchy, the REALMNAME format follows the &lt;character-string&gt; format in being case-sensitive.  Even for domain-style realm names, there is no required relationship (such as partial overlap) between the realm name and the DNS name at which a TXT record is found.</p>
+<p id="rfc.section.2.p.6">In fact, the &lt;character-string&gt; format is a binary format, and DNS notation \DDD [Section 5.1 of <a href="#RFC1035">[RFC1035]</a>] exists to put arbitrary bytes in the string notation.  This binary format leaves the door ajar for future internationalisation of Kerberos realm names.  Realm names are defined with the KerberosString type [Section 5.2.1 of <a href="#RFC4120">[RFC4120]</a>] which is an ASN.1 GeneralString, but its specification currently advises to constrain the use of this string type to an IA5String (basically using only the first 128 codes of the ASCII table) to avoid interoperability problems.  After the &lt;character-string&gt;'s length byte, the REALMNAME holds the value of the GeneralString, but not its preceding ASN.1 tag and length.</p>
+<p id="rfc.section.2.p.7">It is worth noting that the ESC "%" "G" prefix [TODO:xref target="ISO2022"/] can be used to introduce an UTF8String in a GeneralString, and that implementations exist that insert UTF8String values in KerberosString fields without even that escape.  All this precedes formal standardisation of internationalisation, but it suggests that the RDATA definition for TXT can be supportive of future internationalisation of realm names, even if the current advised use is limited to the value of an IA5String.</p>
+<p id="rfc.section.2.p.8">It is possible to create a TXT record for any _kerberos-prefixed DNS name, but this specification only provides query procedures for host names and domain names.  The use with a domain name has the additional use of denoting the precise spelling for a realm name under its DNS-mapped name.  DNS-mapped names currently would not modify more than the case of a DNS name, and even that is only done as the result of DNS compression  <a href="#RFC4343">[RFC4343]</a>; but in a future with internationalised realm names there might be more to reconstruct, in which case this facility is likely to be helpful.</p>
+<p id="rfc.section.2.p.9">The format for the resource data in master zone files is standard for DNS <a href="#RFC1035">[RFC1035]</a>.  The TXT record is a general record and was not especially designed for this purpose.  The reason to use it nonetheless is that it is an existing practice; the particular use specified here is distinguished from comments in TXT records by always prefixing a _kerberos label to a DNS name.  An example declaration of realm name EXAMPLE.ORG for a server named imap.example.org would be:</p>
+<pre>
+imap.example.org.            IN AAAA  2001:db8::143
+_kerberos.imap.example.org.  IN TXT   "EXAMPLE.ORG"
+</pre>
+<p id="rfc.section.2.p.10">The RDATA for this TXT record is shown above, in the generic RDATA section notation.</p>
+<h1 id="rfc.section.3"><a href="#rfc.section.3">3.</a> <a href="#publish" id="publish">Publishing Kerberos Realm Names</a></h1>
+<p id="rfc.section.3.p.1">Zones that intend to provide applications with Kerberos realm names through _kerberos TXT records SHOULD protect them with DNSSEC.</p>
+<p id="rfc.section.3.p.2">Operators SHOULD NOT define more than one valid realm name for a given domain or host name.</p>
+<p id="rfc.section.3.p.3">Note that _kerberos TXT records with wildcard names will not work.  All host names and most domain names define at least one resource record (of any type) with the name that the wildcard should cover.  These defined names cause the wildcards to be suppressed <a href="#RFC4592">[RFC4592]</a> from DNS responses, even when querying a non-existent TXT record.</p>
+<h1 id="rfc.section.4"><a href="#rfc.section.4">4.</a> <a href="#query" id="query">Querying Kerberos Realm Names</a></h1>
+<p id="rfc.section.4.p.1">This section defines a procedure for determining the Kerberos realm names for a server with a given host name or domain name, as well as for a DNS-mapped realm name.  This specification does not impose any restriction on the additional use of other-than-DNS methods for for obtaining a realm name.</p>
+<p id="rfc.section.4.p.2">When applications know their server host name, perhaps because it is mentioned in a URL or in a ticket as a service principal name, or when applications know a domain name for which they intend to learn the realm name, they resolve the TXT record in DNS at the server host name, prefixed with a _kerberos label.</p>
+<p id="rfc.section.4.p.3">Since DNS in general cannot be considered secure, the client MUST validate DNSSEC and it MUST dismiss any DNS responses that are Insecure, Bogus or Indeterminate [Section 5 of <a href="#RFC4033">[RFC4033]</a>].  Only the remaining Secure responses are to be taken into account.  This specification does not require that the DNS client validates the responses by itself, but a deployment of _kerberos TXT records SHOULD NOT accept DNS responses from a trusted validating DNS resolver over untrusted communication channels.</p>
+<p id="rfc.section.4.p.4">In addition to the above, the absense of a _kerberos DNS record may be meaningful for security decisions.  If such cases, the only denial of existence of the _kerberos TXT records MUST be authenticated denial.</p>
+<p id="rfc.section.4.p.5">Only the first lt;character-string&gt; of a _kerberos TXT record is considered; any further ones are silently ignored under this specification.  In addition, invalid realm names such as they empty string are silently ignored.</p>
+<p id="rfc.section.4.p.6">To give one possible implementation, a Kerberos client or its KDC may send DNS queries with the Authentic Data (AD) bit set to enable DNSSEC [Section 5.7 of <a href="#RFC6840">[RFC6840]</a>], and thereby request that the Authenticated Data bit is set in the response to indicate <a href="#RFC3655">[RFC3655]</a> the Secure state for answer and authority sections of the response.  When the DNS traffic to and from the validating resolver is protected, for instance because the validating resolver is reached over a loopback interface, then the Kerberos client or its KDC has implemented the requirements for Secure use of the answer and authority sections in DNS responses.</p>
+<p id="rfc.section.4.p.7">When no Secure DNS responses are received when the DNS query times out, then the TXT query MUST be terminated without extracting realm names from DNS.  This termination MAY be done immediately upon receiving Secure denial for the requested TXT record.  TXT query termination need not be fatal; non-DNS procedures may exist to find a realm name, including the current practice of static mappings and educated guessing.</p>
+<h1 id="rfc.section.5"><a href="#rfc.section.5">5.</a> <a href="#efficiency" id="efficiency">Efficiency Considerations</a></h1>
+<p id="rfc.section.5.p.1">The lookup of _kerberos TXT records can be done by the Ticket Granting Service of a KDC, which can respond with a Server Referral [Section 8 of <a href="#RFC6806">[RFC6806]</a>] to Kerberos clients that enable canonicalization.  This can be used for clients that are not setup to query DNS as specified above, and that will assume that a service is running under the client's realm.  The caching of DNS records, their validation and possibly realm-crossover caching at the KDC can all benefit the response time for future lookups by other Kerberos clients.</p>
+<h1 id="rfc.section.6"><a href="#rfc.section.6">6.</a> <a href="#privacy" id="privacy">Privacy Considerations</a></h1>
+<p id="rfc.section.6.p.1">This specification barely publishes new information in DNS, with the exception of markation of Kerberised services.  When this is considered unattractive from a privacy viewpoint, it may be better to rely on the existing static tables for spreading this information in a more controlled manner.</p>
+<h1 id="rfc.section.7"><a href="#rfc.section.7">7.</a> <a href="#security" id="security">Security Considerations</a></h1>
+<p id="rfc.section.7.p.1">There is no restriction for _kerberos TXT records to mention realm names that map back to DNS names in a disjoint part of the DNS hierarcy.  The records could therefore specify realm names for a service even if the service is not recognised by the realm.  The KDC for the appointed realm would be very clear about that when trying to procure a service ticket, so there is no anticipated security issue with such misguided use of _kerberos TXT records.</p>
+<p id="rfc.section.7.p.2">The general point is that the use of DNSSEC makes Kerberos accept authentic information from the party that publishes the _kerberos TXT record, and that party could specify improper realm names or drop realm names that are vital to the client.  This is not expected to be a security risk either; the party publishing the _kerberos TXT record is the same party that publishes the service's records, namely its DNS operator.  By publishing the service's record in DNS, this operator already has potential control over service denial and other man-in-the-middle attacks, so the _kerberos TXT record does not add any new powers of abuse.</p>
+<p id="rfc.section.7.p.3">When an external attacker would be permitted to spoof a _kerberos TXT record in a victim's DNS, then it could be possible for that attacker to convince the client that the attacker is the authentic provider for the service.  Additional spoofing of host name references could then complete the attack.  This has been mitigated by strictly requiring Secure validation results from a DNSSEC-aware resolver for all _kerberos TXT records.</p>
+<h1 id="rfc.section.8"><a href="#rfc.section.8">8.</a> <a href="#iana" id="iana">IANA Considerations</a></h1>
+<p id="rfc.section.8.p.1">None.</p>
+<h1 id="rfc.references"><a href="#rfc.references">9.</a> References</h1>
+<h1 id="rfc.references.1"><a href="#rfc.references.1">9.1.</a> Normative References</h1>
+<table>
+  <tbody>
+    <tr>
+      <td class="reference">
+        <b id="RFC1035">[RFC1035]</b>
+      </td>
+      <td class="top"><a>Mockapetris, P.</a>, "<a href="http://tools.ietf.org/html/rfc1035">Domain names - implementation and specification</a>", STD 13, RFC 1035, DOI 10.17487/RFC1035, November 1987.</td>
+    </tr>
+    <tr>
+      <td class="reference">
+        <b id="RFC3597">[RFC3597]</b>
+      </td>
+      <td class="top"><a>Gustafsson, A.</a>, "<a href="http://tools.ietf.org/html/rfc3597">Handling of Unknown DNS Resource Record (RR) Types</a>", RFC 3597, DOI 10.17487/RFC3597, September 2003.</td>
+    </tr>
+    <tr>
+      <td class="reference">
+        <b id="RFC4033">[RFC4033]</b>
+      </td>
+      <td class="top"><a>Arends, R.</a>, <a>Austein, R.</a>, <a>Larson, M.</a>, <a>Massey, D.</a> and <a>S. Rose</a>, "<a href="http://tools.ietf.org/html/rfc4033">DNS Security Introduction and Requirements</a>", RFC 4033, DOI 10.17487/RFC4033, March 2005.</td>
+    </tr>
+    <tr>
+      <td class="reference">
+        <b id="RFC4120">[RFC4120]</b>
+      </td>
+      <td class="top"><a>Neuman, C.</a>, <a>Yu, T.</a>, <a>Hartman, S.</a> and <a>K. Raeburn</a>, "<a href="http://tools.ietf.org/html/rfc4120">The Kerberos Network Authentication Service (V5)</a>", RFC 4120, DOI 10.17487/RFC4120, July 2005.</td>
+    </tr>
+    <tr>
+      <td class="reference">
+        <b id="RFC4343">[RFC4343]</b>
+      </td>
+      <td class="top"><a>Eastlake 3rd, D.</a>, "<a href="http://tools.ietf.org/html/rfc4343">Domain Name System (DNS) Case Insensitivity Clarification</a>", RFC 4343, DOI 10.17487/RFC4343, January 2006.</td>
+    </tr>
+    <tr>
+      <td class="reference">
+        <b id="RFC6806">[RFC6806]</b>
+      </td>
+      <td class="top"><a>Hartman, S.</a>, <a>Raeburn, K.</a> and <a>L. Zhu</a>, "<a href="http://tools.ietf.org/html/rfc6806">Kerberos Principal Name Canonicalization and Cross-Realm Referrals</a>", RFC 6806, DOI 10.17487/RFC6806, November 2012.</td>
+    </tr>
+  </tbody>
+</table>
+<h1 id="rfc.references.2"><a href="#rfc.references.2">9.2.</a> Informative References</h1>
+<table>
+  <tbody>
+    <tr>
+      <td class="reference">
+        <b id="RFC3655">[RFC3655]</b>
+      </td>
+      <td class="top"><a>Wellington, B.</a> and <a>O. Gudmundsson</a>, "<a href="http://tools.ietf.org/html/rfc3655">Redefinition of DNS Authenticated Data (AD) bit</a>", RFC 3655, DOI 10.17487/RFC3655, November 2003.</td>
+    </tr>
+    <tr>
+      <td class="reference">
+        <b id="RFC4592">[RFC4592]</b>
+      </td>
+      <td class="top"><a>Lewis, E.</a>, "<a href="http://tools.ietf.org/html/rfc4592">The Role of Wildcards in the Domain Name System</a>", RFC 4592, DOI 10.17487/RFC4592, July 2006.</td>
+    </tr>
+    <tr>
+      <td class="reference">
+        <b id="RFC6840">[RFC6840]</b>
+      </td>
+      <td class="top"><a>Weiler, S.</a> and <a>D. Blacka</a>, "<a href="http://tools.ietf.org/html/rfc6840">Clarifications and Implementation Notes for DNS Security (DNSSEC)</a>", RFC 6840, DOI 10.17487/RFC6840, February 2013.</td>
+    </tr>
+  </tbody>
+</table>
+<h1 id="rfc.appendix.A"><a href="#rfc.appendix.A">Appendix A.</a> <a href="#ack" id="ack">Acknowledgements</a></h1>
+<p id="rfc.section.A.p.1">Thanks are due to the Kitten Workgroup for discussions during the creation of this document.  Especially Greg Hudson, Nico Williams and Viktor Dukhovni have provided useful input.</p>
+<p id="rfc.section.A.p.2">This work was conducted under a grant from the programme "[veilig] door innovatie" from the government of the Netherlands.  It has also been liberally supported by the NLnet Foundation.</p>
+<h1 id="rfc.authors">
+  <a href="#rfc.authors">Author's Address</a>
+</h1>
+<div class="avoidbreak">
+  <address class="vcard">
+	<span class="vcardline">
+	  <span class="fn">Rick van Rein</span> 
+	  <span class="n hidden">
+		<span class="family-name">Van Rein</span>
+	  </span>
+	</span>
+	<span class="org vcardline">ARPA2.net</span>
+	<span class="adr">
+	  <span class="vcardline">Haarlebrink 5</span>
+
+	  <span class="vcardline">
+		<span class="locality">Enschede</span>,  
+		<span class="region">Overijssel</span> 
+		<span class="code">7544 WP</span>
+	  </span>
+	  <span class="country-name vcardline">The Netherlands</span>
+	</span>
+	<span class="vcardline">EMail: <a href="mailto:rick@openfortress.nl">rick@openfortress.nl</a></span>
+
+  </address>
+</div>
+
+</body>
+</html>

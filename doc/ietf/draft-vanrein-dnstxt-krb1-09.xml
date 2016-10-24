@@ -1,0 +1,353 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="rfc2629.xslt"?>
+<!DOCTYPE rfc SYSTEM "rfc2629.dtd">
+
+<?rfc toc="yes" ?>
+<?rfc compact="yes" ?>
+<?rfc symrefs="yes" ?>
+<?rfc subcompact="no" ?>
+<?rfc comments="yes" ?>
+<?rfc inline="yes" ?>
+
+<rfc ipr="trust200902" docName="draft-vanrein-dnstxt-krb1-09" category="info">
+
+<front>
+
+	<title abbrev="_kerberos TXT">Declaring Kerberos Realm Names in DNS (_kerberos TXT)</title>
+
+	<author initials="R" surname="Van Rein" fullname="Rick van Rein">
+		<organization>ARPA2.net</organization>
+		<address>
+			<postal>
+				<street>Haarlebrink 5</street>
+				<city>Enschede</city>
+				<region>Overijssel</region>
+				<code>7544 WP</code>
+				<country>The Netherlands</country>
+			</postal>
+			<email>rick@openfortress.nl</email>
+		</address>
+	</author>
+
+	<date day="24" month="October" year="2016"/>
+
+	<abstract>
+	<t>This specification defines a method to determine Kerberos realm
+	names for services that are known by their DNS name.
+	Currently, such information can only be found in static mappings or
+	through educated guesses.
+	DNS can make this process more flexible, provided that DNSSEC is used
+	to assure authenticity of resource records.</t>
+	</abstract>
+
+<!--
+
+CHANGES FROM 08 TO 09 (processing Nico Williams' feedback)
+* Removed dicussion of multiple realm names
+* Removed special treatment for SRV RR; instead rely on realm crossover
+* Removed? Efficiency Considerations
+* Shortened? Privacy Considerations
+* Shortened? Publishing Kerberos Realm Names
+
+CHANGES FROM 07 TO 08:
+
+CHANGES FROM 06 TO 07:
+
+CHANGES FROM 05 TO 06:
+* Use TXT records instead of KREALM
+* Consider only the first <character-string> in RDATA; more is for future extension
+* Informal spec name is now _kerberos TXT
+
+CHANGES FROM 04 TO 05:
+* Title and abstract changed (not "realm descriptor" but "realm name", basically)
+* Sidetracked an attempt with a complex data model and too general use cases
+* Removed tags, and also the IANA tag registry
+* Simplified KREALM to mention just a realm name in a <character-string>
+* Removed DNS-upward iteration procedures and now require KREALM at each DNS name
+
+CHANGES FROM 03 TO 04:
+* Renamed the IANA tag registry to "Kerberos Realm Descriptor Tag Registry"
+
+CHANGES FROM 02 TO 03:
+* DNSEXT: RFC 6840: Set AD=1 instead of DO=1 in the query
+* DNSEXT: base64 without quotes and possibly with whitespace and std line breaks
+* Made SOA through type bit maps an optional path, explicit SOA query is OK too
+* Introduced the "admin" tag to specify administrator principal names
+* Clarified references from non-home records to srv + home records
+
+CHANGES FROM 01 TO 02:
+* Changed tricks to find zone apex into iteration up the DNS tree
+* Introduced NSEC/NSEC3 type bit map as a check for a SOA that ends the iteration
+
+CHANGES FROM 00 TO 01:
+* Introduced KREALM RRtype to replace overloading of the TXT RRtype
+* Switched from an ASCII grammar to an ASN.1 grammar for KREALM RDATA
+* Switched from case-independent ASCII values to full UTF8String values
+* Proposed base64 representation in master files for KREALM RDATA
+
+-->
+
+</front>
+
+
+<middle>
+
+<section title="Introduction" anchor="intro">
+
+<t>When a Kerberos client contacts a service, it needs to acquire a service
+ticket, and for that it needs to contact the KDC for a realm under which the
+service is run.  To map a service name into a realm name and then into a KDC,
+clients tend to use static mappings or educated guesses; the client's KDC may
+or may not be involved in this process.  Through DNS, the static mappings could
+be replaced by dynamic lookups, and migrate from local client configuration into the
+hands of the party administrating a server's presence in DNS.  This brings improved
+flexibility and centralisation, which is operationally desirable.</t>
+
+<t>Two mappings are needed for a client to contact a service.
+One is a mapping from the FQDN of a service to its realm name; the other is
+a mapping from the realm name to the Kerberos-specific services such as
+the KDC.  The latter mapping is published in SRV records <xref target="RFC4120"/>
+and such traffic is usually protected by Kerberos itself.  The first mapping
+however, has hitherto not been standardised and is ill-advised over unsecured DNS
+because the published information is then neither validated by DNS nor does it
+lead to a protocol that could provide end-to-end validation for it.</t>
+
+<t>With the recent uprise of DNSSEC, it is now possible to make a reliable judgement on the
+authenticity of data in DNS, which enables the standardisation of the first mapping in the form of
+resource records under DNSSEC.</t>
+
+<t>This specification defines a method to publish and process Kerberos realm names in TXT resource records.  These records hold a case-sensitive string with the realm name.
+This has been informally
+described and practiced, but generally considered insecure; adding DNSSEC means
+that much of this existing practice can now be trusted.</t>
+
+<t>It is suggested to use the name "_kerberos TXT" to informally refer to the
+style of using DNS that is introduced in this specification.</t>
+
+
+</section>
+
+<section title="Defining _kerberos TXT Resource Records" anchor="txtrr">
+
+<t>This specification uses the TXT resource record type in DNS to represent a
+Kerberos realm name.  The corresponding RDATA format is as follows:</t>
+<figure>
+<artwork>
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+/                   REALMNAME                   /
++--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+</artwork>
+</figure>
+
+<t>The REALMNAME is represented as a &lt;character-string&gt; <xref target="RFC1035"/> which starts with a single-byte length, followed by as many bytes of realm name as the length byte's value.  The RDATA field therefore has a length of 1 up to 256 bytes, to hold a realm name of 0 up to 255 bytes.
+For instance, a realm EXAMPLE.ORG would be represented with the following RDATA, written in the notation for unkonwn resource record types <xref target="RFC3597"/>:</t>
+<figure>
+<artwork>
+\# 12 ( 0b 45 58 41 4d 50 4c 45 2e 4f 52 47 )
+</artwork>
+</figure>
+
+<t>The REALMNAME represents a Kerberos realm name [Section 6.1 of <xref target="RFC4120"/>], not a DNS name; invalid names SHOULD be ignored.  The empty string is considered an invalid REALMNAME, and it should be noted that a REALMNAME may exceed the size constraints of a DNS name.</t>
+
+<t>The TXT record can hold one or more &lt;character-string&gt; values in an ordered sequence, and implementations of this specification MUST NOT reject TXT records with multiple &lt;character-string&gt;s.  This specification only describes the meaning of the first &lt;character-string&gt; as a REALMNAME, and leaves the interpretation of further &lt;character-string&gt;s to future specifications.  Until these specifications are adopted, master zone files SHOULD NOT introduce these extra &lt;character-string&gt;s.  If such future specifications intend to specify Kerberos aspects that do not include a realm name, then they can mention an invalid realm name such as an empty &lt;character-string&gt;.</t>
+
+<t>Though any style of realm name may be published as _kerberos TXT, it is common for realm names in Kerberos to follow the domain style [Section 6.1 of <xref target="RFC4120"/>], in which case they look like DNS names but are case sensitive; unlike the DNS names used as lookup keys in the DNS hierarchy, the REALMNAME format follows the &lt;character-string&gt; format in being case-sensitive.  Even for domain-style realm names, there is no required relationship (such as partial overlap) between the realm name and the DNS name at which a TXT record is found.</t>
+
+<t>In fact, the &lt;character-string&gt; format is a binary format, and DNS notation \DDD [Section 5.1 of <xref target="RFC1035"/>] exists to put arbitrary bytes in the string notation.  This binary format leaves the door ajar for future internationalisation of Kerberos realm names.  Realm names are defined with the KerberosString type [Section 5.2.1 of <xref target="RFC4120"/>] which is an ASN.1 GeneralString, but its specification currently advises to constrain the use of this string type to an IA5String (basically using only the first 128 codes of the ASCII table) to avoid interoperability problems.  After the &lt;character-string&gt;'s length byte, the REALMNAME holds the value of the GeneralString, but not its preceding ASN.1 tag and length.</t>
+
+<t>It is worth noting that the ESC "%" "G" prefix [TODO:xref target="ISO2022"/] can be used to introduce an UTF8String in a GeneralString, and that implementations exist that insert UTF8String values in KerberosString fields without even that escape.  All this precedes formal standardisation of internationalisation, but it suggests that the RDATA definition for TXT can be supportive of future internationalisation of realm names, even if the current advised use is limited to the value of an IA5String.</t>
+
+<t>It is possible to create a TXT record for any _kerberos-prefixed DNS name, but this specification only provides query procedures for host names and domain names.  The use with a domain name has the additional use of denoting the precise spelling for a realm name under its DNS-mapped name.  DNS-mapped names currently would not modify more than the case of a DNS name, and even that is only done as the result of DNS compression  <xref target="RFC4343"/>; but in a future with internationalised realm names there might be more to reconstruct, in which case this facility is likely to be helpful.</t>
+
+<t>The format for the resource data in master zone files is standard for DNS
+<xref target="RFC1035"/>.
+The TXT record is a general record and was not especially designed for this purpose.  The reason to use it nonetheless is that it is an existing practice; the particular use specified here is distinguished from comments in TXT records by always prefixing a _kerberos label to a DNS name.
+An example declaration of realm name EXAMPLE.ORG for a server
+named imap.example.org would be:</t>
+<figure>
+<artwork>
+imap.example.org.            IN AAAA  2001:db8::143
+_kerberos.imap.example.org.  IN TXT   "EXAMPLE.ORG"
+</artwork>
+</figure>
+<t>The RDATA for this TXT record is shown above,
+in the generic RDATA section notation.</t>
+
+</section>
+
+<section title="Publishing Kerberos Realm Names" anchor="publish">
+
+<t>Zones that intend to provide applications with Kerberos realm names
+through _kerberos TXT records SHOULD protect them with DNSSEC.</t>
+
+<t>Operators SHOULD NOT define more than one valid realm name for a given
+domain or host name.</t>
+
+<t>Note that _kerberos TXT records with wildcard names will not work.  All host
+names and most domain names define at least one resource record (of any type)
+with the name that the wildcard should cover.  These defined names cause the
+wildcards to be suppressed <xref target="RFC4592"/> from DNS responses,
+even when querying a non-existent TXT record.</t>
+
+</section>
+
+<section title="Querying Kerberos Realm Names" anchor="query">
+
+<t>This section defines a procedure for determining the Kerberos realm names for
+a server with a given host name or domain name, as well as for a DNS-mapped
+realm name.  This specification does not impose any restriction on the additional
+use of other-than-DNS methods for for obtaining a realm name.</t>
+
+<t>When applications know their server host name, perhaps because it is
+mentioned in a URL or in a ticket as a service principal name, or when
+applications know a domain name for which they intend to learn the
+realm name, they resolve
+the TXT record in DNS at the server host name, prefixed with a _kerberos label.</t>
+
+<t>Since DNS in general cannot be considered secure, the client MUST validate
+DNSSEC and it MUST dismiss any DNS responses that are Insecure, Bogus or
+Indeterminate [Section 5 of <xref target="RFC4033"/>].  Only the remaining
+Secure responses are to be taken into account.  This specification does
+not require that the DNS client validates the responses by itself, but a
+deployment of _kerberos TXT records SHOULD NOT accept DNS responses from
+a trusted validating DNS resolver over untrusted communication channels.</t>
+
+<t>In addition to the above, the absense of a _kerberos DNS record may be
+meaningful for security decisions.  If such cases, the only denial of existence
+of the _kerberos TXT records MUST be authenticated denial.</t>
+
+<t>Only the first lt;character-string&gt; of a _kerberos TXT record is
+considered; any further ones are silently ignored under this specification.
+In addition, invalid realm names such as they empty string are silently
+ignored.</t>
+
+<t>To give one possible implementation, a Kerberos client or its KDC may send
+DNS queries with the Authentic Data (AD) bit set to enable DNSSEC
+[Section 5.7 of <xref target="RFC6840"/>],
+and thereby request that the Authenticated Data bit is set in the
+response to indicate <xref target="RFC3655"/>
+the Secure state for answer and authority sections of
+the response.  When the DNS traffic to and from the validating resolver is
+protected, for instance because the validating resolver is reached over a loopback
+interface, then the Kerberos client or its KDC has implemented the requirements for
+Secure use of the answer and authority sections in DNS responses.</t>
+
+<t>When no Secure DNS responses are received when the DNS query times out,
+then the TXT query MUST be terminated without extracting realm names from DNS.
+This termination MAY be done immediately upon receiving Secure denial
+for the requested TXT record.
+TXT query termination need not be fatal; non-DNS procedures may exist to
+find a realm name, including the current practice of static mappings and
+educated guessing.</t>
+
+</section>
+
+<section title="Efficiency Considerations" anchor="efficiency">
+
+<t>The lookup of _kerberos TXT records can be done by the Ticket Granting Service of
+a KDC, which can respond with a Server Referral
+[Section 8 of <xref target="RFC6806"/>]
+to Kerberos clients that enable canonicalization.  This can be used for
+clients that are not setup to query DNS as specified above, and that will
+assume that a service is running under the client's realm.  The caching of DNS records,
+their validation and possibly realm-crossover caching at the KDC can all
+benefit the response time for future lookups by other Kerberos clients.</t>
+
+</section>
+
+<section title="Privacy Considerations" anchor="privacy">
+
+<t>This specification barely publishes new information in DNS, with the
+exception of markation of Kerberised services.  When this is considered
+unattractive from a privacy viewpoint, it may be better to rely on the
+existing static tables for spreading this information in a more controlled
+manner.</t>
+
+</section>
+
+<section title="Security Considerations" anchor="security">
+
+<t>There is no restriction for _kerberos TXT records to mention realm names
+that map back to DNS names in a disjoint part of the DNS hierarcy.
+The records could therefore specify realm names for
+a service even if the service is not recognised by the realm.  The KDC
+for the appointed realm would be very clear about that when trying to
+procure a service ticket, so there is no
+anticipated security issue with such misguided use of _kerberos TXT records.</t>
+
+<t>The general point is that the use of DNSSEC makes Kerberos accept authentic
+information from the party
+that publishes the _kerberos TXT record, and that party could specify improper realm names
+or drop realm names that are vital to the client.  This is not expected to
+be a security risk either; the party publishing the _kerberos TXT record is the
+same party that publishes the service's records, namely its DNS operator.
+By publishing the service's record in DNS, this operator already has
+potential control over service denial and other man-in-the-middle attacks, so
+the _kerberos TXT record does not add any new powers of abuse.</t>
+
+<t>When an external attacker would be permitted to
+spoof a _kerberos TXT record in a victim's DNS, then it could be possible for that
+attacker to convince the client that the attacker is the authentic provider
+for the service.  Additional spoofing of host name references could then
+complete the attack.  This has been mitigated by strictly requiring Secure
+validation results from a DNSSEC-aware resolver for all _kerberos TXT records.</t>
+
+</section>
+
+<section title="IANA Considerations" anchor="iana">
+
+<t>None.</t>
+
+</section>
+
+</middle>
+
+
+<back>
+
+<references title="Normative References">
+<?rfc include="reference.RFC.1035.xml"?>
+<!--
+<?rfc include="reference.RFC.2279.xml"?>
+<?rfc include="reference.RFC.2782.xml"?>
+-->
+<?rfc include="reference.RFC.3597.xml"?>
+<!--
+<?rfc include="reference.RFC.3845.xml"?>
+-->
+<?rfc include="reference.RFC.4033.xml"?>
+<!--
+<?rfc include="reference.RFC.4034.xml"?>
+-->
+<?rfc include="reference.RFC.4120.xml"?>
+<?rfc include="reference.RFC.4343.xml"?>
+<!--
+<?rfc include="reference.RFC.5155.xml"?>
+-->
+<?rfc include="reference.RFC.6806.xml"?>
+</references>
+
+<references title="Informative References">
+<?rfc include="reference.RFC.3655.xml"?>
+<!--
+<?rfc include="reference.RFC.4282.xml"?>
+-->
+<?rfc include="reference.RFC.4592.xml"?>
+<?rfc include="reference.RFC.6840.xml"?>
+</references>
+
+<section title="Acknowledgements" anchor="ack">
+
+<t>Thanks are due to the Kitten Workgroup for discussions during the creation
+of this document.  Especially Greg Hudson, Nico Williams and Viktor Dukhovni have
+provided useful input.</t>
+
+<t>This work was conducted under a grant from the programme "[veilig] door
+innovatie" from the government of the Netherlands.  It has also been liberally
+supported by the NLnet Foundation.</t>
+
+</section>
+
+</back>
+
+</rfc>

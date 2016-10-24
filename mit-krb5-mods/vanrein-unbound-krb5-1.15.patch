@@ -1,0 +1,988 @@
+diff --git a/doc/admin/conf_files/krb5_conf.rst b/doc/admin/conf_files/krb5_conf.rst
+index 653aad6..31fad21 100644
+--- a/doc/admin/conf_files/krb5_conf.rst
++++ b/doc/admin/conf_files/krb5_conf.rst
+@@ -212,6 +212,31 @@ The libdefaults section may contain any of the following relations:
+     data), and anything the fake KDC sends will not be trusted without
+     verification using some secret that it won't know.
+ 
++**dns_lookup_realm**
++    Indicate whether DNS TXT records should be used to determine the
++    realm name for a given host name.  When not found, the parent is
++    triend, and so on, until the root zone.  This option is not safe,
++    as Kerberos has no mechanisms for validating what it finds.  Do
++    not use it, but use **dnssec_lookup_realm** instead.
++
++**dnssec_lookup_realm**
++    Indicate whether DNS TXT records with DNSSEC validation should be
++    used to determine the realm name for a given host name.  When not
++    found, this method will not iterate upwards the DNS tree, because
++    it may cross over a zone apex without noticing.  The method rejects
++    unsigned domains.
++
++    This option is safe, and should be used instead of **dns_lookup_realm**.
++    It is only available when a secure hostrealm plugin has been compiled
++    in, such as Unbound.  The method is enabled by default.
++
++**dnssec_trust_anchor_unbound**
++    Indicate the file that holds the trust anchor from which Unbound derives
++    security validation status for DNSSEC.  The file generally holds the
++    outcome of ``dig . dnskey``, but should have been scrutinised.  Ideally,
++    you would receive it as part of your software distribution.  When unset,
++    the value defaults to ``/etc/unbound/root.key``.
++
+ **dns_uri_lookup**
+     Indicate whether DNS URI records should be used to locate the KDCs
+     and other servers for a realm, if they are not listed in the
+@@ -1133,6 +1158,7 @@ Here is an example of a generic krb5.conf file::
+         default_realm = ATHENA.MIT.EDU
+         dns_lookup_kdc = true
+         dns_lookup_realm = false
++	dnssec_lookup_realm = true
+ 
+     [realms]
+         ATHENA.MIT.EDU = {
+diff --git a/doc/admin/realm_config.rst b/doc/admin/realm_config.rst
+index c016d72..d1c5970 100644
+--- a/doc/admin/realm_config.rst
++++ b/doc/admin/realm_config.rst
+@@ -78,7 +78,23 @@ would be::
+ 
+ The value of the first TXT record found is taken as the realm name.
+ 
+-Even if you do not choose to use this mechanism within your site,
++As a secure alternative to these DNS TXT records, there is a separate
++backend based on the Unbound library.  This library is used to enforce
++a signed chain from a trust anchor (normally the DNS root) down to the
++``_kerberos`` TXT record.  In addition, the client will not search for
++parent domains up to the top level.  Parent zones are often maintained
++by separate parties, and those may or may not be considered a good
++source of trust.
++
++The Unbound mechanism is only available for the translation from a
++host or domain name to a realm; unlike SRV lookups which lead to a
++service that is based on keys that authenticate the newly found
++connection, a similar security check is absent for host-to-realm
++lookups.  For this reason, when both DNS and Unbound mechanisms are
++enabled, the Unbound mechanism prevails.  This should make it easier
++to rely on plain DNS queries for the remaining lookups.
++
++Even if you do not choose to use these mechanism within your site,
+ you may wish to set it up anyway, for use when interacting with other sites.
+ 
+ 
+diff --git a/doc/build/options2configure.rst b/doc/build/options2configure.rst
+index 0fd0307..ad549cb 100644
+--- a/doc/build/options2configure.rst
++++ b/doc/build/options2configure.rst
+@@ -52,6 +52,14 @@ Most commonly used options
+     for information about using DNS to determine the default realm.
+     DNS lookups for realm names are disabled by default.
+ 
++**-**\ **-enable-unbound-for-realm**
++    Enable the use of Unbound to look up a host's Kerberos realm, and
++    to enforce DNSSEC.  (Note that DNSSEC will not be enforced for the
++    fallback and default procedures in the hostrealm API, just for the
++    primary host-to-realm translation.)  This option introduces a
++    dependency on an external Unbound library.
++    Unbound lookups realm names are enabled by default.
++
+ **-**\ **-with-system-et**
+     Use an installed version of the error-table (et) support software,
+     the compile_et program, the com_err.h header file and the com_err
+diff --git a/doc/conf.py b/doc/conf.py
+index 51bf9dc..1f85b38 100644
+--- a/doc/conf.py
++++ b/doc/conf.py
+@@ -288,6 +288,7 @@ man_pages = [
+     ('user/user_commands/kswitch', 'kswitch', u'switch primary ticket cache', [u'MIT'], 1),
+     ('user/user_commands/kpasswd', 'kpasswd', u'change a user\'s Kerberos password', [u'MIT'], 1),
+     ('user/user_commands/kvno', 'kvno', u'print key version numbers of Kerberos principals', [u'MIT'], 1),
++    ('user/user_commands/khostrealm', 'khostrealm', u'lookup realm for a host name', [u'MIT'], 1),
+     ('user/user_commands/ksu', 'ksu', u'Kerberized super-user', [u'MIT'], 1),
+     ('user/user_commands/krb5-config', 'krb5-config', u'tool for linking against MIT Kerberos libraries', [u'MIT'], 1),
+     ('user/user_config/k5login', 'k5login', u'Kerberos V5 acl file for host access', [u'MIT'], 5),
+diff --git a/doc/user/user_commands/index.rst b/doc/user/user_commands/index.rst
+index 7ce86a1..b68dd50 100644
+--- a/doc/user/user_commands/index.rst
++++ b/doc/user/user_commands/index.rst
+@@ -14,4 +14,5 @@ User commands
+    ksu.rst
+    kswitch.rst
+    kvno.rst
++   khostrealm.rst
+    sclient.rst
+diff --git a/doc/user/user_commands/khostrealm.rst b/doc/user/user_commands/khostrealm.rst
+new file mode 100644
+index 0000000..493852d
+--- /dev/null
++++ b/doc/user/user_commands/khostrealm.rst
+@@ -0,0 +1,60 @@
++.. _khostrealm(1):
++
++khostrealm
++==========
++
++SYNOPSIS
++--------
++
++**khostrealm**
++[**-f**]
++[**--**]
++*host1 host2* ...
++
++
++DESCRIPTION
++-----------
++
++khostrealm looks up a realm name for given host names.  It uses the
++hostrealm plugin API, which includes looking for DNSSEC-assured
++``_kerberos TXT`` records under the host names if ``dnssec_lookup_realm``
++was not disabled in krb5.conf.
++
++The output contains one line for each host name, and each line a space-separated
++list of realms.  Usually, there is just one realm on a line.  Zero realms
++indicate a failure to locate one.
++
++The command starts with an emtpy validation cache, so it may take a while for
++the first query to complete.  Subsequent queries to the same or overlapping
++names will be served from the cache, and should resolve much faster.  Each
++host is looked up independently, and printed immediately.  This makes
++khostrealm suitable for testing DNSSEC performance.
++
++The program exits with value 0 only when all hosts were resolved to at least
++one realm: otherwise it exits with value 1.
++
++
++OPTIONS
++-------
++
++**-f**
++    Do not use the DNSSEC-protected method; instead use the fallback
++    method.  This may also involve iterating upward in DNS.
++
++
++ENVIRONMENT
++-----------
++
++khostrealm does not use any environment variables.
++
++
++FILES
++-----
++
++khostrealm does not use any files.
++
++
++SEE ALSO
++--------
++
++:ref:`krb5.conf(5)`
+diff --git a/src/Makefile.in b/src/Makefile.in
+index 2ebf2fb..08fb169 100644
+--- a/src/Makefile.in
++++ b/src/Makefile.in
+@@ -119,7 +119,7 @@ WINMAKEFILES=Makefile \
+ 	clients\kinit\Makefile clients\klist\Makefile \
+ 	clients\kpasswd\Makefile clients\kvno\Makefile \
+ 	clients\kcpytkt\Makefile clients\kdeltkt\Makefile \
+-	clients\kswitch\Makefile \
++	clients\kswitch\Makefile clients\khostrealm\Makefile \
+ 	include\Makefile \
+ 	lib\Makefile lib\crypto\Makefile lib\crypto\krb\Makefile \
+ 	lib\crypto\builtin\Makefile lib\crypto\builtin\aes\Makefile \
+@@ -472,6 +472,7 @@ install-windows:
+ 	copy ccapi\lib\win\srctmp\$(CCLIB).lib "$(KRB_INSTALL_DIR)\lib\."
+ 	copy ccapi\server\win\srctmp\$(OUTPRE)ccapiserver.exe "$(KRB_INSTALL_DIR)\bin\."
+ 	copy clients\kvno\$(OUTPRE)kvno.exe "$(KRB_INSTALL_DIR)\bin\."
++	copy clients\khostrealm\$(OUTPRE)kvno.exe "$(KRB_INSTALL_DIR)\bin\."
+ 	copy clients\klist\$(OUTPRE)klist.exe "$(KRB_INSTALL_DIR)\bin\."
+ 	copy clients\kinit\$(OUTPRE)kinit.exe "$(KRB_INSTALL_DIR)\bin\."
+ 	copy clients\kdestroy\$(OUTPRE)kdestroy.exe "$(KRB_INSTALL_DIR)\bin\."
+@@ -481,6 +482,7 @@ install-windows:
+ 	copy clients\kswitch\$(OUTPRE)kswitch.exe "$(KRB_INSTALL_DIR)\bin\."
+ 	$(INSTALLDBGSYMS) ccapi\server\win\srctmp\$(OUTPRE)ccapiserver.pdb "$(KRB_INSTALL_DIR)\bin\."
+ 	$(INSTALLDBGSYMS) clients\kvno\$(OUTPRE)kvno.pdb "$(KRB_INSTALL_DIR)\bin\."
++	$(INSTALLDBGSYMS) clients\khostrealm\$(OUTPRE)khostrealm.pdb "$(KRB_INSTALL_DIR)\bin\."
+ 	$(INSTALLDBGSYMS) clients\klist\$(OUTPRE)klist.pdb "$(KRB_INSTALL_DIR)\bin\."
+ 	$(INSTALLDBGSYMS) clients\kinit\$(OUTPRE)kinit.pdb "$(KRB_INSTALL_DIR)\bin\."
+ 	$(INSTALLDBGSYMS) clients\kdestroy\$(OUTPRE)kdestroy.pdb "$(KRB_INSTALL_DIR)\bin\."
+diff --git a/src/aclocal.m4 b/src/aclocal.m4
+index bd2eb48..944dede 100644
+--- a/src/aclocal.m4
++++ b/src/aclocal.m4
+@@ -1273,6 +1273,22 @@ ns_initparse ns_name_uncompress dn_skipname res_search)
+ 	  [AC_ERROR([cannot find res_nsearch or res_search])])
+     fi
+   fi
++dnl Extensions for Unbound
++  KRB5_AC_DISABLE_UNBOUND
++  AS_IF([test "x$enable_unbound_for_realm" != "xno"],[
++    # We assume that if libunbound has ub_resolve in it that we can link against it.
++    dnl WHAT? AC_CHECK_LIB(unbound, ub_resolve)
++  
++    dnl WHAT? _KRB5_AC_CHECK_UB_FUNCS(ub_ctx_create ub_ctx_delete ub_resolve ub_resolve_cleanup)
++    dnl if test $krb5_cv_func_ub_resolve = no; then
++      AC_CHECK_LIB(unbound, ub_resolve,
++        [AC_DEFINE(HAVE_UB_RESOLVE, 1,
++	  [Define to 1 if you have the `ub_resolve' function])],
++        [AC_ERROR([cannot find ub_resolve])])
++      UNBOUND_LIB=-lunbound
++      AC_SUBST(UNBOUND_LIB)
++    dnl fi
++  ])
+ ])
+ AC_DEFUN([_KRB5_AC_CHECK_RES_FUNCS],
+ [AC_FOREACH([AC_Func], [$1],
+@@ -1320,6 +1336,17 @@ AC_DEFINE(KRB5_DNS_LOOKUP, 1,[Define for DNS support of locating realms and KDCs
+ ])
+ dnl
+ dnl
++dnl KRB5_AC_DISABLE_UNBOUND
++dnl
++AC_DEFUN(KRB5_AC_DISABLE_UNBOUND, [
++  AC_ARG_ENABLE([unbound-for-realm],
++    AS_HELP_STRING([--disable-unbound-for-realm],[disable Unbound-secured DNS for Kerberos realm names]))
++  AS_IF([test "x$enable_unbound_for_realm" != "xno"],[
++    AC_DEFINE(KRB5_UNBOUND_LOOKUP_REALM,1,[Define to enable Unbound-secured DNS lookups of Kerberos realm names])
++  ])
++])
++dnl
++dnl
+ dnl Check if we need the prototype for a function - we give it a bogus 
+ dnl prototype and if it complains - then a valid prototype exists on the 
+ dnl system.
+diff --git a/src/clients/Makefile.in b/src/clients/Makefile.in
+index 4beb32a..1f7dea4 100644
+--- a/src/clients/Makefile.in
++++ b/src/clients/Makefile.in
+@@ -1,7 +1,7 @@
+ mydir=clients
+ BUILDTOP=$(REL)..
+ 
+-SUBDIRS= klist kinit kdestroy kpasswd ksu kvno kcpytkt kdeltkt kswitch
+-WINSUBDIRS= klist kinit kdestroy kpasswd kvno kcpytkt kdeltkt kswitch
++SUBDIRS= klist kinit kdestroy kpasswd ksu kvno kcpytkt kdeltkt kswitch khostrealm
++WINSUBDIRS= klist kinit kdestroy kpasswd kvno kcpytkt kdeltkt kswitch khostrealm
+ 
+ NO_OUTPRE=1
+diff --git a/src/clients/khostrealm/Makefile.in b/src/clients/khostrealm/Makefile.in
+new file mode 100644
+index 0000000..a36fc42
+--- /dev/null
++++ b/src/clients/khostrealm/Makefile.in
+@@ -0,0 +1,36 @@
++mydir=clients$(S)khostrealm
++BUILDTOP=$(REL)..$(S)..
++
++##WIN32##LOCALINCLUDES=-I$(BUILDTOP)\util\windows\
++
++SRCS=khostrealm.c
++
++##WIN32##VERSIONRC = $(BUILDTOP)\windows\version.rc
++##WIN32##RCFLAGS=$(CPPFLAGS) -I$(top_srcdir) -D_WIN32 -DRES_ONLY
++
++##WIN32##KVNO=$(OUTPRE)khostrealm.exe
++
++##WIN32##EXERES=$(KVNO:.exe=.res)
++
++##WIN32##$(EXERES): $(VERSIONRC)
++##WIN32##        $(RC) $(RCFLAGS) -DKVNO_APP -fo $@ -r $**
++
++all-unix: khostrealm
++
++##WIN32##all-windows: $(KVNO)
++
++khostrealm: khostrealm.o $(KRB5_BASE_DEPLIBS)
++	$(CC_LINK) -o $@ khostrealm.o $(KRB5_BASE_LIBS)
++
++##WIN32##$(KVNO): $(OUTPRE)khostrealm.obj $(SLIB) $(KLIB) $(CLIB) $(EXERES)
++##WIN32##	link $(EXE_LINKOPTS) /out:$@ $**
++##WIN32##	$(_VC_MANIFEST_EMBED_EXE)
++
++clean-unix::
++	$(RM) khostrealm.o khostrealm
++
++install-unix:
++	for f in khostrealm; do \
++	  $(INSTALL_PROGRAM) $$f \
++		$(DESTDIR)$(CLIENT_BINDIR)/`echo $$f|sed '$(transform)'`; \
++	done
+diff --git a/src/clients/khostrealm/deps b/src/clients/khostrealm/deps
+new file mode 100644
+index 0000000..00ea541
+--- /dev/null
++++ b/src/clients/khostrealm/deps
+@@ -0,0 +1,7 @@
++#
++# Generated makefile dependencies follow.
++#
++$(OUTPRE)khostrealm.$(OBJEXT): $(BUILDTOP)/include/autoconf.h \
++  $(BUILDTOP)/include/krb5/krb5.h $(COM_ERR_DEPS) $(top_srcdir)/include/k5-platform.h \
++  $(top_srcdir)/include/k5-thread.h $(top_srcdir)/include/krb5.h \
++  khostrealm.c
+diff --git a/src/clients/khostrealm/khostrealm.c b/src/clients/khostrealm/khostrealm.c
+new file mode 100644
+index 0000000..e7348d3
+--- /dev/null
++++ b/src/clients/khostrealm/khostrealm.c
+@@ -0,0 +1,124 @@
++/* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
++/*
++ * Copyright (C) 2016 by Rick van Rein, for ARPA2.net and SURFnet
++ *
++ * All rights reserved.
++ *
++ * Export of this software from the United States of America may require
++ * a specific license from the United States Government.  It is the
++ * responsibility of any person or organization contemplating export to
++ * obtain such a license before exporting.
++ *
++ * WITHIN THAT CONSTRAINT, permission to use, copy, modify, and
++ * distribute this software and its documentation for any purpose and
++ * without fee is hereby granted, provided that the above copyright
++ * notice appear in all copies and that both that copyright notice and
++ * this permission notice appear in supporting documentation, and that
++ * the name of FundsXpress. not be used in advertising or publicity pertaining
++ * to distribution of the software without specific, written prior
++ * permission.  FundsXpress makes no representations about the suitability of
++ * this software for any purpose.  It is provided "as is" without express
++ * or implied warranty.
++ *
++ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
++ * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
++ * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
++ */
++
++#include "k5-platform.h"
++#include <locale.h>
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
++
++#include <string.h>
++#include <stdio.h>
++
++#include <krb5.h>
++
++
++/* Lookup the realm for each host name.  Report the result on a line for each
++ * host, with an empty line when no result was found.  When not all results
++ * are found, the exit code is 1, otherwise it is 0.
++ *
++ * When multiple realms are found for one host, then they are printed with
++ * spaces to separate them, on the same line.
++ *
++ * The -f flag switches to the fallback variant of the hostrealm API.
++ */
++int main (int argc, char *argv []) {
++	int argi = 1;
++	int fallback = 0;
++	int usage = 0;
++	int exitval = 0;
++	char **realmlist = NULL;
++	int rlmi =0;
++	krb5_context ctx;
++	krb5_error_code kerrno;
++	krb5_data hdata;
++	//
++	// Check arguments
++	if ((argi < argc) && (strcmp (argv [argi], "-f") == 0)) {
++		fallback = 1;
++		argi++;
++	}
++	if (argi < argc) {
++		if (strcmp (argv [argi], "--") == 0) {
++			argi++;
++		} else if (*argv [argi] == '-') {
++			usage = 1;
++		}
++	}
++	if (argi >= argc) {
++		usage = 1;
++	}
++	if (usage) {
++		fprintf (stderr, "Usage: %s [-f] [--] host...\n", argv [0]);
++		exit (1);
++	}
++	//
++	// Open the libkrb5 context
++	if (krb5_init_context (&ctx) != 0) {
++		fprintf (stderr, "Failed to open Kerberos context\n");
++		exit (1);
++	};
++	//
++	// Perform a hostrealm lookup for each hostname
++	while (argi < argc) {
++		if (fallback) {
++			hdata.data = argv [argi];
++			hdata.length = strlen (argv [argi]);
++			kerrno = krb5_get_fallback_host_realm (ctx, &hdata, &realmlist);
++		} else {
++			kerrno = krb5_get_host_realm (ctx, argv [argi], &realmlist);
++		}
++		if (kerrno == 0) {
++			if (*realmlist == NULL) {
++				exitval = 1;
++			} else if (strcmp (*realmlist, KRB5_REFERRAL_REALM) == 0) {
++				exitval = 1;
++			} else {
++				rlmi = 0;
++				while (realmlist [rlmi] != NULL) {
++					printf ("%s%s",
++						(rlmi > 0)? " ": "",
++						realmlist [rlmi]);
++					rlmi++;
++				}
++			}
++			krb5_free_host_realm (ctx, realmlist);
++		} else {
++			exitval = 1;
++		}
++		putchar ('\n');
++		fflush (stdout);
++		realmlist = NULL;
++		rlmi = 0;
++		argi++;
++	}
++	//
++	// Cleanup and close down
++	fflush (stdout);
++	krb5_free_context (ctx);
++	exit (exitval);
++}
+diff --git a/src/config-files/krb5.conf b/src/config-files/krb5.conf
+index 9d250bf..40a01b1 100644
+--- a/src/config-files/krb5.conf
++++ b/src/config-files/krb5.conf
+@@ -1,5 +1,7 @@
+ [libdefaults]
+ 	default_realm = ATHENA.MIT.EDU
++	dns_lookup_realm = no
++	dnssec_lookup_realm = yes
+ 
+ [realms]
+ # use "kdc = ..." if realm admins haven't put SRV records into DNS
+diff --git a/src/configure.in b/src/configure.in
+index fde09a1..79c3416 100644
+--- a/src/configure.in
++++ b/src/configure.in
+@@ -1470,6 +1470,7 @@ dnl	ccapi ccapi/lib ccapi/lib/unix ccapi/server ccapi/server/unix ccapi/test
+ 
+ 	clients clients/klist clients/kinit clients/kvno
+ 	clients/kdestroy clients/kpasswd clients/ksu clients/kswitch
++	clients/khostrealm
+ 
+ 	kadmin kadmin/cli kadmin/dbutil kadmin/ktutil kadmin/server
+ 	kadmin/testing kadmin/testing/scripts kadmin/testing/util
+diff --git a/src/include/k5-int.h b/src/include/k5-int.h
+index 3cc32c3..cf97364 100644
+--- a/src/include/k5-int.h
++++ b/src/include/k5-int.h
+@@ -210,6 +210,8 @@ typedef unsigned char   u_char;
+ #define KRB5_CONF_DNS_LOOKUP_KDC               "dns_lookup_kdc"
+ #define KRB5_CONF_DNS_LOOKUP_REALM             "dns_lookup_realm"
+ #define KRB5_CONF_DNS_URI_LOOKUP               "dns_uri_lookup"
++#define KRB5_CONF_DNSSEC_LOOKUP_REALM          "dnssec_lookup_realm"
++#define KRB5_CONF_DNSSEC_TRUST_ANCHOR_UNBOUND  "dnssec_trust_anchor_unbound"
+ #define KRB5_CONF_DOMAIN_REALM                 "domain_realm"
+ #define KRB5_CONF_ENABLE_ONLY                  "enable_only"
+ #define KRB5_CONF_ERR_FMT                      "err_fmt"
+diff --git a/src/lib/krb5/Makefile.in b/src/lib/krb5/Makefile.in
+index 1b8f2d7..9595447 100644
+--- a/src/lib/krb5/Makefile.in
++++ b/src/lib/krb5/Makefile.in
+@@ -56,7 +56,7 @@ RELDIR=krb5
+ SHLIB_EXPDEPS = \
+ 	$(TOPLIBD)/libk5crypto$(SHLIBEXT) \
+ 	$(COM_ERR_DEPLIB) $(SUPPORT_DEPLIB)
+-SHLIB_EXPLIBS=-lk5crypto -lcom_err $(SUPPORT_LIB) @GEN_LIB@ $(LIBS)
++SHLIB_EXPLIBS=-lk5crypto -lcom_err $(SUPPORT_LIB) @GEN_LIB@ @UNBOUND_LIB@ $(LIBS)
+ 
+ all-unix: all-liblinks
+ 
+diff --git a/src/lib/krb5/os/Makefile.in b/src/lib/krb5/os/Makefile.in
+index efa82e2..1f02329 100644
+--- a/src/lib/krb5/os/Makefile.in
++++ b/src/lib/krb5/os/Makefile.in
+@@ -28,6 +28,7 @@ STLIBOBJS= \
+ 	hostrealm.o	\
+ 	hostrealm_dns.o \
+ 	hostrealm_domain.o \
++	hostrealm_unbound.o \
+ 	hostrealm_profile.o \
+ 	hostrealm_registry.o \
+ 	init_os_ctx.o	\
+@@ -75,6 +76,7 @@ OBJS= \
+ 	$(OUTPRE)hostrealm.$(OBJEXT)	\
+ 	$(OUTPRE)hostrealm_dns.$(OBJEXT) \
+ 	$(OUTPRE)hostrealm_domain.$(OBJEXT) \
++	$(OUTPRE)hostrealm_unbound.$(OBJEXT) \
+ 	$(OUTPRE)hostrealm_profile.$(OBJEXT) \
+ 	$(OUTPRE)hostrealm_registry.$(OBJEXT) \
+ 	$(OUTPRE)init_os_ctx.$(OBJEXT)	\
+@@ -122,6 +124,7 @@ SRCS= \
+ 	$(srcdir)/hostrealm.c	\
+ 	$(srcdir)/hostrealm_dns.c \
+ 	$(srcdir)/hostrealm_domain.c \
++	$(srcdir)/hostrealm_unbound.c \
+ 	$(srcdir)/hostrealm_profile.c \
+ 	$(srcdir)/hostrealm_registry.c \
+ 	$(srcdir)/init_os_ctx.c	\
+diff --git a/src/lib/krb5/os/deps b/src/lib/krb5/os/deps
+index c09087d..a9ce490 100644
+--- a/src/lib/krb5/os/deps
++++ b/src/lib/krb5/os/deps
+@@ -176,6 +176,18 @@ hostrealm_domain.so hostrealm_domain.po $(OUTPRE)hostrealm_domain.$(OBJEXT): \
+   $(top_srcdir)/include/krb5/locate_plugin.h $(top_srcdir)/include/krb5/plugin.h \
+   $(top_srcdir)/include/port-sockets.h $(top_srcdir)/include/socket-utils.h \
+   hostrealm_domain.c os-proto.h
++hostrealm_unbound.so hostrealm_unbound.po $(OUTPRE)hostrealm_unbound.$(OBJEXT): \
++  $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/krb5/krb5.h \
++  $(BUILDTOP)/include/osconf.h $(BUILDTOP)/include/profile.h \
++  $(COM_ERR_DEPS) $(top_srcdir)/include/k5-buf.h $(top_srcdir)/include/k5-err.h \
++  $(top_srcdir)/include/k5-gmt_mktime.h $(top_srcdir)/include/k5-int-pkinit.h \
++  $(top_srcdir)/include/k5-int.h $(top_srcdir)/include/k5-platform.h \
++  $(top_srcdir)/include/k5-plugin.h $(top_srcdir)/include/k5-thread.h \
++  $(top_srcdir)/include/k5-trace.h $(top_srcdir)/include/krb5.h \
++  $(top_srcdir)/include/krb5/authdata_plugin.h $(top_srcdir)/include/krb5/hostrealm_plugin.h \
++  $(top_srcdir)/include/krb5/locate_plugin.h $(top_srcdir)/include/krb5/plugin.h \
++  $(top_srcdir)/include/port-sockets.h $(top_srcdir)/include/socket-utils.h \
++  dnsglue.h hostrealm_unbound.c os-proto.h
+ hostrealm_profile.so hostrealm_profile.po $(OUTPRE)hostrealm_profile.$(OBJEXT): \
+   $(BUILDTOP)/include/autoconf.h $(BUILDTOP)/include/krb5/krb5.h \
+   $(BUILDTOP)/include/osconf.h $(BUILDTOP)/include/profile.h \
+diff --git a/src/lib/krb5/os/hostrealm.c b/src/lib/krb5/os/hostrealm.c
+index 78d6c5d..5394bc1 100644
+--- a/src/lib/krb5/os/hostrealm.c
++++ b/src/lib/krb5/os/hostrealm.c
+@@ -82,6 +82,9 @@ get_modules(krb5_context context, krb5_plugin_initvt_fn **modules_out)
+     ret = k5_plugin_register(context, intf, "profile",
+                              hostrealm_profile_initvt);
+     if (ret)
++	return ret;
++    ret = k5_plugin_register(context, intf, "unbound", hostrealm_unbound_initvt);
++    if (ret)
+         return ret;
+     ret = k5_plugin_register(context, intf, "dns", hostrealm_dns_initvt);
+     if (ret)
+diff --git a/src/lib/krb5/os/hostrealm_unbound.c b/src/lib/krb5/os/hostrealm_unbound.c
+new file mode 100644
+index 0000000..34d3dc7
+--- /dev/null
++++ b/src/lib/krb5/os/hostrealm_unbound.c
+@@ -0,0 +1,249 @@
++/* -*- mode: c; c-basic-offset: 4; indent-tabs-mode: nil -*- */
++/* lib/krb5/os/hostream_unbound.c - Unbound security-assuring hostrealm module */
++/*
++ * Copyright (C)2016 Rick van Rein, for SURFnet and the ARPA2.net project.
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions
++ * are met:
++ *
++ * * Redistributions of source code must retain the above copyright
++ *   notice, this list of conditions and the following disclaimer.
++ *
++ * * Redistributions in binary form must reproduce the above copyright
++ *   notice, this list of conditions and the following disclaimer in
++ *   the documentation and/or other materials provided with the
++ *   distribution.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
++ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
++ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
++ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
++ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
++ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
++ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
++ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
++ * OF THE POSSIBILITY OF SUCH DAMAGE.
++ */
++
++/*
++ * This file implements the built-in unbound module for the hostrealm interface,
++ * which uses TXT records in the DNS to securely determine the realm of a host.
++ * Unlike the dns builtin module, it uses Unbound's capability of assuring a
++ * path from a configured trust anchor (usually the DNS root) down to the data
++ * reported.  Also unlike the dns builtin module, it will not iterate to parent
++ * names, because that would risk crossing a zone apex (for which the IETF
++ * has not agreed on a standard detection method) to realm under separate, and
++ * therefore potentially rogue, administrative control.
++ *
++ * This module implements draft-vanrein-dnstxt-krb1.
++ */
++
++#include "k5-int.h"
++#include "os-proto.h"
++#include <krb5/hostrealm_plugin.h>
++
++#ifdef KRB5_UNBOUND_LOOKUP_REALM
++#include "dnsglue.h"
++
++#include <unbound.h>
++
++static struct ub_ctx *ubctx = NULL;
++
++/* Initialise module data. */
++static krb5_error_code
++unbound_init(krb5_context context, krb5_hostrealm_moddata *data) {
++    krb5_error_code ret;
++    char *tafile = NULL;
++    assert (ubctx == NULL);
++    ubctx = ub_ctx_create ();
++    if (ubctx == NULL) {
++	return KRB5KDC_ERR_INVALID_SIG;
++    }
++    ret = profile_get_string(context->profile,
++				KRB5_CONF_LIBDEFAULTS,
++				KRB5_CONF_DNSSEC_TRUST_ANCHOR_UNBOUND,
++				NULL,
++				"/etc/unbound/root.key",
++				&tafile);
++    if (ret != 0)
++	return ret;
++    if (ub_ctx_add_ta_autr (ubctx, tafile))
++	return KRB5KDC_ERR_INVALID_SIG;
++    return 0;
++}
++
++/* Release resources used by module data. */
++static void
++unbound_fini(krb5_context context, krb5_hostrealm_moddata data) {
++    ub_ctx_delete (ubctx);
++    ubctx = NULL;
++}
++
++static void
++unbound_free_realmlist(krb5_context context, krb5_hostrealm_moddata data,
++                   char **list)
++{
++    int ans;
++    if (*list == NULL)
++	return;
++    for (ans=0; list[ans] != NULL; ans++) {
++	free (list [ans]);
++    }
++    free (list);
++}
++
++static krb5_error_code
++unbound_do_resolve (krb5_context context, krb5_hostrealm_moddata data,
++			const char *host, char ***realms_out, int insist_dnssec)
++{
++    krb5_error_code ret = KRB5_PLUGIN_NO_HANDLE;
++    int ubrv = -1;
++    struct ub_result *ubres = NULL;
++    int ans;
++    char **realms_int = NULL;
++    char _kerberos_host [11 + strlen (host)];
++
++    *realms_out = NULL;
++
++    /* Prefix the _kerberos label and perform an IN TXT query */
++    strcpy (_kerberos_host, "_kerberos.");
++    strcat (_kerberos_host, host);
++    ubrv = ub_resolve (ubctx,
++			_kerberos_host, 16 /*TXT*/, 1 /*IN*/,
++			&ubres);
++    if (ubrv != 0)
++	goto cleanup;
++
++    /* Interpret the security status of the result */
++    if (ubres->bogus)
++	goto cleanup;
++    if (insist_dnssec && !ubres->secure) {
++	ret = KRB5KDC_ERR_INVALID_SIG;
++	goto cleanup;
++    }
++    ret = KRB5_ERR_HOST_REALM_UNKNOWN;
++    if (ubres->nxdomain)
++	goto cleanup;
++    if (!ubres->havedata)
++	goto cleanup;
++    ret = KRB5_REALM_CANT_RESOLVE;
++    if (ubres->qtype != 16 /*TXT*/)
++	goto cleanup;
++    if (ubres->qclass != 1 /*IN*/)
++	goto cleanup;
++
++    /* Count the number of entries to facilitate */
++    for (ans = 0; ubres->data [ans] != NULL; ans++)
++	;
++    realms_int = calloc (ans + 1, sizeof (char *));
++    if (realms_int == NULL)
++	goto cleanup;
++
++    /* Fill the response structure with the TXT records' first strings */
++    /* Treating binary data as string; could check internal \0 and UTF-8 mistakes */
++    for (ans = 0; ubres->data [ans] != NULL; ans++) {
++	int anslen = (int) (uint8_t) ubres->data [ans][0];
++	if (ubres->len [ans] < anslen + 1)
++	    goto cleanup;
++	realms_int [ans] = malloc (anslen + 1);
++	memcpy (realms_int [ans], &ubres->data [ans][1], anslen);
++	realms_int [ans][anslen] = '\0';
++    }
++    realms_int [ans] = NULL;
++
++    /* Return the (now properly constructed) realm string list */
++    *realms_out = realms_int;
++    realms_int = NULL;
++    ret = 0;
++
++    /* Cleanup any half-done work and return a result */
++cleanup:
++    if (ubres != NULL)
++	ub_resolve_free (ubres);
++    if (realms_int != NULL)
++	unbound_free_realmlist (context, data, realms_int);
++    return ret;
++}
++
++/* For host_realm lookup, insist on DNSSEC because the alternative is unsafe.
++ * This means that opt-out from DNSSEC will not be tolerated.
++ */
++static krb5_error_code
++unbound_host_realm(krb5_context context, krb5_hostrealm_moddata data,
++                   const char *host, char ***realms_out)
++{
++    if (!_krb5_use_dnssec_realm(context) || k5_is_numeric_address(host))
++        return KRB5_PLUGIN_NO_HANDLE;
++    return unbound_do_resolve (context, data, host, realms_out, 1);
++}
++
++/* The fallback method may be insecure, so we tolerate opt-out from DNSSEC.
++ */
++static krb5_error_code
++unbound_fallback_realm(krb5_context context, krb5_hostrealm_moddata data,
++                   const char *host, char ***realms_out)
++{
++    if (!_krb5_use_dnssec_realm(context) || k5_is_numeric_address(host))
++        return KRB5_PLUGIN_NO_HANDLE;
++    return unbound_do_resolve (context, data, host, realms_out, 0);
++}
++
++/* The default realm is our local responsibility; we tolerate opt-out from DNSSEC.
++ */
++static krb5_error_code
++unbound_default_realm(krb5_context context, krb5_hostrealm_moddata data,
++                                     char ***realms_out)
++{
++    krb5_error_code ret;
++    char host[MAXDNAME + 1];
++
++    *realms_out = NULL;
++    if (!_krb5_use_dnssec_realm(context))
++        return KRB5_PLUGIN_NO_HANDLE;
++
++    ret = krb5int_get_fq_local_hostname(host, sizeof(host));
++    if (ret != 0)
++        return ret;
++
++    return unbound_do_resolve (context, data, host, realms_out, 0);
++}
++
++krb5_error_code
++hostrealm_unbound_initvt(krb5_context context, int maj_ver, int min_ver,
++                     krb5_plugin_vtable vtable)
++{
++    krb5_hostrealm_vtable vt = (krb5_hostrealm_vtable)vtable;
++
++    if (maj_ver != 1)
++	return KRB5_PLUGIN_VER_NOTSUPP;
++
++    if (min_ver >= 1) {
++	vt->name = "unbound";
++	vt->init = unbound_init;
++	vt->fini = unbound_fini;
++	vt->host_realm = unbound_host_realm;
++	vt->fallback_realm = unbound_fallback_realm;
++	vt->default_realm = unbound_default_realm;
++	vt->free_list = unbound_free_realmlist;
++    }
++    return 0;
++}
++
++#else /* KRB5_UNBOUND_LOOKUP_REALM */
++
++krb5_error_code
++hostrealm_unbound_initvt(krb5_context context, int maj_ver, int min_ver,
++                     krb5_plugin_vtable vtable)
++{
++    krb5_hostrealm_vtable vt = (krb5_hostrealm_vtable)vtable;
++
++    vt->name = "unbound";
++    return 0;
++}
++
++#endif /* KRB5_UNBOUND_LOOKUP_REALM */
+diff --git a/src/lib/krb5/os/locate_kdc.c b/src/lib/krb5/os/locate_kdc.c
+index 014ec6e..2fa7fe1 100644
+--- a/src/lib/krb5/os/locate_kdc.c
++++ b/src/lib/krb5/os/locate_kdc.c
+@@ -40,6 +40,7 @@
+ #include "dnsglue.h"
+ 
+ #define DEFAULT_LOOKUP_KDC 1
++#define DEFAULT_LOOKUP_REALM_SECURE 1
+ #if KRB5_DNS_LOOKUP_REALM
+ #define DEFAULT_LOOKUP_REALM 1
+ #else
+@@ -97,6 +98,13 @@ _krb5_use_dns_realm(krb5_context context)
+                          DEFAULT_LOOKUP_REALM);
+ }
+ 
++int
++_krb5_use_dnssec_realm(krb5_context context)
++{
++    return maybe_use_dns(context, KRB5_CONF_DNSSEC_LOOKUP_REALM,
++                         DEFAULT_LOOKUP_REALM_SECURE);
++}
++
+ #endif /* KRB5_DNS_LOOKUP */
+ 
+ /* Free up everything pointed to by the serverlist structure, but don't
+diff --git a/src/lib/krb5/os/os-proto.h b/src/lib/krb5/os/os-proto.h
+index 7cf5a48..611b8d9 100644
+--- a/src/lib/krb5/os/os-proto.h
++++ b/src/lib/krb5/os/os-proto.h
+@@ -113,6 +113,7 @@ krb5_error_code krb5_make_full_ipaddr(krb5_context,
+ krb5_error_code k5_try_realm_txt_rr(krb5_context context, const char *prefix,
+                                     const char *name, char **realm);
+ 
++int _krb5_use_dnssec_realm (krb5_context);
+ int _krb5_use_dns_realm (krb5_context);
+ int _krb5_use_dns_kdc (krb5_context);
+ int _krb5_conf_boolean (const char *);
+@@ -175,6 +176,8 @@ krb5_error_code hostrealm_profile_initvt(krb5_context context, int maj_ver,
+ krb5_error_code hostrealm_registry_initvt(krb5_context context, int maj_ver,
+                                           int min_ver,
+                                           krb5_plugin_vtable vtable);
++krb5_error_code hostrealm_unbound_initvt(krb5_context context, int maj_ver,
++                                         int min_ver, krb5_plugin_vtable vtable);
+ krb5_error_code hostrealm_dns_initvt(krb5_context context, int maj_ver,
+                                      int min_ver, krb5_plugin_vtable vtable);
+ krb5_error_code hostrealm_domain_initvt(krb5_context context, int maj_ver,
+diff --git a/src/man/Makefile.in b/src/man/Makefile.in
+index 4bc670b..abebace 100644
+--- a/src/man/Makefile.in
++++ b/src/man/Makefile.in
+@@ -15,7 +15,7 @@ MANSUBS=k5identity.sub k5login.sub k5srvutil.sub kadm5.acl.sub kadmin.sub \
+ 	kadmind.sub kdb5_ldap_util.sub kdb5_util.sub kdc.conf.sub \
+ 	kdestroy.sub kinit.sub klist.sub kpasswd.sub kprop.sub kpropd.sub \
+ 	kproplog.sub krb5.conf.sub krb5-config.sub krb5kdc.sub ksu.sub \
+-	kswitch.sub ktutil.sub kvno.sub sclient.sub sserver.sub
++	kswitch.sub ktutil.sub kvno.sub khostrealm.sub sclient.sub sserver.sub
+ 
+ docsrc=$(top_srcdir)/../doc
+ 
+@@ -72,6 +72,7 @@ install-clientman:
+ 	$(INSTALL_DATA) kswitch.sub $(DESTDIR)$(CLIENT_MANDIR)/kswitch.1
+ 	$(INSTALL_DATA) ktutil.sub $(DESTDIR)$(CLIENT_MANDIR)/ktutil.1
+ 	$(INSTALL_DATA) kvno.sub $(DESTDIR)$(CLIENT_MANDIR)/kvno.1
++	$(INSTALL_DATA) khostrealm.sub $(DESTDIR)$(CLIENT_MANDIR)/khostrealm.1
+ 	$(INSTALL_DATA) sclient.sub $(DESTDIR)$(CLIENT_MANDIR)/sclient.1
+ 
+ install-fileman:
+@@ -112,6 +113,7 @@ install-clientcat:
+ 	$(GROFF_MAN) kswitch.sub > $(DESTDIR)$(CLIENT_CATDIR)/kswitch.1
+ 	$(GROFF_MAN) ktutil.sub > $(DESTDIR)$(CLIENT_CATDIR)/ktutil.1
+ 	$(GROFF_MAN) kvno.sub > $(DESTDIR)$(CLIENT_CATDIR)/kvno.1
++	$(GROFF_MAN) khostrealm.sub > $(DESTDIR)$(CLIENT_CATDIR)/khostrealm.1
+ 	$(GROFF_MAN) sclient.sub > $(DESTDIR)$(CLIENT_CATDIR)/sclient.1
+ 
+ install-filecat:
+diff --git a/src/man/README b/src/man/README
+index 3e81deb..319b319 100644
+--- a/src/man/README
++++ b/src/man/README
+@@ -1,4 +1,4 @@
+ The manual page files in this directory are generated from
+ reStructuredText format from doc/.  Edits made here will not
+-survive a run of "make rstman" from the doc directory, except for the
++survive a run of "make man" in the src/man directory, except for the
+ files that implement "shadow manpages".
+diff --git a/src/man/khostrealm.man b/src/man/khostrealm.man
+new file mode 100644
+index 0000000..2ff70f3
+--- /dev/null
++++ b/src/man/khostrealm.man
+@@ -0,0 +1,73 @@
++.TH "KHOSTREALM" "1" " " "1.15" "MIT Kerberos"
++.SH NAME
++khostrealm \- lookup realm for a host name
++.
++.nr rst2man-indent-level 0
++.
++.de1 rstReportMargin
++\\$1 \\n[an-margin]
++level \\n[rst2man-indent-level]
++level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
++-
++\\n[rst2man-indent0]
++\\n[rst2man-indent1]
++\\n[rst2man-indent2]
++..
++.de1 INDENT
++.\" .rstReportMargin pre:
++. RS \\$1
++. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
++. nr rst2man-indent-level +1
++.\" .rstReportMargin post:
++..
++.de UNINDENT
++. RE
++.\" indent \\n[an-margin]
++.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
++.nr rst2man-indent-level -1
++.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
++.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
++..
++.\" Man page generated from reStructuredText.
++.
++.SH SYNOPSIS
++.sp
++\fBkhostrealm\fP
++[\fB\-f\fP]
++[\fB\-\-\fP]
++\fIhost1 host2\fP ...
++.SH DESCRIPTION
++.sp
++khostrealm looks up a realm name for given host names.  It uses the
++hostrealm plugin API, which includes looking for DNSSEC\-assured
++\fB_kerberos TXT\fP records under the host names if \fBdnssec_lookup_realm\fP
++was not disabled in krb5.conf.
++.sp
++The output contains one line for each host name, and each line a space\-separated
++list of realms.  Usually, there is just one realm on a line.  Zero realms
++indicate a failure to locate one.
++.sp
++The program exits with value 0 only when all hosts were resolved to at least
++one realm: otherwise it exits with value 1.
++.SH OPTIONS
++.INDENT 0.0
++.TP
++.B \fB\-f\fP
++Do not use the DNSSEC\-protected method; instead use the fallback
++method.  This may also involve iterating upward in DNS.
++.UNINDENT
++.SH ENVIRONMENT
++.sp
++khostrealm does not use any environment variables.
++.SH FILES
++.sp
++khostrealm does not use any files.
++.SH SEE ALSO
++.sp
++\fIkrb5.conf(5)\fP
++.SH AUTHOR
++MIT
++.SH COPYRIGHT
++1985-2016, MIT
++.\" Generated by docutils manpage writer.
++.
