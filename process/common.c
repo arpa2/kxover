@@ -15,12 +15,16 @@
 #include "kxover_client.h"
 #undef TRANS_INDEX_cache_exp_timer
 #undef TRANS_INDEX_signature_error
-#undef TRANS_INDEX_got_krb_SRV
-#undef TRANS_INDEX_dnssec_req_krb_SRV
-#undef TRANS_INDEX_got_kdc_TLSA
+#undef TRANS_INDEX_dnssec_req_SRV
+#undef TRANS_INDEX_got_SRV
+#undef TRANS_INDEX_failed_SRV
+#undef TRANS_INDEX_dnssec_req_TLSA
+#undef TRANS_INDEX_got_TLSA
+#undef TRANS_INDEX_failed_TLSA
 #undef TRANS_INDEX_signature_good
-#undef TRANS_INDEX_failed_krb_SRV
 #undef TRANS_INDEX_successfulEnd
+#undef TRANS_INDEX_ecdhe2krbtgt
+#undef TRANS_INDEX_store_krbtgt_kdb
 #undef TRANS_INIT_cache_exp_timer
 #undef TRANS_INIT_signature_error
 #undef TRANS_INIT_signature_good
@@ -28,11 +32,15 @@
 #include "kxover_server.h"
 #undef TRANS_INDEX_cache_exp_timer
 #undef TRANS_INDEX_signature_error
-#undef TRANS_INDEX_got_krb_SRV
-#undef TRANS_INDEX_dnssec_req_krb_SRV
-#undef TRANS_INDEX_got_kdc_TLSA
+#undef TRANS_INDEX_dnssec_req_SRV
+#undef TRANS_INDEX_got_SRV
+#undef TRANS_INDEX_failed_SRV
+#undef TRANS_INDEX_dnssec_req_TLSA
+#undef TRANS_INDEX_got_TLSA
+#undef TRANS_INDEX_failed_TLSA
 #undef TRANS_INDEX_signature_good
-#undef TRANS_INDEX_failed_krb_SRV
+#undef TRANS_INDEX_ecdhe2krbtgt
+#undef TRANS_INDEX_store_krbtgt_kdb
 #undef TRANS_INDEX_successfulEnd
 #undef TRANS_INIT_cache_exp_timer
 #undef TRANS_INIT_signature_error
@@ -40,37 +48,9 @@
 
 
 /* This is an elementary request-sending transition, in this case to request
- * a _kerberos TXT record for a server hostname with DNSSEC protection.
- */
-trans_retcode_t trans_action_dnssec_req_krb_TXT (
-				PARMDEF_COMMA (pnc)
-				transref_t tr,
-				time_t *nowp,
-				void *opt_evdata) {
-	//TODO// Request TXT record with DNSSEC assurance, report TRANS_SUCCESS
-	return TRANS_FAILURE;
-}
-
-/* This is an event-handling transition, reporting on successful reception
- * of a _kerberos TXT record for a server hostname with DNSSEC protection.
- */
-trans_retcode_t trans_action_got_krb_TXT (
-				PARMDEF_COMMA (pnc)
-				transref_t tr,
-				time_t *nowp,
-				void *opt_evdata) {
-	if (opt_evdata == NULL) {
-		/* Put off the scheduler, and wait for the event to arrive */
-		return TRANS_MAXDELAY;
-	}
-	//TODO// Process event input
-	return TRANS_FAILURE;
-}
-
-/* This is an elementary request-sending transition, in this case to request
  * an SRV record for the KDC with DNSSEC protection.
  */
-trans_retcode_t trans_action_dnssec_req_krb_SRV (
+trans_retcode_t trans_action_dnssec_req_SRV (
 				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
@@ -82,7 +62,7 @@ trans_retcode_t trans_action_dnssec_req_krb_SRV (
 /* This is an event-handling transition, reporting on successful reception
  * of an SRV record for the KDC with DNSSEC protection.
  */
-trans_retcode_t trans_action_got_krb_SRV (
+trans_retcode_t trans_action_got_SRV (
 				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
@@ -95,10 +75,21 @@ trans_retcode_t trans_action_got_krb_SRV (
 	return TRANS_FAILURE;
 }
 
+/* Process a failure to obtain the client's SRV record securely.
+ */
+trans_retcode_t trans_action_failed_SRV (
+				PARMDEF_COMMA (pnc)
+				transref_t tr,
+				time_t *nowp,
+				void *opt_evdata) {
+	//TODO// Implement this function
+	return TRANS_FAILURE;
+}
+
 /* This is an elementary request-sending transition, in this case to request
  * a TLSA record for the KDC's SRV information with DNSSEC protection.
  */
-trans_retcode_t trans_action_dnssec_req_kdc_TLSA (
+trans_retcode_t trans_action_dnssec_req_TLSA (
 				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
@@ -110,7 +101,7 @@ trans_retcode_t trans_action_dnssec_req_kdc_TLSA (
 /* This is an event-handling transition, reporting on successful reception
  * of a TLSA record for the KDC's SRV information with DNSSEC protection.
  */
-trans_retcode_t trans_action_got_kdc_TLSA (
+trans_retcode_t trans_action_got_TLSA (
 				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
@@ -144,6 +135,30 @@ trans_retcode_t trans_action_signature_error (
 				time_t *nowp,
 				void *opt_evdata) {
 	//TODO// Detect signature validation errors, report as TRANS_SUCCESS
+	return TRANS_FAILURE;
+}
+
+/* Use the negotiated and mutually validated ECDHE exchange to construct a
+ * krbtgt ticket for realm crossover from the client realm to the service realm.
+ */
+trans_retcode_t trans_action_ecdhe2krbtgt (
+				PARMDEF_COMMA (pnc)
+				transref_t tr,
+				time_t *nowp,
+				void *opt_evdata) {
+	//TODO// Implement this function
+	return TRANS_FAILURE;
+}
+
+/* Store a constructed krbtgt in the generic kdb layer, making it usable
+ * to the KDC.
+ */
+trans_retcode_t trans_action_store_krbtgt_kdb (
+				PARMDEF_COMMA (pnc)
+				transref_t tr,
+				time_t *nowp,
+				void *opt_evdata) {
+	//TODO// Implement this function
 	return TRANS_FAILURE;
 }
 

@@ -148,45 +148,45 @@
 					<position x="490" y="50"/>
 				</graphics>
 			</place>
-			<transition id="receive_KX_request">
+			<transition id="recv_KX_req">
 				<name>
 					<graphics>
-						<offset x="30" y="23"/>
+						<offset x="43" y="23"/>
 					</graphics>
-					<text>receive_KX_request</text>
+					<text>recv_KX_req</text>
 				</name>
 				<graphics>
 					<position x="70" y="50"/>
 				</graphics>
 			</transition>
-			<transition id="dnssec_req_krb_SRV">
+			<transition id="dnssec_req_SRV">
 				<name>
 					<graphics>
-						<offset x="148" y="23"/>
+						<offset x="157" y="23"/>
 					</graphics>
-					<text>dnssec_req_krb_SRV</text>
+					<text>dnssec_req_SRV</text>
 				</name>
 				<graphics>
 					<position x="190" y="50"/>
 				</graphics>
 			</transition>
-			<transition id="got_krb_SRV">
+			<transition id="got_SRV">
 				<name>
 					<graphics>
-						<offset x="283" y="23"/>
+						<offset x="291" y="23"/>
 					</graphics>
-					<text>got_krb_SRV</text>
+					<text>got_SRV</text>
 				</name>
 				<graphics>
 					<position x="310" y="50"/>
 				</graphics>
 			</transition>
-			<transition id="got_kdc_TLSA">
+			<transition id="got_TLSA">
 				<name>
 					<graphics>
-						<offset x="519" y="23"/>
+						<offset x="528" y="23"/>
 					</graphics>
-					<text>got_kdc_TLSA</text>
+					<text>got_TLSA</text>
 				</name>
 				<graphics>
 					<position x="550" y="50"/>
@@ -214,12 +214,12 @@
 					<position x="610" y="170"/>
 				</graphics>
 			</transition>
-			<transition id="respond_failed">
+			<transition id="send_KX_failed">
 				<name>
 					<graphics>
-						<offset x="280" y="143"/>
+						<offset x="277" y="143"/>
 					</graphics>
-					<text>respond_failed</text>
+					<text>send_KX_failed</text>
 				</name>
 				<graphics>
 					<position x="310" y="170"/>
@@ -236,34 +236,34 @@
 					<position x="190" y="170"/>
 				</graphics>
 			</transition>
-			<transition id="generate_response">
+			<transition id="ecdhe2krbtgt">
 				<name>
 					<graphics>
-						<offset x="753" y="23"/>
+						<offset x="765" y="23"/>
 					</graphics>
-					<text>generate_response</text>
+					<text>ecdhe2krbtgt</text>
 				</name>
 				<graphics>
 					<position x="790" y="50"/>
 				</graphics>
 			</transition>
-			<transition id="store_krbtgt">
+			<transition id="store_krbtgt_kdb">
 				<name>
 					<graphics>
-						<offset x="885" y="23"/>
+						<offset x="876" y="23"/>
 					</graphics>
-					<text>store_krbtgt</text>
+					<text>store_krbtgt_kdb</text>
 				</name>
 				<graphics>
 					<position x="910" y="50"/>
 				</graphics>
 			</transition>
-			<transition id="send_KX_response">
+			<transition id="send_KX_resp">
 				<name>
 					<graphics>
-						<offset x="991" y="23"/>
+						<offset x="1000" y="23"/>
 					</graphics>
-					<text>send_KX_response</text>
+					<text>send_KX_resp</text>
 				</name>
 				<graphics>
 					<position x="1030" y="50"/>
@@ -291,61 +291,61 @@
 					<position x="910" y="170"/>
 				</graphics>
 			</transition>
-			<transition id="remove_oldest">
+			<transition id="remove_shortest">
 				<name>
 					<graphics>
-						<offset x="780" y="103"/>
+						<offset x="776" y="103"/>
 					</graphics>
-					<text>remove_oldest</text>
+					<text>remove_shortest</text>
 				</name>
 				<graphics>
 					<position x="850" y="110"/>
 				</graphics>
 			</transition>
-			<transition id="dnssec_req_kdc_TLSA">
+			<transition id="dnssec_req_TLSA">
 				<name>
 					<graphics>
-						<offset x="385" y="23"/>
+						<offset x="394" y="23"/>
 					</graphics>
-					<text>dnssec_req_kdc_TLSA</text>
+					<text>dnssec_req_TLSA</text>
 				</name>
 				<graphics>
 					<position x="430" y="50"/>
 				</graphics>
 			</transition>
-			<transition id="failed_krb_SRV">
+			<transition id="failed_SRV">
 				<name>
 					<graphics>
-						<offset x="178" y="103"/>
+						<offset x="187" y="103"/>
 					</graphics>
-					<text>failed_krb_SRV</text>
+					<text>failed_SRV</text>
 				</name>
 				<graphics>
 					<position x="250" y="110"/>
 				</graphics>
 			</transition>
-			<transition id="failed_kdc_TLSA">
+			<transition id="failed_TLSA">
 				<name>
 					<graphics>
-						<offset x="500" y="103"/>
+						<offset x="509" y="103"/>
 					</graphics>
-					<text>failed_kdc_TLSA</text>
+					<text>failed_TLSA</text>
 				</name>
 				<graphics>
 					<position x="490" y="110"/>
 				</graphics>
 			</transition>
-			<arc id="id1" source="receive_KX_request" target="want_kdc">
+			<arc id="id1" source="recv_KX_req" target="want_kdc">
 			</arc>
-			<arc id="id2" source="want_kdc" target="dnssec_req_krb_SRV">
+			<arc id="id2" source="want_kdc" target="dnssec_req_SRV">
 			</arc>
-			<arc id="id3" source="dnssec_req_krb_SRV" target="lookup_kdc">
+			<arc id="id3" source="dnssec_req_SRV" target="lookup_kdc">
 			</arc>
-			<arc id="id4" source="lookup_kdc" target="got_krb_SRV">
+			<arc id="id4" source="lookup_kdc" target="got_SRV">
 			</arc>
-			<arc id="id5" source="got_krb_SRV" target="want_cert">
+			<arc id="id5" source="got_SRV" target="want_cert">
 			</arc>
-			<arc id="id6" source="got_kdc_TLSA" target="keyed_remote">
+			<arc id="id6" source="got_TLSA" target="keyed_remote">
 			</arc>
 			<arc id="id7" source="keyed_remote" target="signature_good">
 			</arc>
@@ -353,9 +353,9 @@
 			</arc>
 			<arc id="id9" source="signature_error" target="failed">
 			</arc>
-			<arc id="id10" source="failed" target="respond_failed">
+			<arc id="id10" source="failed" target="send_KX_failed">
 			</arc>
-			<arc id="id11" source="respond_failed" target="failedCached">
+			<arc id="id11" source="send_KX_failed" target="failedCached">
 			</arc>
 			<arc id="id12" source="failedCached" target="cache_exp_timer">
 			</arc>
@@ -363,51 +363,51 @@
 			</arc>
 			<arc id="id14" source="signature_good" target="welcome">
 			</arc>
-			<arc id="id15" source="welcome" target="generate_response">
+			<arc id="id15" source="welcome" target="ecdhe2krbtgt">
 			</arc>
-			<arc id="id16" source="generate_response" target="building_krbtgt">
+			<arc id="id16" source="ecdhe2krbtgt" target="building_krbtgt">
 			</arc>
-			<arc id="id17" source="building_krbtgt" target="store_krbtgt">
+			<arc id="id17" source="building_krbtgt" target="store_krbtgt_kdb">
 			</arc>
-			<arc id="id18" source="store_krbtgt" target="ready_to_send">
+			<arc id="id18" source="store_krbtgt_kdb" target="ready_to_send">
 			</arc>
-			<arc id="id19" source="ready_to_send" target="send_KX_response">
+			<arc id="id19" source="ready_to_send" target="send_KX_resp">
 			</arc>
-			<arc id="id20" source="send_KX_response" target="success">
+			<arc id="id20" source="send_KX_resp" target="success">
 			</arc>
 			<arc id="id21" source="success" target="successfulEnd">
 			</arc>
-			<arc id="id22" source="store_krbtgt" target="have_krbtgt">
+			<arc id="id22" source="store_krbtgt_kdb" target="have_krbtgt">
 			</arc>
 			<arc id="id23" source="have_krbtgt" target="expiration_timer">
 			</arc>
-			<arc id="id24" source="have_krbtgt" target="remove_oldest">
+			<arc id="id24" source="have_krbtgt" target="remove_shortest">
 				<inscription>
 					<text>3</text>
 				</inscription>
 			</arc>
-			<arc id="id25" source="remove_oldest" target="have_krbtgt">
+			<arc id="id25" source="remove_shortest" target="have_krbtgt">
 				<inscription>
 					<text>2</text>
 				</inscription>
 			</arc>
-			<arc id="id26" source="want_cert" target="dnssec_req_kdc_TLSA">
+			<arc id="id26" source="want_cert" target="dnssec_req_TLSA">
 			</arc>
-			<arc id="id27" source="dnssec_req_kdc_TLSA" target="lookup_DANE">
+			<arc id="id27" source="dnssec_req_TLSA" target="lookup_DANE">
 			</arc>
-			<arc id="id28" source="lookup_DANE" target="got_kdc_TLSA">
+			<arc id="id28" source="lookup_DANE" target="got_TLSA">
 			</arc>
-			<arc id="id29" source="lookup_kdc" target="failed_krb_SRV">
+			<arc id="id29" source="lookup_kdc" target="failed_SRV">
 			</arc>
-			<arc id="id30" source="failed_krb_SRV" target="failed">
+			<arc id="id30" source="failed_SRV" target="failed">
 			</arc>
-			<arc id="id31" source="lookup_DANE" target="failed_kdc_TLSA">
+			<arc id="id31" source="lookup_DANE" target="failed_TLSA">
 			</arc>
-			<arc id="id32" source="failed_kdc_TLSA" target="failed">
+			<arc id="id32" source="failed_TLSA" target="failed">
 			</arc>
-			<arc id="id33" source="receive_KX_request" target="servicing">
+			<arc id="id33" source="recv_KX_req" target="servicing">
 			</arc>
-			<arc id="id34" source="servicing" target="receive_KX_request">
+			<arc id="id34" source="servicing" target="recv_KX_req">
 				<type value="inhibitor"/>
 			</arc>
 			<arc id="id35" source="servicing" target="successfulEnd">

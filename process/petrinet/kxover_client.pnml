@@ -8,551 +8,573 @@
 			<place id="processingRequest">
 				<name>
 					<graphics>
-						<offset x="137" y="113"/>
+						<offset x="137" y="133"/>
 					</graphics>
 					<text>processingRequest</text>
 				</name>
 				<graphics>
-					<position x="150" y="140"/>
+					<position x="150" y="160"/>
 				</graphics>
 			</place>
 			<place id="failedCached">
 				<name>
 					<graphics>
-						<offset x="13" y="178"/>
+						<offset x="13" y="198"/>
 					</graphics>
 					<text>failedCached</text>
 				</name>
 				<graphics>
-					<position x="70" y="200"/>
+					<position x="70" y="220"/>
 				</graphics>
 			</place>
 			<place id="failure">
 				<name>
 					<graphics>
-						<offset x="126" y="273"/>
+						<offset x="126" y="293"/>
 					</graphics>
 					<text>failure</text>
 				</name>
 				<graphics>
-					<position x="150" y="260"/>
+					<position x="150" y="280"/>
 				</graphics>
 			</place>
-			<place id="ready_to_go">
+			<place id="want_krbtgt">
 				<name>
 					<graphics>
-						<offset x="194" y="93"/>
+						<offset x="274" y="73"/>
 					</graphics>
-					<text>ready_to_go</text>
+					<text>want_krbtgt</text>
 				</name>
 				<graphics>
-					<position x="220" y="80"/>
-				</graphics>
-			</place>
-			<place id="lookup_realm">
-				<name>
-					<graphics>
-						<offset x="291" y="93"/>
-					</graphics>
-					<text>lookup_realm</text>
-				</name>
-				<graphics>
-					<position x="320" y="80"/>
-				</graphics>
-			</place>
-			<place id="targeting_realm">
-				<name>
-					<graphics>
-						<offset x="382" y="93"/>
-					</graphics>
-					<text>targeting_realm</text>
-				</name>
-				<graphics>
-					<position x="420" y="80"/>
+					<position x="310" y="100"/>
 				</graphics>
 			</place>
 			<place id="success">
 				<name>
 					<graphics>
-						<offset x="254" y="208"/>
+						<offset x="214" y="288"/>
 					</graphics>
 					<text>success</text>
 				</name>
 				<graphics>
-					<position x="270" y="200"/>
+					<position x="230" y="280"/>
 				</graphics>
 			</place>
 			<place id="have_krbtgt">
 				<name>
 					<graphics>
-						<offset x="355" y="198"/>
+						<offset x="440" y="133"/>
 					</graphics>
 					<text>have_krbtgt</text>
 				</name>
 				<graphics>
-					<position x="420" y="200"/>
+					<position x="460" y="160"/>
 				</graphics>
 			</place>
 			<place id="lookup_kdc">
 				<name>
 					<graphics>
-						<offset x="495" y="88"/>
+						<offset x="490" y="113"/>
 					</graphics>
 					<text>lookup_kdc</text>
 				</name>
 				<graphics>
-					<position x="520" y="80"/>
+					<position x="520" y="100"/>
 				</graphics>
 			</place>
 			<place id="want_cert">
 				<name>
 					<graphics>
-						<offset x="599" y="88"/>
+						<offset x="564" y="33"/>
 					</graphics>
 					<text>want_cert</text>
 				</name>
 				<graphics>
-					<position x="620" y="80"/>
+					<position x="620" y="40"/>
 				</graphics>
 			</place>
 			<place id="lookup_DANE">
 				<name>
 					<graphics>
-						<offset x="740" y="53"/>
+						<offset x="740" y="13"/>
 					</graphics>
 					<text>lookup_DANE</text>
 				</name>
 				<graphics>
-					<position x="770" y="80"/>
+					<position x="770" y="40"/>
 				</graphics>
 			</place>
 			<place id="keyed_remote">
 				<name>
 					<graphics>
-						<offset x="876" y="93"/>
+						<offset x="876" y="53"/>
 					</graphics>
 					<text>keyed_remote</text>
 				</name>
 				<graphics>
-					<position x="920" y="80"/>
+					<position x="920" y="40"/>
 				</graphics>
 			</place>
 			<place id="await_KX">
 				<name>
 					<graphics>
-						<offset x="749" y="118"/>
+						<offset x="749" y="138"/>
 					</graphics>
 					<text>await_KX</text>
 				</name>
 				<graphics>
-					<position x="770" y="140"/>
+					<position x="770" y="160"/>
 				</graphics>
 			</place>
 			<place id="responded_remote">
 				<name>
 					<graphics>
-						<offset x="877" y="153"/>
+						<offset x="877" y="173"/>
 					</graphics>
 					<text>responded_remote</text>
 				</name>
 				<graphics>
-					<position x="920" y="140"/>
+					<position x="920" y="160"/>
 				</graphics>
 			</place>
 			<place id="got_ecdhe">
 				<name>
 					<graphics>
-						<offset x="1009" y="93"/>
+						<offset x="1009" y="113"/>
 					</graphics>
 					<text>got_ecdhe</text>
 				</name>
 				<graphics>
-					<position x="1030" y="80"/>
+					<position x="1030" y="100"/>
 				</graphics>
 			</place>
 			<place id="got_krbtgt">
 				<name>
 					<graphics>
-						<offset x="1107" y="93"/>
+						<offset x="1107" y="113"/>
 					</graphics>
 					<text>got_krbtgt</text>
 				</name>
 				<graphics>
-					<position x="1130" y="80"/>
+					<position x="1130" y="100"/>
 				</graphics>
 			</place>
-			<place id="serving_krbtgt">
+			<place id="fresh_krbtgt">
 				<name>
 					<graphics>
-						<offset x="1110" y="178"/>
+						<offset x="1114" y="198"/>
 					</graphics>
-					<text>serving_krbtgt</text>
+					<text>fresh_krbtgt</text>
 				</name>
 				<graphics>
-					<position x="1180" y="200"/>
+					<position x="1180" y="220"/>
 				</graphics>
 			</place>
 			<place id="krbtgt_dawn">
 				<name>
 					<graphics>
-						<offset x="1113" y="313"/>
+						<offset x="1113" y="333"/>
 					</graphics>
 					<text>krbtgt_dawn</text>
 				</name>
 				<graphics>
-					<position x="1180" y="320"/>
+					<position x="1180" y="340"/>
 				</graphics>
 			</place>
 			<place id="want_KX_exchange">
 				<name>
 					<graphics>
-						<offset x="580" y="148"/>
+						<offset x="555" y="173"/>
 					</graphics>
 					<text>want_KX_exchange</text>
 				</name>
 				<graphics>
-					<position x="620" y="140"/>
+					<position x="620" y="160"/>
 				</graphics>
 			</place>
 			<place id="noKX">
 				<name>
 					<graphics>
-						<offset x="781" y="213"/>
+						<offset x="781" y="233"/>
 					</graphics>
 					<text>noKX</text>
 				</name>
 				<graphics>
-					<position x="820" y="220"/>
+					<position x="820" y="240"/>
 				</graphics>
 			</place>
 			<place id="noDANE">
 				<name>
 					<graphics>
-						<offset x="665" y="213"/>
+						<offset x="665" y="233"/>
 					</graphics>
 					<text>noDANE</text>
 				</name>
 				<graphics>
-					<position x="720" y="220"/>
+					<position x="720" y="240"/>
+				</graphics>
+			</place>
+			<place id="want_address">
+				<name>
+					<graphics>
+						<offset x="602" y="108"/>
+					</graphics>
+					<text>want_address</text>
+				</name>
+				<graphics>
+					<position x="620" y="100"/>
+				</graphics>
+			</place>
+			<place id="lookup_address">
+				<name>
+					<graphics>
+						<offset x="743" y="108"/>
+					</graphics>
+					<text>lookup_address</text>
+				</name>
+				<graphics>
+					<position x="770" y="100"/>
+				</graphics>
+			</place>
+			<place id="want_SRV">
+				<name>
+					<graphics>
+						<offset x="388" y="73"/>
+					</graphics>
+					<text>want_SRV</text>
+				</name>
+				<graphics>
+					<position x="410" y="100"/>
 				</graphics>
 			</place>
 			<transition id="krbtgtMissing">
 				<name>
 					<graphics>
-						<offset x="27" y="53"/>
+						<offset x="27" y="73"/>
 					</graphics>
 					<text>krbtgtMissing</text>
 				</name>
 				<graphics>
-					<position x="70" y="80"/>
+					<position x="70" y="100"/>
 				</graphics>
 			</transition>
 			<transition id="cache_exp_timer">
 				<name>
 					<graphics>
-						<offset x="30" y="268"/>
+						<offset x="30" y="288"/>
 					</graphics>
 					<text>cache_exp_timer</text>
 				</name>
 				<graphics>
-					<position x="70" y="260"/>
+					<position x="70" y="280"/>
 				</graphics>
 			</transition>
 			<transition id="failedStop">
 				<name>
 					<graphics>
-						<offset x="99" y="183"/>
+						<offset x="99" y="203"/>
 					</graphics>
 					<text>failedStop</text>
 				</name>
 				<graphics>
-					<position x="150" y="200"/>
-				</graphics>
-			</transition>
-			<transition id="dnssec_req_krb_TXT">
-				<name>
-					<graphics>
-						<offset x="227" y="53"/>
-					</graphics>
-					<text>dnssec_req_krb_TXT</text>
-				</name>
-				<graphics>
-					<position x="270" y="80"/>
-				</graphics>
-			</transition>
-			<transition id="got_krb_TXT">
-				<name>
-					<graphics>
-						<offset x="342" y="53"/>
-					</graphics>
-					<text>got_krb_TXT</text>
-				</name>
-				<graphics>
-					<position x="370" y="80"/>
+					<position x="150" y="220"/>
 				</graphics>
 			</transition>
 			<transition id="successfulEnd">
 				<name>
 					<graphics>
-						<offset x="196" y="168"/>
+						<offset x="206" y="188"/>
 					</graphics>
 					<text>successfulEnd</text>
 				</name>
 				<graphics>
-					<position x="220" y="200"/>
+					<position x="230" y="220"/>
 				</graphics>
 			</transition>
 			<transition id="have_fresh_krbtgt">
 				<name>
 					<graphics>
-						<offset x="374" y="163"/>
+						<offset x="369" y="188"/>
 					</graphics>
 					<text>have_fresh_krbtgt</text>
 				</name>
 				<graphics>
-					<position x="420" y="160"/>
+					<position x="410" y="180"/>
 				</graphics>
 			</transition>
 			<transition id="send_krbtgt_to_all_requesters">
 				<name>
 					<graphics>
-						<offset x="345" y="273"/>
+						<offset x="395" y="293"/>
 					</graphics>
 					<text>send_krbtgt_to_all_requesters</text>
 				</name>
 				<graphics>
-					<position x="420" y="260"/>
+					<position x="460" y="280"/>
 				</graphics>
 			</transition>
-			<transition id="failed_krb_TXT">
+			<transition id="need_SRV">
 				<name>
 					<graphics>
-						<offset x="242" y="243"/>
+						<offset x="339" y="73"/>
 					</graphics>
-					<text>failed_krb_TXT</text>
+					<text>need_SRV</text>
 				</name>
 				<graphics>
-					<position x="320" y="260"/>
+					<position x="360" y="100"/>
 				</graphics>
 			</transition>
-			<transition id="dnssec_req_krb_SRV">
+			<transition id="got_SRV">
 				<name>
 					<graphics>
-						<offset x="428" y="53"/>
+						<offset x="541" y="68"/>
 					</graphics>
-					<text>dnssec_req_krb_SRV</text>
+					<text>got_SRV</text>
 				</name>
 				<graphics>
-					<position x="470" y="80"/>
+					<position x="570" y="100"/>
 				</graphics>
 			</transition>
-			<transition id="got_krb_SRV">
+			<transition id="failed_SRV">
 				<name>
 					<graphics>
-						<offset x="543" y="53"/>
+						<offset x="537" y="268"/>
 					</graphics>
-					<text>got_krb_SRV</text>
+					<text>failed_SRV</text>
 				</name>
 				<graphics>
-					<position x="570" y="80"/>
+					<position x="520" y="280"/>
 				</graphics>
 			</transition>
-			<transition id="failed_krb_SRV">
+			<transition id="dnssec_req_TLSA">
 				<name>
 					<graphics>
-						<offset x="528" y="248"/>
+						<offset x="634" y="13"/>
 					</graphics>
-					<text>failed_krb_SRV</text>
+					<text>dnssec_req_TLSA</text>
 				</name>
 				<graphics>
-					<position x="520" y="260"/>
+					<position x="670" y="40"/>
 				</graphics>
 			</transition>
-			<transition id="dnssec_req_kdc_TLSA">
+			<transition id="got_TLSA">
 				<name>
 					<graphics>
-						<offset x="625" y="53"/>
+						<offset x="848" y="13"/>
 					</graphics>
-					<text>dnssec_req_kdc_TLSA</text>
+					<text>got_TLSA</text>
 				</name>
 				<graphics>
-					<position x="670" y="80"/>
+					<position x="870" y="40"/>
 				</graphics>
 			</transition>
-			<transition id="got_kdc_TLSA">
+			<transition id="send_KX_req">
 				<name>
 					<graphics>
-						<offset x="839" y="53"/>
+						<offset x="642" y="133"/>
 					</graphics>
-					<text>got_kdc_TLSA</text>
+					<text>send_KX_req</text>
 				</name>
 				<graphics>
-					<position x="870" y="80"/>
+					<position x="670" y="160"/>
 				</graphics>
 			</transition>
-			<transition id="kx_remote_req">
+			<transition id="got_KX_resp">
 				<name>
 					<graphics>
-						<offset x="640" y="113"/>
+						<offset x="853" y="133"/>
 					</graphics>
-					<text>kx_remote_req</text>
+					<text>got_KX_resp</text>
 				</name>
 				<graphics>
-					<position x="670" y="140"/>
-				</graphics>
-			</transition>
-			<transition id="got_kx_resp">
-				<name>
-					<graphics>
-						<offset x="845" y="113"/>
-					</graphics>
-					<text>got_kx_resp</text>
-				</name>
-				<graphics>
-					<position x="870" y="140"/>
+					<position x="870" y="160"/>
 				</graphics>
 			</transition>
 			<transition id="signature_good">
 				<name>
 					<graphics>
-						<offset x="949" y="53"/>
+						<offset x="964" y="68"/>
 					</graphics>
 					<text>signature_good</text>
 				</name>
 				<graphics>
-					<position x="980" y="80"/>
+					<position x="980" y="100"/>
 				</graphics>
 			</transition>
 			<transition id="signature_error">
 				<name>
 					<graphics>
-						<offset x="958" y="108"/>
+						<offset x="968" y="148"/>
 					</graphics>
 					<text>signature_error</text>
 				</name>
 				<graphics>
-					<position x="980" y="140"/>
+					<position x="980" y="180"/>
 				</graphics>
 			</transition>
 			<transition id="ecdhe2krbtgt">
 				<name>
 					<graphics>
-						<offset x="1055" y="58"/>
+						<offset x="1055" y="73"/>
 					</graphics>
 					<text>ecdhe2krbtgt</text>
 				</name>
 				<graphics>
-					<position x="1080" y="80"/>
+					<position x="1080" y="100"/>
 				</graphics>
 			</transition>
 			<transition id="store_krbtgt_kdb">
 				<name>
 					<graphics>
-						<offset x="1146" y="53"/>
+						<offset x="1146" y="73"/>
 					</graphics>
 					<text>store_krbtgt_kdb</text>
 				</name>
 				<graphics>
-					<position x="1180" y="80"/>
+					<position x="1180" y="100"/>
 				</graphics>
 			</transition>
 			<transition id="krbtgt_refresh_timer">
 				<name>
 					<graphics>
-						<offset x="1124" y="273"/>
+						<offset x="1124" y="293"/>
 					</graphics>
 					<text>krbtgt_refresh_timer</text>
 				</name>
 				<graphics>
-					<position x="1180" y="260"/>
+					<position x="1180" y="280"/>
 				</graphics>
 			</transition>
 			<transition id="krbtgt_expired_remove">
 				<name>
 					<graphics>
-						<offset x="1130" y="393"/>
+						<offset x="1130" y="413"/>
 					</graphics>
 					<text>krbtgt_expired_remove</text>
 				</name>
 				<graphics>
-					<position x="1180" y="380"/>
+					<position x="1180" y="400"/>
 				</graphics>
 			</transition>
-			<transition id="failed_krb_TLSA">
+			<transition id="failed_TLSA">
 				<name>
 					<graphics>
-						<offset x="645" y="158"/>
+						<offset x="654" y="193"/>
 					</graphics>
-					<text>failed_krb_TLSA</text>
+					<text>failed_TLSA</text>
 				</name>
 				<graphics>
-					<position x="720" y="180"/>
+					<position x="720" y="200"/>
 				</graphics>
 			</transition>
-			<transition id="failed_kx_req">
+			<transition id="failed_KX">
 				<name>
 					<graphics>
-						<offset x="783" y="153"/>
+						<offset x="784" y="173"/>
 					</graphics>
-					<text>failed_kx_req</text>
+					<text>failed_KX</text>
 				</name>
 				<graphics>
-					<position x="820" y="180"/>
+					<position x="820" y="200"/>
 				</graphics>
 			</transition>
 			<transition id="KXwoDANE">
 				<name>
 					<graphics>
-						<offset x="648" y="253"/>
+						<offset x="653" y="273"/>
 					</graphics>
 					<text>KXwoDANE</text>
 				</name>
 				<graphics>
-					<position x="720" y="260"/>
+					<position x="720" y="280"/>
 				</graphics>
 			</transition>
 			<transition id="neither">
 				<name>
 					<graphics>
-						<offset x="754" y="238"/>
+						<offset x="754" y="258"/>
 					</graphics>
 					<text>neither</text>
 				</name>
 				<graphics>
-					<position x="770" y="260"/>
+					<position x="770" y="280"/>
 				</graphics>
 			</transition>
 			<transition id="DANEwoKX">
 				<name>
 					<graphics>
-						<offset x="833" y="253"/>
+						<offset x="833" y="273"/>
 					</graphics>
 					<text>DANEwoKX</text>
 				</name>
 				<graphics>
-					<position x="820" y="260"/>
+					<position x="820" y="280"/>
 				</graphics>
 			</transition>
-			<transition id="have_dawn_krbtgt_then_dnssec_req_krb_SRV">
+			<transition id="have_dawn_krbtgt">
 				<name>
 					<graphics>
-						<offset x="270" y="118"/>
+						<offset x="263" y="138"/>
 					</graphics>
-					<text>have_dawn_krbtgt_then_dnssec_req_krb_SRV</text>
+					<text>have_dawn_krbtgt</text>
 				</name>
 				<graphics>
-					<position x="370" y="140"/>
+					<position x="310" y="160"/>
 				</graphics>
 			</transition>
 			<transition id="krbtgt_remove_dawn">
 				<name>
 					<graphics>
-						<offset x="1188" y="333"/>
+						<offset x="1188" y="353"/>
 					</graphics>
 					<text>krbtgt_remove_dawn</text>
 				</name>
 				<graphics>
-					<position x="1230" y="320"/>
+					<position x="1230" y="340"/>
+				</graphics>
+			</transition>
+			<transition id="dns_req_A_AAAA">
+				<name>
+					<graphics>
+						<offset x="632" y="78"/>
+					</graphics>
+					<text>dns_req_A_AAAA</text>
+				</name>
+				<graphics>
+					<position x="670" y="100"/>
+				</graphics>
+			</transition>
+			<transition id="got_A_AAAA">
+				<name>
+					<graphics>
+						<offset x="876" y="93"/>
+					</graphics>
+					<text>got_A_AAAA</text>
+				</name>
+				<graphics>
+					<position x="870" y="100"/>
+				</graphics>
+			</transition>
+			<transition id="failed_A_AAAA">
+				<name>
+					<graphics>
+						<offset x="787" y="58"/>
+					</graphics>
+					<text>failed_A_AAAA</text>
+				</name>
+				<graphics>
+					<position x="820" y="80"/>
+				</graphics>
+			</transition>
+			<transition id="dnssec_req_SRV">
+				<name>
+					<graphics>
+						<offset x="422" y="113"/>
+					</graphics>
+					<text>dnssec_req_SRV</text>
+				</name>
+				<graphics>
+					<position x="460" y="100"/>
 				</graphics>
 			</transition>
 			<arc id="id1" source="failedCached" target="krbtgtMissing">
@@ -571,146 +593,150 @@
 			</arc>
 			<arc id="id7" source="failure" target="failedStop">
 			</arc>
-			<arc id="id8" source="ready_to_go" target="dnssec_req_krb_TXT">
+			<arc id="id8" source="success" target="successfulEnd">
 			</arc>
-			<arc id="id9" source="dnssec_req_krb_TXT" target="lookup_realm">
+			<arc id="id9" source="want_krbtgt" target="have_fresh_krbtgt">
 			</arc>
-			<arc id="id10" source="lookup_realm" target="got_krb_TXT">
+			<arc id="id10" source="have_fresh_krbtgt" target="have_krbtgt">
 			</arc>
-			<arc id="id11" source="got_krb_TXT" target="targeting_realm">
+			<arc id="id11" source="have_krbtgt" target="send_krbtgt_to_all_requesters">
 			</arc>
-			<arc id="id12" source="success" target="successfulEnd">
+			<arc id="id12" source="want_krbtgt" target="need_SRV">
 			</arc>
-			<arc id="id13" source="targeting_realm" target="have_fresh_krbtgt">
+			<arc id="id13" source="need_SRV" target="want_SRV">
 			</arc>
-			<arc id="id14" source="have_fresh_krbtgt" target="have_krbtgt">
+			<arc id="id14" source="lookup_kdc" target="got_SRV">
 			</arc>
-			<arc id="id15" source="have_krbtgt" target="send_krbtgt_to_all_requesters">
+			<arc id="id15" source="lookup_kdc" target="failed_SRV">
 			</arc>
-			<arc id="id16" source="lookup_realm" target="failed_krb_TXT">
+			<arc id="id16" source="failed_SRV" target="failure">
 			</arc>
-			<arc id="id17" source="failed_krb_TXT" target="failure">
+			<arc id="id17" source="got_SRV" target="want_cert">
 			</arc>
-			<arc id="id18" source="targeting_realm" target="dnssec_req_krb_SRV">
+			<arc id="id18" source="want_cert" target="dnssec_req_TLSA">
 			</arc>
-			<arc id="id19" source="dnssec_req_krb_SRV" target="lookup_kdc">
+			<arc id="id19" source="dnssec_req_TLSA" target="lookup_DANE">
 			</arc>
-			<arc id="id20" source="lookup_kdc" target="got_krb_SRV">
+			<arc id="id20" source="lookup_DANE" target="got_TLSA">
 			</arc>
-			<arc id="id21" source="lookup_kdc" target="failed_krb_SRV">
+			<arc id="id21" source="got_TLSA" target="keyed_remote">
 			</arc>
-			<arc id="id22" source="failed_krb_SRV" target="failure">
+			<arc id="id22" source="send_KX_req" target="await_KX">
 			</arc>
-			<arc id="id23" source="got_krb_SRV" target="want_cert">
+			<arc id="id23" source="await_KX" target="got_KX_resp">
 			</arc>
-			<arc id="id24" source="want_cert" target="dnssec_req_kdc_TLSA">
+			<arc id="id24" source="got_KX_resp" target="responded_remote">
 			</arc>
-			<arc id="id25" source="dnssec_req_kdc_TLSA" target="lookup_DANE">
+			<arc id="id25" source="responded_remote" target="signature_error">
 			</arc>
-			<arc id="id26" source="lookup_DANE" target="got_kdc_TLSA">
+			<arc id="id26" source="responded_remote" target="signature_good">
 			</arc>
-			<arc id="id27" source="got_kdc_TLSA" target="keyed_remote">
+			<arc id="id27" source="keyed_remote" target="signature_good">
 			</arc>
-			<arc id="id28" source="kx_remote_req" target="await_KX">
+			<arc id="id28" source="signature_error" target="failure">
 			</arc>
-			<arc id="id29" source="await_KX" target="got_kx_resp">
+			<arc id="id29" source="signature_good" target="got_ecdhe">
 			</arc>
-			<arc id="id30" source="got_kx_resp" target="responded_remote">
+			<arc id="id30" source="got_ecdhe" target="ecdhe2krbtgt">
 			</arc>
-			<arc id="id31" source="responded_remote" target="signature_error">
+			<arc id="id31" source="store_krbtgt_kdb" target="have_krbtgt">
 			</arc>
-			<arc id="id32" source="responded_remote" target="signature_good">
+			<arc id="id32" source="ecdhe2krbtgt" target="got_krbtgt">
 			</arc>
-			<arc id="id33" source="keyed_remote" target="signature_good">
+			<arc id="id33" source="got_krbtgt" target="store_krbtgt_kdb">
 			</arc>
-			<arc id="id34" source="signature_error" target="failure">
+			<arc id="id34" source="store_krbtgt_kdb" target="fresh_krbtgt">
 			</arc>
-			<arc id="id35" source="signature_good" target="got_ecdhe">
+			<arc id="id35" source="fresh_krbtgt" target="krbtgt_refresh_timer">
 			</arc>
-			<arc id="id36" source="got_ecdhe" target="ecdhe2krbtgt">
+			<arc id="id36" source="krbtgt_refresh_timer" target="krbtgt_dawn">
 			</arc>
-			<arc id="id37" source="store_krbtgt_kdb" target="have_krbtgt">
+			<arc id="id37" source="krbtgt_dawn" target="krbtgt_expired_remove">
 			</arc>
-			<arc id="id38" source="ecdhe2krbtgt" target="got_krbtgt">
+			<arc id="id38" source="failed_TLSA" target="noDANE">
 			</arc>
-			<arc id="id39" source="got_krbtgt" target="store_krbtgt_kdb">
+			<arc id="id39" source="failed_KX" target="noKX">
 			</arc>
-			<arc id="id40" source="store_krbtgt_kdb" target="serving_krbtgt">
+			<arc id="id40" source="noDANE" target="KXwoDANE">
 			</arc>
-			<arc id="id41" source="serving_krbtgt" target="krbtgt_refresh_timer">
+			<arc id="id41" source="noDANE" target="neither">
 			</arc>
-			<arc id="id42" source="krbtgt_refresh_timer" target="krbtgt_dawn">
+			<arc id="id42" source="noKX" target="neither">
 			</arc>
-			<arc id="id43" source="krbtgt_dawn" target="krbtgt_expired_remove">
+			<arc id="id43" source="noKX" target="DANEwoKX">
 			</arc>
-			<arc id="id44" source="got_krb_SRV" target="want_KX_exchange">
+			<arc id="id44" source="keyed_remote" target="DANEwoKX">
 			</arc>
-			<arc id="id45" source="failed_krb_TLSA" target="noDANE">
+			<arc id="id45" source="responded_remote" target="KXwoDANE">
 			</arc>
-			<arc id="id46" source="failed_kx_req" target="noKX">
+			<arc id="id46" source="KXwoDANE" target="failure">
 			</arc>
-			<arc id="id47" source="noDANE" target="KXwoDANE">
+			<arc id="id47" source="neither" target="failure">
 			</arc>
-			<arc id="id48" source="noDANE" target="neither">
+			<arc id="id48" source="DANEwoKX" target="failure">
 			</arc>
-			<arc id="id49" source="noKX" target="neither">
+			<arc id="id49" source="fresh_krbtgt" target="have_fresh_krbtgt">
 			</arc>
-			<arc id="id50" source="noKX" target="DANEwoKX">
-			</arc>
-			<arc id="id51" source="keyed_remote" target="DANEwoKX">
-			</arc>
-			<arc id="id52" source="responded_remote" target="KXwoDANE">
-			</arc>
-			<arc id="id53" source="KXwoDANE" target="failure">
-			</arc>
-			<arc id="id54" source="neither" target="failure">
-			</arc>
-			<arc id="id55" source="DANEwoKX" target="failure">
-			</arc>
-			<arc id="id56" source="serving_krbtgt" target="have_fresh_krbtgt">
-			</arc>
-			<arc id="id57" source="serving_krbtgt" target="dnssec_req_krb_SRV">
+			<arc id="id50" source="fresh_krbtgt" target="need_SRV">
 				<type value="inhibitor"/>
 			</arc>
-			<arc id="id58" source="targeting_realm" target="have_dawn_krbtgt_then_dnssec_req_krb_SRV">
+			<arc id="id51" source="want_krbtgt" target="have_dawn_krbtgt">
 			</arc>
-			<arc id="id59" source="krbtgt_dawn" target="have_dawn_krbtgt_then_dnssec_req_krb_SRV">
+			<arc id="id52" source="krbtgt_dawn" target="have_dawn_krbtgt">
 			</arc>
-			<arc id="id60" source="have_dawn_krbtgt_then_dnssec_req_krb_SRV" target="have_krbtgt">
+			<arc id="id53" source="have_dawn_krbtgt" target="have_krbtgt">
 			</arc>
-			<arc id="id61" source="krbtgt_dawn" target="dnssec_req_krb_SRV">
+			<arc id="id54" source="krbtgt_dawn" target="need_SRV">
 				<type value="inhibitor"/>
 			</arc>
-			<arc id="id62" source="have_dawn_krbtgt_then_dnssec_req_krb_SRV" target="lookup_kdc">
+			<arc id="id55" source="want_KX_exchange" target="send_KX_req">
 			</arc>
-			<arc id="id63" source="want_KX_exchange" target="kx_remote_req">
+			<arc id="id56" source="have_fresh_krbtgt" target="fresh_krbtgt">
 			</arc>
-			<arc id="id64" source="have_fresh_krbtgt" target="serving_krbtgt">
+			<arc id="id57" source="have_dawn_krbtgt" target="krbtgt_dawn">
 			</arc>
-			<arc id="id65" source="have_dawn_krbtgt_then_dnssec_req_krb_SRV" target="krbtgt_dawn">
+			<arc id="id58" source="krbtgt_dawn" target="krbtgt_remove_dawn">
 			</arc>
-			<arc id="id66" source="krbtgt_dawn" target="krbtgt_remove_dawn">
+			<arc id="id59" source="fresh_krbtgt" target="krbtgt_remove_dawn">
 			</arc>
-			<arc id="id67" source="serving_krbtgt" target="krbtgt_remove_dawn">
+			<arc id="id60" source="krbtgt_remove_dawn" target="fresh_krbtgt">
 			</arc>
-			<arc id="id68" source="krbtgt_remove_dawn" target="serving_krbtgt">
+			<arc id="id61" source="lookup_DANE" target="failed_TLSA">
 			</arc>
-			<arc id="id69" source="lookup_DANE" target="failed_krb_TLSA">
+			<arc id="id62" source="await_KX" target="failed_KX">
 			</arc>
-			<arc id="id70" source="await_KX" target="failed_kx_req">
+			<arc id="id63" source="have_dawn_krbtgt" target="processingRequest">
 			</arc>
-			<arc id="id71" source="krbtgtMissing" target="ready_to_go">
+			<arc id="id64" source="keyed_remote" target="signature_error">
 			</arc>
-			<arc id="id72" source="have_dawn_krbtgt_then_dnssec_req_krb_SRV" target="processingRequest">
+			<arc id="id65" source="processingRequest" target="successfulEnd">
 			</arc>
-			<arc id="id73" source="send_krbtgt_to_all_requesters" target="success">
-			</arc>
-			<arc id="id74" source="keyed_remote" target="signature_error">
-			</arc>
-			<arc id="id75" source="processingRequest" target="successfulEnd">
-			</arc>
-			<arc id="id76" source="serving_krbtgt" target="have_dawn_krbtgt_then_dnssec_req_krb_SRV">
+			<arc id="id66" source="fresh_krbtgt" target="have_dawn_krbtgt">
 				<type value="inhibitor"/>
+			</arc>
+			<arc id="id67" source="got_SRV" target="want_address">
+			</arc>
+			<arc id="id68" source="want_address" target="dns_req_A_AAAA">
+			</arc>
+			<arc id="id69" source="dns_req_A_AAAA" target="lookup_address">
+			</arc>
+			<arc id="id70" source="lookup_address" target="got_A_AAAA">
+			</arc>
+			<arc id="id71" source="lookup_address" target="failed_A_AAAA">
+			</arc>
+			<arc id="id72" source="failed_A_AAAA" target="noKX">
+			</arc>
+			<arc id="id73" source="got_A_AAAA" target="want_KX_exchange">
+			</arc>
+			<arc id="id74" source="krbtgtMissing" target="want_krbtgt">
+			</arc>
+			<arc id="id75" source="send_krbtgt_to_all_requesters" target="success">
+			</arc>
+			<arc id="id76" source="want_SRV" target="dnssec_req_SRV">
+			</arc>
+			<arc id="id77" source="dnssec_req_SRV" target="lookup_kdc">
+			</arc>
+			<arc id="id78" source="have_dawn_krbtgt" target="want_SRV">
 			</arc>
 		</page>
 		<name>

@@ -2,57 +2,59 @@
 <!-- This project file has been saved by the New GreatSPN Editor, v.100 --><project name="kxover" version="121">
   <gspn name="kxover_client" show-color-cmd="false" show-fluid-cmd="false" show-timed-cmd="false" view-rates="false">
     <nodes>
-      <transition label-x="-1.5" label-y="-2.0" name="krbtgtMissing" nservers-x="0.5" type="EXP" x="6.55" y="7.0"/>
-      <place label-x="2.5" label-y="-2.0" name="processingRequest" x="14.0" y="13.0"/>
-      <place label-x="-3.0" label-y="-1.5" name="failedCached" x="6.0" y="19.0"/>
-      <transition label-x="-0.5" label-y="1.5" name="cache_exp_timer" nservers-x="0.5" type="EXP" x="6.55" y="25.0"/>
-      <transition label-x="-3.0" label-y="-1.0" name="failedStop" nservers-x="0.5" type="EXP" x="14.55" y="19.0"/>
-      <place label-x="-1.0" label-y="2.0" name="failure" x="14.0" y="25.0"/>
-      <place label-y="2.0" name="ready_to_go" x="21.0" y="7.0"/>
-      <transition label-y="-2.0" name="dnssec_req_krb_TXT" nservers-x="0.5" type="EXP" x="26.55" y="7.0"/>
-      <place label-y="2.0" name="lookup_realm" x="31.0" y="7.0"/>
-      <transition label-y="-2.0" name="got_krb_TXT" nservers-x="0.5" type="EXP" x="36.55" y="7.0"/>
-      <place label-x="-0.5" label-y="2.0" name="targeting_realm" x="41.0" y="7.0"/>
-      <transition label-x="0.5" label-y="-2.5" name="successfulEnd" nservers-x="0.5" type="EXP" x="21.55" y="19.0"/>
-      <place name="success" x="26.0" y="19.0"/>
-      <transition label-x="-1.0" label-y="1.0" name="have_fresh_krbtgt" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="41.55" y="15.0"/>
-      <place label-x="-4.0" label-y="0.5" name="have_krbtgt" x="41.0" y="19.0"/>
-      <transition label-x="-1.5" label-y="2.0" name="send_krbtgt_to_all_requesters" nservers-x="0.5" type="EXP" x="41.55" y="25.0"/>
-      <transition label-x="-4.5" label-y="-1.0" name="failed_krb_TXT" nservers-x="0.5" type="EXP" x="31.55" y="25.0"/>
-      <transition label-y="-2.0" name="dnssec_req_krb_SRV" nservers-x="0.5" type="EXP" x="46.55" y="7.0"/>
-      <place name="lookup_kdc" x="51.0" y="7.0"/>
-      <transition label-y="-2.0" name="got_krb_SRV" nservers-x="0.5" type="EXP" x="56.55" y="7.0"/>
-      <transition label-x="4.0" label-y="-0.5" name="failed_krb_SRV" nservers-x="0.5" type="EXP" x="51.55" y="25.0"/>
-      <place name="want_cert" x="61.0" y="7.0"/>
-      <transition label-y="-2.0" name="dnssec_req_kdc_TLSA" nservers-x="0.5" type="EXP" x="66.55" y="7.0"/>
-      <place label-y="-2.0" name="lookup_DANE" x="76.0" y="7.0"/>
-      <transition label-y="-2.0" name="got_kdc_TLSA" nservers-x="0.5" type="EXP" x="86.55" y="7.0"/>
-      <place label-x="-1.5" label-y="2.0" name="keyed_remote" x="91.0" y="7.0"/>
-      <transition label-y="-2.0" name="kx_remote_req" nservers-x="0.5" type="EXP" x="66.55" y="13.0"/>
-      <place label-y="-1.5" name="await_KX" x="76.0" y="13.0"/>
-      <transition label-y="-2.0" name="got_kx_resp" nservers-x="0.5" type="EXP" x="86.55" y="13.0"/>
-      <place label-x="-0.5" label-y="2.0" name="responded_remote" x="91.0" y="13.0"/>
-      <transition label-y="-2.0" name="signature_good" nservers-x="0.5" type="EXP" x="97.55" y="7.0"/>
-      <transition label-x="1.0" label-y="-2.5" name="signature_error" nservers-x="0.5" type="EXP" x="97.55" y="13.0"/>
-      <place label-y="2.0" name="got_ecdhe" x="102.0" y="7.0"/>
-      <transition name="ecdhe2krbtgt" nservers-x="0.5" type="EXP" x="107.55" y="7.0"/>
-      <place label-y="2.0" name="got_krbtgt" x="112.0" y="7.0"/>
-      <transition label-y="-2.0" name="store_krbtgt_kdb" nservers-x="0.5" type="EXP" x="117.55" y="7.0"/>
-      <place label-x="-4.0" label-y="-1.5" name="serving_krbtgt" x="117.0" y="19.0"/>
-      <transition label-x="-1.5" label-y="2.0" name="krbtgt_refresh_timer" nservers-x="0.5" type="EXP" x="117.55" y="25.0"/>
-      <place label-x="-4.0" label-y="0.0" name="krbtgt_dawn" x="117.0" y="31.0"/>
-      <transition label-x="-0.5" label-y="2.0" name="krbtgt_expired_remove" nservers-x="0.5" type="EXP" x="117.55" y="37.0"/>
-      <text-box bold="true" border-color="#000000" fill-color="none" height="7.5" name="__textBox0" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" vert-pos="0" width="14.0" x="2.0" y="30.5">Separate network instances\\per $\langle$local,remote$\rangle$ pair.\\ \\Requests from local KDC\\trigger krbtgtMissing.</text-box>
-      <place name="want_KX_exchange" x="61.0" y="13.0"/>
-      <transition label-x="-4.0" name="failed_krb_TLSA" nservers-x="0.5" type="EXP" x="71.55" y="17.0"/>
-      <transition label-x="-1.0" label-y="-2.0" name="failed_kx_req" nservers-x="0.5" type="EXP" x="81.55" y="17.0"/>
-      <place label-x="-2.5" label-y="0.0" name="noKX" x="81.0" y="21.0"/>
-      <place label-x="-3.5" label-y="0.0" name="noDANE" x="71.0" y="21.0"/>
-      <transition label-x="-4.5" label-y="0.0" name="KXwoDANE" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="71.55" y="25.0"/>
-      <transition name="neither" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="76.55" y="25.0"/>
-      <transition label-x="4.0" label-y="0.0" name="DANEwoKX" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="81.55" y="25.0"/>
-      <transition label-x="-1.0" name="have_dawn_krbtgt_then_dnssec_req_krb_SRV" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="36.55" y="13.0"/>
-      <transition label-y="2.0" name="krbtgt_remove_dawn" nservers-x="0.5" type="EXP" x="122.55" y="31.0"/>
+      <transition label-x="-1.5" label-y="-2.0" name="krbtgtMissing" nservers-x="0.5" type="EXP" x="6.55" y="9.0"/>
+      <place label-x="2.5" label-y="-2.0" name="processingRequest" x="14.0" y="15.0"/>
+      <place label-x="-3.0" label-y="-1.5" name="failedCached" x="6.0" y="21.0"/>
+      <transition label-x="-0.5" label-y="1.5" name="cache_exp_timer" nservers-x="0.5" type="EXP" x="6.55" y="27.0"/>
+      <transition label-x="-3.0" label-y="-1.0" name="failedStop" nservers-x="0.5" type="EXP" x="14.55" y="21.0"/>
+      <place label-x="-1.0" label-y="2.0" name="failure" x="14.0" y="27.0"/>
+      <place label-x="-1.0" label-y="-2.0" name="want_krbtgt" x="30.0" y="9.0"/>
+      <transition label-x="0.5" label-y="-2.5" name="successfulEnd" nservers-x="0.5" type="EXP" x="22.55" y="21.0"/>
+      <place name="success" x="22.0" y="27.0"/>
+      <transition label-x="-0.5" label-y="1.5" name="have_fresh_krbtgt" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="40.55" y="17.0"/>
+      <place label-x="0.5" label-y="-2.0" name="have_krbtgt" x="45.0" y="15.0"/>
+      <transition label-x="-0.5" label-y="2.0" name="send_krbtgt_to_all_requesters" nservers-x="0.5" type="EXP" x="45.55" y="27.0"/>
+      <transition label-y="-2.0" name="need_SRV" nservers-x="0.5" rotation="1.5707963267948966" type="EXP" x="35.55" y="9.0"/>
+      <place label-x="-0.5" label-y="2.0" name="lookup_kdc" x="51.0" y="9.0"/>
+      <transition label-x="-1.0" label-y="-2.5" name="got_SRV" nservers-x="0.5" type="EXP" x="56.55" y="9.0"/>
+      <transition label-x="4.0" label-y="-0.5" name="failed_SRV" nservers-x="0.5" type="EXP" x="51.55" y="27.0"/>
+      <place label-x="-3.5" label-y="0.0" name="want_cert" x="61.0" y="3.0"/>
+      <transition label-y="-2.0" name="dnssec_req_TLSA" nservers-x="0.5" type="EXP" x="66.55" y="3.0"/>
+      <place label-y="-2.0" name="lookup_DANE" x="76.0" y="3.0"/>
+      <transition label-y="-2.0" name="got_TLSA" nservers-x="0.5" type="EXP" x="86.55" y="3.0"/>
+      <place label-x="-1.5" label-y="2.0" name="keyed_remote" x="91.0" y="3.0"/>
+      <transition label-y="-2.0" name="send_KX_req" nservers-x="0.5" type="EXP" x="66.55" y="15.0"/>
+      <place label-y="-1.5" name="await_KX" x="76.0" y="15.0"/>
+      <transition label-x="1.0" label-y="-2.0" name="got_KX_resp" nservers-x="0.5" type="EXP" x="86.55" y="15.0"/>
+      <place label-x="-0.5" label-y="2.0" name="responded_remote" x="91.0" y="15.0"/>
+      <transition label-x="1.5" label-y="-2.5" name="signature_good" nservers-x="0.5" type="EXP" x="97.55" y="9.0"/>
+      <transition label-x="2.0" label-y="-2.5" name="signature_error" nservers-x="0.5" type="EXP" x="97.55" y="17.0"/>
+      <place label-y="2.0" name="got_ecdhe" x="102.0" y="9.0"/>
+      <transition label-y="-2.0" name="ecdhe2krbtgt" nservers-x="0.5" type="EXP" x="107.55" y="9.0"/>
+      <place label-y="2.0" name="got_krbtgt" x="112.0" y="9.0"/>
+      <transition label-y="-2.0" name="store_krbtgt_kdb" nservers-x="0.5" type="EXP" x="117.55" y="9.0"/>
+      <place label-x="-4.0" label-y="-1.5" name="fresh_krbtgt" x="117.0" y="21.0"/>
+      <transition label-x="-1.5" label-y="2.0" name="krbtgt_refresh_timer" nservers-x="0.5" type="EXP" x="117.55" y="27.0"/>
+      <place label-x="-4.0" label-y="0.0" name="krbtgt_dawn" x="117.0" y="33.0"/>
+      <transition label-x="-0.5" label-y="2.0" name="krbtgt_expired_remove" nservers-x="0.5" type="EXP" x="117.55" y="39.0"/>
+      <text-box bold="true" border-color="#000000" fill-color="none" height="7.5" name="__textBox0" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" vert-pos="0" width="14.0" x="2.0" y="32.5">Separate network instances\\per $\langle$local,remote$\rangle$ pair.\\ \\Requests from local KDC\\trigger krbtgtMissing.</text-box>
+      <place label-x="-2.5" label-y="2.0" name="want_KX_exchange" x="61.0" y="15.0"/>
+      <transition label-x="-4.0" label-y="0.0" name="failed_TLSA" nservers-x="0.5" rotation="1.5707963267948966" type="EXP" x="71.55" y="19.0"/>
+      <transition label-x="-1.5" label-y="-2.0" name="failed_KX" nservers-x="0.5" type="EXP" x="81.55" y="19.0"/>
+      <place label-x="-2.5" label-y="0.0" name="noKX" x="81.0" y="23.0"/>
+      <place label-x="-3.5" label-y="0.0" name="noDANE" x="71.0" y="23.0"/>
+      <transition label-x="-4.0" label-y="0.0" name="KXwoDANE" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="71.55" y="27.0"/>
+      <transition name="neither" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="76.55" y="27.0"/>
+      <transition label-x="4.0" label-y="0.0" name="DANEwoKX" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="81.55" y="27.0"/>
+      <transition label-x="-1.0" name="have_dawn_krbtgt" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="30.55" y="15.0"/>
+      <transition label-y="2.0" name="krbtgt_remove_dawn" nservers-x="0.5" type="EXP" x="122.55" y="33.0"/>
+      <place label-x="1.0" name="want_address" x="61.0" y="9.0"/>
+      <transition name="dns_req_A_AAAA" nservers-x="0.5" type="EXP" x="66.55" y="9.0"/>
+      <place label-x="0.5" name="lookup_address" x="76.0" y="9.0"/>
+      <transition label-x="3.5" label-y="0.0" name="got_A_AAAA" nservers-x="0.5" type="EXP" x="86.55" y="9.0"/>
+      <transition name="failed_A_AAAA" nservers-x="0.5" type="EXP" x="81.55" y="7.0"/>
+      <transition label-x="-0.5" label-y="2.0" name="dnssec_req_SRV" nservers-x="0.5" type="EXP" x="45.55" y="9.0"/>
+      <place label-y="-2.0" name="want_SRV" x="40.0" y="9.0"/>
     </nodes>
     <edges>
       <arc head="krbtgtMissing" kind="INHIBITOR" tail="failedCached"/>
@@ -62,229 +64,241 @@
       <arc head="failedStop" kind="INPUT" tail="processingRequest"/>
       <arc head="failedCached" kind="OUTPUT" tail="failedStop"/>
       <arc head="failedStop" kind="INPUT" tail="failure"/>
-      <arc head="dnssec_req_krb_TXT" kind="INPUT" tail="ready_to_go"/>
-      <arc head="lookup_realm" kind="OUTPUT" tail="dnssec_req_krb_TXT"/>
-      <arc head="got_krb_TXT" kind="INPUT" tail="lookup_realm"/>
-      <arc head="targeting_realm" kind="OUTPUT" tail="got_krb_TXT"/>
       <arc head="successfulEnd" kind="INPUT" tail="success"/>
-      <arc head="have_fresh_krbtgt" kind="INPUT" tail="targeting_realm"/>
-      <arc head="have_krbtgt" kind="OUTPUT" tail="have_fresh_krbtgt"/>
-      <arc head="send_krbtgt_to_all_requesters" kind="INPUT" tail="have_krbtgt"/>
-      <arc head="failed_krb_TXT" kind="INPUT" tail="lookup_realm"/>
-      <arc head="failure" kind="OUTPUT" tail="failed_krb_TXT"/>
-      <arc head="dnssec_req_krb_SRV" kind="INPUT" tail="targeting_realm"/>
-      <arc head="lookup_kdc" kind="OUTPUT" tail="dnssec_req_krb_SRV"/>
-      <arc head="got_krb_SRV" kind="INPUT" tail="lookup_kdc"/>
-      <arc head="failed_krb_SRV" kind="INPUT" tail="lookup_kdc"/>
-      <arc head="failure" kind="OUTPUT" tail="failed_krb_SRV">
-        <point x="47.5" y="30.5"/>
-        <point x="24.0" y="30.5"/>
+      <arc head="have_fresh_krbtgt" kind="INPUT" mult-k="1.65224609375" tail="want_krbtgt">
+        <point x="33.5" y="12.0"/>
+        <point x="33.5" y="18.0"/>
       </arc>
-      <arc head="want_cert" kind="OUTPUT" tail="got_krb_SRV"/>
-      <arc head="dnssec_req_kdc_TLSA" kind="INPUT" tail="want_cert"/>
-      <arc head="lookup_DANE" kind="OUTPUT" tail="dnssec_req_kdc_TLSA"/>
-      <arc head="got_kdc_TLSA" kind="INPUT" tail="lookup_DANE"/>
-      <arc head="keyed_remote" kind="OUTPUT" tail="got_kdc_TLSA"/>
-      <arc head="await_KX" kind="OUTPUT" tail="kx_remote_req"/>
-      <arc head="got_kx_resp" kind="INPUT" tail="await_KX"/>
-      <arc head="responded_remote" kind="OUTPUT" tail="got_kx_resp"/>
+      <arc head="have_krbtgt" kind="OUTPUT" mult-k="1.40615234375" tail="have_fresh_krbtgt">
+        <point x="44.0" y="18.0"/>
+      </arc>
+      <arc head="send_krbtgt_to_all_requesters" kind="INPUT" tail="have_krbtgt"/>
+      <arc head="need_SRV" kind="INPUT" tail="want_krbtgt"/>
+      <arc head="want_SRV" kind="OUTPUT" tail="need_SRV"/>
+      <arc head="got_SRV" kind="INPUT" tail="lookup_kdc"/>
+      <arc head="failed_SRV" kind="INPUT" tail="lookup_kdc"/>
+      <arc head="failure" kind="OUTPUT" tail="failed_SRV">
+        <point x="52.0" y="32.5"/>
+        <point x="24.0" y="32.5"/>
+      </arc>
+      <arc head="want_cert" kind="OUTPUT" tail="got_SRV"/>
+      <arc head="dnssec_req_TLSA" kind="INPUT" tail="want_cert"/>
+      <arc head="lookup_DANE" kind="OUTPUT" tail="dnssec_req_TLSA"/>
+      <arc head="got_TLSA" kind="INPUT" tail="lookup_DANE"/>
+      <arc head="keyed_remote" kind="OUTPUT" tail="got_TLSA"/>
+      <arc head="await_KX" kind="OUTPUT" tail="send_KX_req"/>
+      <arc head="got_KX_resp" kind="INPUT" tail="await_KX"/>
+      <arc head="responded_remote" kind="OUTPUT" tail="got_KX_resp"/>
       <arc head="signature_error" kind="INPUT" tail="responded_remote"/>
       <arc head="signature_good" kind="INPUT" tail="responded_remote"/>
       <arc head="signature_good" kind="INPUT" tail="keyed_remote"/>
       <arc head="failure" kind="OUTPUT" tail="signature_error">
-        <point x="98.0" y="32.0"/>
-        <point x="91.5" y="38.0"/>
-        <point x="21.0" y="38.0"/>
+        <point x="98.0" y="34.0"/>
+        <point x="91.5" y="40.0"/>
+        <point x="21.0" y="40.0"/>
       </arc>
       <arc head="got_ecdhe" kind="OUTPUT" tail="signature_good"/>
       <arc head="ecdhe2krbtgt" kind="INPUT" tail="got_ecdhe"/>
-      <arc head="have_krbtgt" kind="OUTPUT" tail="store_krbtgt_kdb">
-        <point x="105.0" y="20.0"/>
+      <arc head="have_krbtgt" kind="OUTPUT" mult-k="0.5999023437500001" tail="store_krbtgt_kdb">
+        <point x="105.0" y="22.0"/>
+        <point x="50.0" y="22.0"/>
+        <point x="50.0" y="16.0"/>
       </arc>
       <arc head="got_krbtgt" kind="OUTPUT" tail="ecdhe2krbtgt"/>
       <arc head="store_krbtgt_kdb" kind="INPUT" tail="got_krbtgt"/>
-      <arc head="serving_krbtgt" kind="OUTPUT" tail="store_krbtgt_kdb"/>
-      <arc head="krbtgt_refresh_timer" kind="INPUT" tail="serving_krbtgt"/>
+      <arc head="fresh_krbtgt" kind="OUTPUT" tail="store_krbtgt_kdb"/>
+      <arc head="krbtgt_refresh_timer" kind="INPUT" tail="fresh_krbtgt"/>
       <arc head="krbtgt_dawn" kind="OUTPUT" tail="krbtgt_refresh_timer"/>
       <arc head="krbtgt_expired_remove" kind="INPUT" tail="krbtgt_dawn"/>
-      <arc head="want_KX_exchange" kind="OUTPUT" tail="got_krb_SRV"/>
-      <arc head="noDANE" kind="OUTPUT" tail="failed_krb_TLSA"/>
-      <arc head="noKX" kind="OUTPUT" tail="failed_kx_req"/>
+      <arc head="noDANE" kind="OUTPUT" tail="failed_TLSA"/>
+      <arc head="noKX" kind="OUTPUT" tail="failed_KX"/>
       <arc head="KXwoDANE" kind="INPUT" tail="noDANE"/>
       <arc head="neither" kind="INPUT" tail="noDANE"/>
       <arc head="neither" kind="INPUT" tail="noKX"/>
       <arc head="DANEwoKX" kind="INPUT" tail="noKX"/>
       <arc head="DANEwoKX" kind="INPUT" tail="keyed_remote">
-        <point x="84.5" y="10.5"/>
-        <point x="84.5" y="24.0"/>
+        <point x="84.5" y="7.5"/>
+        <point x="84.5" y="26.0"/>
       </arc>
       <arc head="KXwoDANE" kind="INPUT" tail="responded_remote">
-        <point x="92.0" y="29.0"/>
-        <point x="75.5" y="29.0"/>
+        <point x="92.0" y="31.0"/>
+        <point x="75.5" y="31.0"/>
       </arc>
       <arc head="failure" kind="OUTPUT" tail="KXwoDANE">
-        <point x="72.0" y="34.0"/>
-        <point x="22.5" y="34.0"/>
+        <point x="72.0" y="36.0"/>
+        <point x="22.5" y="36.0"/>
       </arc>
       <arc head="failure" kind="OUTPUT" tail="neither">
-        <point x="77.0" y="34.0"/>
-        <point x="22.5" y="34.0"/>
+        <point x="77.0" y="36.0"/>
+        <point x="22.5" y="36.0"/>
       </arc>
       <arc head="failure" kind="OUTPUT" tail="DANEwoKX">
-        <point x="82.0" y="34.0"/>
-        <point x="22.5" y="34.0"/>
+        <point x="82.0" y="36.0"/>
+        <point x="22.5" y="36.0"/>
       </arc>
-      <arc head="have_fresh_krbtgt" kind="INPUT" tail="serving_krbtgt">
-        <point x="102.0" y="36.0"/>
-        <point x="47.0" y="36.0"/>
-        <point x="47.0" y="16.0"/>
+      <arc head="have_fresh_krbtgt" kind="INPUT" mult-k="0.6000976562500001" tail="fresh_krbtgt">
+        <point x="102.0" y="38.0"/>
+        <point x="42.0" y="38.0"/>
+        <point x="42.0" y="21.0"/>
       </arc>
-      <arc head="dnssec_req_krb_SRV" kind="INHIBITOR" tail="serving_krbtgt">
-        <point x="102.0" y="36.0"/>
-        <point x="47.0" y="36.0"/>
+      <arc head="need_SRV" kind="INHIBITOR" mult-k="0.5999023437500001" tail="fresh_krbtgt">
+        <point x="102.0" y="38.0"/>
+        <point x="37.0" y="38.0"/>
+        <point x="37.0" y="12.799367244616494"/>
       </arc>
-      <arc head="have_dawn_krbtgt_then_dnssec_req_krb_SRV" kind="INPUT" tail="targeting_realm">
-        <point x="37.0" y="12.0"/>
+      <arc head="have_dawn_krbtgt" kind="INPUT" mult-k="0.8684570312500001" tail="want_krbtgt">
+        <point x="31.0" y="12.4380859375"/>
       </arc>
-      <arc head="have_dawn_krbtgt_then_dnssec_req_krb_SRV" kind="INPUT" tail="krbtgt_dawn">
-        <point x="109.5" y="40.0"/>
-        <point x="45.0" y="40.0"/>
-        <point x="45.0" y="14.0"/>
+      <arc head="have_dawn_krbtgt" kind="INPUT" mult-k="0.6000976562500001" tail="krbtgt_dawn">
+        <point x="109.5" y="42.0"/>
+        <point x="30.0" y="42.0"/>
+        <point x="30.0" y="18.5"/>
       </arc>
-      <arc head="have_krbtgt" kind="OUTPUT" tail="have_dawn_krbtgt_then_dnssec_req_krb_SRV">
-        <point x="37.0" y="20.0"/>
+      <arc head="have_krbtgt" kind="OUTPUT" mult-k="0.49716796875" tail="have_dawn_krbtgt">
+        <point x="35.5" y="16.0"/>
       </arc>
-      <arc head="dnssec_req_krb_SRV" kind="INHIBITOR" tail="krbtgt_dawn">
-        <point x="109.5" y="40.0"/>
-        <point x="45.0" y="40.0"/>
-        <point x="45.0" y="10.0"/>
+      <arc head="need_SRV" kind="INHIBITOR" mult-k="0.6000976562500001" tail="krbtgt_dawn">
+        <point x="109.5" y="42.0"/>
+        <point x="35.0" y="42.0"/>
+        <point x="35.0" y="13.0"/>
       </arc>
-      <arc head="lookup_kdc" kind="OUTPUT" tail="have_dawn_krbtgt_then_dnssec_req_krb_SRV">
-        <point x="37.0" y="18.0"/>
-        <point x="50.0" y="18.0"/>
-        <point x="50.0" y="10.0"/>
+      <arc head="send_KX_req" kind="INPUT" tail="want_KX_exchange"/>
+      <arc head="fresh_krbtgt" kind="OUTPUT" mult-k="0.0" tail="have_fresh_krbtgt">
+        <point x="42.0" y="21.0"/>
+        <point x="42.0" y="38.0"/>
+        <point x="102.0" y="38.0"/>
       </arc>
-      <arc head="kx_remote_req" kind="INPUT" tail="want_KX_exchange"/>
-      <arc head="serving_krbtgt" kind="OUTPUT" tail="have_fresh_krbtgt">
-        <point x="47.0" y="16.0"/>
-        <point x="47.0" y="36.0"/>
-        <point x="102.0" y="36.0"/>
-      </arc>
-      <arc head="krbtgt_dawn" kind="OUTPUT" tail="have_dawn_krbtgt_then_dnssec_req_krb_SRV">
-        <point x="45.0" y="14.0"/>
-        <point x="45.0" y="40.0"/>
-        <point x="109.5" y="40.0"/>
+      <arc head="krbtgt_dawn" kind="OUTPUT" mult-k="0.0" tail="have_dawn_krbtgt">
+        <point x="30.0" y="18.5"/>
+        <point x="30.0" y="42.0"/>
+        <point x="109.5" y="42.0"/>
       </arc>
       <arc head="krbtgt_remove_dawn" kind="INPUT" tail="krbtgt_dawn"/>
-      <arc head="krbtgt_remove_dawn" kind="INPUT" tail="serving_krbtgt">
-        <point x="123.0" y="20.0"/>
+      <arc head="krbtgt_remove_dawn" kind="INPUT" tail="fresh_krbtgt">
+        <point x="123.0" y="22.0"/>
       </arc>
-      <arc head="serving_krbtgt" kind="OUTPUT" tail="krbtgt_remove_dawn">
-        <point x="123.0" y="20.0"/>
+      <arc head="fresh_krbtgt" kind="OUTPUT" tail="krbtgt_remove_dawn">
+        <point x="123.0" y="22.0"/>
       </arc>
-      <arc head="failed_krb_TLSA" kind="INPUT" tail="lookup_DANE">
-        <point x="77.0" y="11.5"/>
-        <point x="72.0" y="11.5"/>
+      <arc head="failed_TLSA" kind="INPUT" tail="lookup_DANE">
+        <point x="77.0" y="6.0"/>
+        <point x="72.0" y="6.0"/>
       </arc>
-      <arc head="failed_kx_req" kind="INPUT" tail="await_KX">
-        <point x="77.0" y="18.0"/>
+      <arc head="failed_KX" kind="INPUT" tail="await_KX">
+        <point x="77.0" y="20.0"/>
       </arc>
-      <arc head="ready_to_go" kind="OUTPUT" tail="krbtgtMissing"/>
-      <arc head="processingRequest" kind="OUTPUT" tail="have_dawn_krbtgt_then_dnssec_req_krb_SRV"/>
-      <arc head="success" kind="OUTPUT" tail="send_krbtgt_to_all_requesters">
-        <point x="37.0" y="26.0"/>
-        <point x="31.0" y="20.0"/>
-      </arc>
+      <arc head="processingRequest" kind="OUTPUT" tail="have_dawn_krbtgt"/>
       <arc head="signature_error" kind="INPUT" tail="keyed_remote"/>
       <arc head="successfulEnd" kind="INPUT" tail="processingRequest"/>
-      <arc head="have_dawn_krbtgt_then_dnssec_req_krb_SRV" kind="INHIBITOR" tail="serving_krbtgt">
-        <point x="102.0" y="36.0"/>
-        <point x="47.0" y="36.0"/>
-        <point x="47.0" y="12.0"/>
-        <point x="39.5" y="12.0"/>
+      <arc head="have_dawn_krbtgt" kind="INHIBITOR" mult-k="0.5999023437500001" tail="fresh_krbtgt">
+        <point x="102.0" y="38.0"/>
+        <point x="32.0" y="38.0"/>
+        <point x="32.0" y="18.5"/>
+      </arc>
+      <arc head="want_address" kind="OUTPUT" tail="got_SRV"/>
+      <arc head="dns_req_A_AAAA" kind="INPUT" tail="want_address"/>
+      <arc head="lookup_address" kind="OUTPUT" tail="dns_req_A_AAAA"/>
+      <arc head="got_A_AAAA" kind="INPUT" tail="lookup_address"/>
+      <arc head="failed_A_AAAA" kind="INPUT" tail="lookup_address">
+        <point x="77.0" y="8.0"/>
+      </arc>
+      <arc head="noKX" kind="OUTPUT" tail="failed_A_AAAA">
+        <point x="83.5" y="8.0"/>
+        <point x="83.5" y="22.5"/>
+      </arc>
+      <arc head="want_KX_exchange" kind="OUTPUT" mult-k="0.5999023437500001" tail="got_A_AAAA">
+        <point x="87.0" y="13.0"/>
+        <point x="62.0" y="13.0"/>
+      </arc>
+      <arc head="want_krbtgt" kind="OUTPUT" tail="krbtgtMissing"/>
+      <arc head="success" kind="OUTPUT" tail="send_krbtgt_to_all_requesters"/>
+      <arc head="dnssec_req_SRV" kind="INPUT" tail="want_SRV"/>
+      <arc head="lookup_kdc" kind="OUTPUT" tail="dnssec_req_SRV"/>
+      <arc head="want_SRV" kind="OUTPUT" mult-k="1.1473632812499996" tail="have_dawn_krbtgt">
+        <point x="41.0" y="16.0"/>
       </arc>
     </edges>
   </gspn>
-  <gspn name="kxover_server" show-color-cmd="false" show-fluid-cmd="false" show-timed-cmd="false" view-rates="false" zoom="75">
+  <gspn name="kxover_server" show-color-cmd="false" show-fluid-cmd="false" show-timed-cmd="false" view-rates="false">
     <nodes>
-      <transition label-y="-2.0" name="receive_KX_request" nservers-x="0.5" type="EXP" x="6.55" y="4.0"/>
+      <transition label-y="-2.0" name="recv_KX_req" nservers-x="0.5" type="EXP" x="6.55" y="4.0"/>
       <place label-x="-2.0" name="servicing" x="12.0" y="16.0"/>
       <place label-y="2.0" name="want_kdc" x="12.0" y="4.0"/>
-      <transition label-y="-2.0" name="dnssec_req_krb_SRV" nservers-x="0.5" type="EXP" x="18.55" y="4.0"/>
+      <transition label-y="-2.0" name="dnssec_req_SRV" nservers-x="0.5" type="EXP" x="18.55" y="4.0"/>
       <place label-x="-0.5" label-y="2.0" name="lookup_kdc" x="24.0" y="4.0"/>
-      <transition label-y="-2.0" name="got_krb_SRV" nservers-x="0.5" type="EXP" x="30.55" y="4.0"/>
+      <transition label-y="-2.0" name="got_SRV" nservers-x="0.5" type="EXP" x="30.55" y="4.0"/>
       <place label-y="2.0" name="want_cert" x="36.0" y="4.0"/>
-      <transition label-y="-2.0" name="got_kdc_TLSA" nservers-x="0.5" type="EXP" x="54.55" y="4.0"/>
+      <transition label-y="-2.0" name="got_TLSA" nservers-x="0.5" type="EXP" x="54.55" y="4.0"/>
       <place label-y="2.0" name="keyed_remote" x="60.0" y="4.0"/>
       <transition label-y="-2.0" name="signature_good" nservers-x="0.5" type="EXP" x="66.55" y="4.0"/>
       <transition label-y="2.0" name="signature_error" nservers-x="0.5" type="EXP" x="60.55" y="16.0"/>
       <place label-y="2.0" name="failed" x="36.0" y="16.0"/>
-      <transition label-y="-2.0" name="respond_failed" nservers-x="0.5" type="EXP" x="30.55" y="16.0"/>
+      <transition label-y="-2.0" name="send_KX_failed" nservers-x="0.5" type="EXP" x="30.55" y="16.0"/>
       <place label-y="2.0" name="failedCached" x="24.0" y="16.0"/>
       <transition label-y="-2.0" name="cache_exp_timer" nservers-x="0.5" type="EXP" x="18.55" y="16.0"/>
       <place label-y="2.0" name="welcome" x="72.0" y="4.0"/>
-      <transition label-y="-2.0" name="generate_response" nservers-x="0.5" type="EXP" x="78.55" y="4.0"/>
+      <transition label-y="-2.0" name="ecdhe2krbtgt" nservers-x="0.5" type="EXP" x="78.55" y="4.0"/>
       <place label-y="2.0" name="building_krbtgt" x="84.0" y="4.0"/>
-      <transition label-y="-2.0" name="store_krbtgt" nservers-x="0.5" type="EXP" x="90.55" y="4.0"/>
+      <transition label-y="-2.0" name="store_krbtgt_kdb" nservers-x="0.5" type="EXP" x="90.55" y="4.0"/>
       <place label-y="2.0" name="ready_to_send" x="96.0" y="4.0"/>
-      <transition label-y="-2.0" name="send_KX_response" nservers-x="0.5" type="EXP" x="102.55" y="4.0"/>
+      <transition label-y="-2.0" name="send_KX_resp" nservers-x="0.5" type="EXP" x="102.55" y="4.0"/>
       <place label-y="2.0" name="success" x="36.0" y="22.0"/>
       <transition label-x="1.5" label-y="-2.0" name="successfulEnd" nservers-x="0.5" type="EXP" x="18.55" y="22.0"/>
       <place label-x="4.0" label-y="0.0" name="have_krbtgt" x="90.0" y="10.0"/>
       <transition label-x="4.0" label-y="-0.5" name="expiration_timer" nservers-x="0.5" type="EXP" x="90.55" y="16.0"/>
-      <transition label-x="-4.0" label-y="0.0" name="remove_oldest" nservers-x="0.5" type="EXP" x="84.55" y="10.0"/>
-      <transition label-y="-2.0" name="dnssec_req_kdc_TLSA" nservers-x="0.5" type="EXP" x="42.55" y="4.0"/>
+      <transition label-x="-4.0" label-y="0.0" name="remove_shortest" nservers-x="0.5" type="EXP" x="84.55" y="10.0"/>
+      <transition label-y="-2.0" name="dnssec_req_TLSA" nservers-x="0.5" type="EXP" x="42.55" y="4.0"/>
       <place label-y="2.0" name="lookup_DANE" x="48.0" y="4.0"/>
-      <transition label-x="-4.0" label-y="0.0" name="failed_krb_SRV" nservers-x="0.5" type="EXP" x="24.55" y="10.0"/>
-      <transition label-x="4.5" label-y="0.0" name="failed_kdc_TLSA" nservers-x="0.5" type="EXP" x="48.55" y="10.0"/>
+      <transition label-x="-4.0" label-y="0.0" name="failed_SRV" nservers-x="0.5" type="EXP" x="24.55" y="10.0"/>
+      <transition label-x="4.5" label-y="0.0" name="failed_TLSA" nservers-x="0.5" type="EXP" x="48.55" y="10.0"/>
     </nodes>
     <edges>
-      <arc head="want_kdc" kind="OUTPUT" tail="receive_KX_request"/>
-      <arc head="dnssec_req_krb_SRV" kind="INPUT" tail="want_kdc"/>
-      <arc head="lookup_kdc" kind="OUTPUT" tail="dnssec_req_krb_SRV"/>
-      <arc head="got_krb_SRV" kind="INPUT" tail="lookup_kdc"/>
-      <arc head="want_cert" kind="OUTPUT" tail="got_krb_SRV"/>
-      <arc head="keyed_remote" kind="OUTPUT" tail="got_kdc_TLSA"/>
+      <arc head="want_kdc" kind="OUTPUT" tail="recv_KX_req"/>
+      <arc head="dnssec_req_SRV" kind="INPUT" tail="want_kdc"/>
+      <arc head="lookup_kdc" kind="OUTPUT" tail="dnssec_req_SRV"/>
+      <arc head="got_SRV" kind="INPUT" tail="lookup_kdc"/>
+      <arc head="want_cert" kind="OUTPUT" tail="got_SRV"/>
+      <arc head="keyed_remote" kind="OUTPUT" tail="got_TLSA"/>
       <arc head="signature_good" kind="INPUT" tail="keyed_remote"/>
       <arc head="signature_error" kind="INPUT" tail="keyed_remote"/>
       <arc head="failed" kind="OUTPUT" tail="signature_error"/>
-      <arc head="respond_failed" kind="INPUT" tail="failed"/>
-      <arc head="failedCached" kind="OUTPUT" tail="respond_failed"/>
+      <arc head="send_KX_failed" kind="INPUT" tail="failed"/>
+      <arc head="failedCached" kind="OUTPUT" tail="send_KX_failed"/>
       <arc head="cache_exp_timer" kind="INPUT" tail="failedCached"/>
       <arc head="cache_exp_timer" kind="INPUT" tail="servicing"/>
       <arc head="welcome" kind="OUTPUT" tail="signature_good"/>
-      <arc head="generate_response" kind="INPUT" tail="welcome"/>
-      <arc head="building_krbtgt" kind="OUTPUT" tail="generate_response"/>
-      <arc head="store_krbtgt" kind="INPUT" tail="building_krbtgt"/>
-      <arc head="ready_to_send" kind="OUTPUT" tail="store_krbtgt"/>
-      <arc head="send_KX_response" kind="INPUT" tail="ready_to_send"/>
-      <arc head="success" kind="OUTPUT" tail="send_KX_response">
+      <arc head="ecdhe2krbtgt" kind="INPUT" tail="welcome"/>
+      <arc head="building_krbtgt" kind="OUTPUT" tail="ecdhe2krbtgt"/>
+      <arc head="store_krbtgt_kdb" kind="INPUT" tail="building_krbtgt"/>
+      <arc head="ready_to_send" kind="OUTPUT" tail="store_krbtgt_kdb"/>
+      <arc head="send_KX_resp" kind="INPUT" tail="ready_to_send"/>
+      <arc head="success" kind="OUTPUT" tail="send_KX_resp">
         <point x="103.0" y="23.0"/>
       </arc>
       <arc head="successfulEnd" kind="INPUT" tail="success"/>
-      <arc head="have_krbtgt" kind="OUTPUT" tail="store_krbtgt"/>
+      <arc head="have_krbtgt" kind="OUTPUT" tail="store_krbtgt_kdb"/>
       <arc head="expiration_timer" kind="INPUT" tail="have_krbtgt"/>
-      <arc head="remove_oldest" kind="INPUT" mult="3" mult-k="0.70966796875" mult-x="0.9174800561461041" mult-y="-0.6980068140715066" tail="have_krbtgt">
+      <arc head="remove_shortest" kind="INPUT" mult="3" mult-k="0.70966796875" mult-x="0.9174800561461041" mult-y="-0.6980068140715066" tail="have_krbtgt">
         <point x="88.0" y="10.0"/>
       </arc>
-      <arc head="have_krbtgt" kind="OUTPUT" mult="2" mult-k="0.8206054687500001" mult-x="-0.9999226482735963" mult-y="0.6179924866106532" tail="remove_oldest">
+      <arc head="have_krbtgt" kind="OUTPUT" mult="2" mult-k="0.8206054687500001" mult-x="-0.9999226482735963" mult-y="0.6179924866106532" tail="remove_shortest">
         <point x="88.0" y="12.0"/>
       </arc>
-      <arc head="dnssec_req_kdc_TLSA" kind="INPUT" tail="want_cert"/>
-      <arc head="lookup_DANE" kind="OUTPUT" tail="dnssec_req_kdc_TLSA"/>
-      <arc head="got_kdc_TLSA" kind="INPUT" tail="lookup_DANE"/>
-      <arc head="failed_krb_SRV" kind="INPUT" tail="lookup_kdc"/>
-      <arc head="failed" kind="OUTPUT" tail="failed_krb_SRV">
+      <arc head="dnssec_req_TLSA" kind="INPUT" tail="want_cert"/>
+      <arc head="lookup_DANE" kind="OUTPUT" tail="dnssec_req_TLSA"/>
+      <arc head="got_TLSA" kind="INPUT" tail="lookup_DANE"/>
+      <arc head="failed_SRV" kind="INPUT" tail="lookup_kdc"/>
+      <arc head="failed" kind="OUTPUT" tail="failed_SRV">
         <point x="37.0" y="11.0"/>
       </arc>
-      <arc head="failed_kdc_TLSA" kind="INPUT" tail="lookup_DANE"/>
-      <arc head="failed" kind="OUTPUT" tail="failed_kdc_TLSA">
+      <arc head="failed_TLSA" kind="INPUT" tail="lookup_DANE"/>
+      <arc head="failed" kind="OUTPUT" tail="failed_TLSA">
         <point x="37.0" y="11.0"/>
       </arc>
-      <arc head="servicing" kind="OUTPUT" tail="receive_KX_request">
+      <arc head="servicing" kind="OUTPUT" tail="recv_KX_req">
         <point x="7.0" y="17.0"/>
       </arc>
-      <arc head="receive_KX_request" kind="INHIBITOR" tail="servicing">
+      <arc head="recv_KX_req" kind="INHIBITOR" tail="servicing">
         <point x="7.0" y="17.0"/>
       </arc>
       <arc head="successfulEnd" kind="INPUT" tail="servicing">

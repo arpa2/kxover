@@ -17,8 +17,8 @@ int main (int argc, char *argv []) {
 /* The initial transition for this workflow indicates that a KXOVER client
  * wants to go through a KXOVER exchange.  This is strictly event-driven.
  */
-trans_retcode_t trans_action_receive_KX_request (
-			PARMDEF_COMMA (pnc)
+trans_retcode_t trans_action_recv_KX_req (
+				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
 				void *opt_evdata ) {
@@ -30,44 +30,10 @@ trans_retcode_t trans_action_receive_KX_request (
 	return TRANS_FAILURE;
 }
 
-
-/* Store the produced krbtgt in kdb, so we can process future client requests.
- */
-trans_retcode_t trans_action_store_krbtgt (
-			PARMDEF_COMMA (pnc)
-				transref_t tr,
-				time_t *nowp,
-				void *opt_evdata) {
-	//TODO// Implement this function
-	return TRANS_FAILURE;
-}
-
-/* Generate a response to send to the KXOVER client.
- */
-trans_retcode_t trans_action_generate_response (
-			PARMDEF_COMMA (pnc)
-				transref_t tr,
-				time_t *nowp,
-				void *opt_evdata) {
-	//TODO// Implement this function
-	return TRANS_FAILURE;
-}
-
 /* Send the KX response to the KXOVER client.
  */
-trans_retcode_t trans_action_send_KX_response (
-			PARMDEF_COMMA (pnc)
-				transref_t tr,
-				time_t *nowp,
-				void *opt_evdata) {
-	//TODO// Implement this function
-	return TRANS_FAILURE;
-}
-
-/* Process a failure to obtain the client's SRV record securely.
- */
-trans_retcode_t trans_action_failed_krb_SRV (
-			PARMDEF_COMMA (pnc)
+trans_retcode_t trans_action_send_KX_resp (
+				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
 				void *opt_evdata) {
@@ -77,8 +43,8 @@ trans_retcode_t trans_action_failed_krb_SRV (
 
 /* Process a failure to obtain the client's TLSA record securely.
  */
-trans_retcode_t trans_action_failed_kdc_TLSA (
-			PARMDEF_COMMA (pnc)
+trans_retcode_t trans_action_failed_TLSA (
+				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
 				void *opt_evdata) {
@@ -88,8 +54,8 @@ trans_retcode_t trans_action_failed_kdc_TLSA (
 
 /* Send a failure response to the KXOVER client.
  */
-trans_retcode_t trans_action_respond_failed (
-			PARMDEF_COMMA (pnc)
+trans_retcode_t trans_action_send_KX_failed (
+				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
 				void *opt_evdata) {
@@ -100,7 +66,7 @@ trans_retcode_t trans_action_respond_failed (
 /* Expire one krbtgt for the given KXOVER client.
  */
 trans_retcode_t trans_action_expiration_timer (
-			PARMDEF_COMMA (pnc)
+				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
 				void *opt_evdata) {
@@ -108,11 +74,21 @@ trans_retcode_t trans_action_expiration_timer (
 	return TRANS_FAILURE;
 }
 
-/* Remove the oldest (or perhaps another, dependent on prudent policy) krbtgt
- * if we have more than we like (or allow) for any given KXOVER client.
+/* Remove the shortest-living (or perhaps another, dependent on prudent policy)
+ * krbtgt if we have more than we like (or allow) for any given KXOVER client.
+ *
+ * This can be used to implement policies such as at most two krbtgt per client,
+ * which is fair when reloading is not done before half of the time has passed.
+ * When 3 krbtgt exist, one can be removed.
+ *
+ * The reason to remove the one with the shortest life time is that there may
+ * be situations where the client misses the krbtgt being replied to it, and
+ * it is then likely to request another.  In this case, the previous one, the
+ * one that went astray, has only a short non-overlapping life time, making it
+ * the best option for removal.
  */
-trans_retcode_t trans_action_remove_oldest (
-			PARMDEF_COMMA (pnc)
+trans_retcode_t trans_action_remove_shortest (
+				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
 				void *opt_evdata) {
@@ -124,7 +100,7 @@ trans_retcode_t trans_action_remove_oldest (
  * with the KXOVER client.
  */
 trans_retcode_t trans_action_cache_exp_timer (
-			PARMDEF_COMMA (pnc)
+				PARMDEF_COMMA (pnc)
 				transref_t tr,
 				time_t *nowp,
 				void *opt_evdata) {
