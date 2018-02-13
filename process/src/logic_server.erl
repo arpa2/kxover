@@ -28,6 +28,7 @@
 	dnssec_req_TLSA/4,
 	got_TLSA/4,
 	signature_verify/4,
+	ecdhe2krbtgt/4,
 	signature_error/4,
 	all_hooks/0
 ]).
@@ -234,10 +235,11 @@ got_TLSA( {},got_TLSA,{ok,WireData},AppState ) ->
 % EventData holds {Success,Failure}.
 %
 % The verification does the following things:
-%  0. Check that signature-alg matches certificate alg
-%  1. Verify the KX-TBSDATA against the certificate key
-%  2. Evaluate the chain of certificates
-%  3. Evaluate DANE against the chain of certificates
+%  1. Check that data fields are acceptable to us
+%  2. Check that signature-alg matches certificate alg	%TODO%DROP%FROM%KXOFFER%
+%  3. Verify the KX-TBSDATA against the certificate key
+%  4. Evaluate the chain of certificates
+%  5. Evaluate DANE against the chain of certificates
 %
 signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 	%
@@ -364,6 +366,38 @@ signature_error( {},signature_error,_EventData,AppState ) ->
 	{ noreply,NewAppState }.
 
 
+% Transition hook: ECDHE computation, derive shared key and krbtgt.
+%
+% EventData holds nothing.
+%
+% This local computation generates a private key and immediately
+% forgets about it, after having derived the session key.  The
+% public key is passed back to the client, but only after the
+% server has stored the krbtgt based on the shared key.
+%
+%TODO% Future crypto uses other names; likely to be post-quantum.
+%
+ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
+	KXoffer = maps:get( ckx,AppState ),
+	KXtbsdata = KXoffer#'KX-OFFER'.'signature-input',
+	#'SubjectPublicKeyInfo'{ algorithm=AlgId,subjectPublicKey=PeerPubKey } =
+		KXtbsdata#'KX-TBSDATA'.'key-exchange',
+	#'AlgorithmIdentifier'{ algorithm=_AlgOID,parameters=ECDHParams } =
+		AlgId,
+	{ _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
+	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,ECDHParams ),
+	%TODO% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
+	KeyInfo = Z,
+	%TODO% Following is preliminary redesign based on HMAC with Key=Z
+	%TODO% Note the fixed choice of hash, as it is not a security concern (and yet, HMAC?!?)
+	%TODO% Repeat with seq-nr for longer SharedKey segments if needed
+	SharedKey = crypto:hmac( sha256,Z,KeyInfo ),
+	%TODO% Compute krbtgt blob
+	KrbTgt = krbtgtBlob_TODO,
+	NewAppState = maps:put( key,SharedKey,	%TODO% Why? only need MyPubKey...
+	              maps:put( krbtgt,KrbTgt,AppState )),
+	{ noreply,NewAppState }.
+
 % MiscData hook: The process received asynchronous non-Perpetuum data.
 %
 % Callbacks from Unbound look like #ub_callback{}
@@ -425,7 +459,7 @@ all_hooks() -> #{
 	signature_verify	=> {logic_server,signature_verify,{}},
 	signature_error		=> {logic_server,signature_error,{}},
 	signature_good		=> {logic_server,nop,{}},
-	ecdhe2krbtgt		=> {logic_server,nop,{}},
+	ecdhe2krbtgt		=> {logic_server,ecdhe2krbtgt,{}},
 	store_krbtgt_kdb	=> {logic_server,nop,{}},
 	send_KX_resp		=> {logic_server,nop,{}},
 	expiration_timer	=> {logic_server,nop,{}},

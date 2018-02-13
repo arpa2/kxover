@@ -116,6 +116,7 @@ KX-REP-MSG ::= SEQUENCE {
 -- 
 --   * No support for Modular-Exponentiation Diffie-Hellman; there is support
 --     for Elliptic-Curve Diffie-Hellman only.
+--     **TODO:** Open to post-quantum key exchange algorithms.
 -- 
 --   * We removed the CMS notation.  The opportunity for reuse of CMS code in a
 --     Kerberos context is not very high.  We have replaced it with similar
@@ -161,6 +162,7 @@ KX-OFFER ::= SEQUENCE {
 --   * The `nonce` field holds a random value that should not be reused quickly.
 --     Its purpose is to match a `KX-REP` to a `KX-REQ`, and to detect resends
 --     due to (assumed) network dropouts at the transport level.
+--     **TODO:** Consider moving this transport data to `KX-REP` and `KX-REQ`.
 -- 
 --   * The `signature-input` contains the to-be-signed data for this half of
 --     the exchange.  Any data in here will be certain to have come from the
@@ -182,7 +184,7 @@ KX-OFFER ::= SEQUENCE {
 --     `KX-PA-TBSDATA` contents, as defined in
 --     [RFC5280](http://tools.ietf.org/html/rfc5280#section-4.1.1.2)
 --     as a pair of an object identifier and optional parameters.
---     TODO: This duplicates TBSCertificate.SubjectPublicKeyInfo.algorithm
+--     **TODO:** This duplicates TBSCertificate.SubjectPublicKeyInfo.algorithm
 -- 
 --   * The `signature-value` field holds the actual signature, according to
 --     the outcome of the `signature-alg` field, and encoded just as the
@@ -254,6 +256,7 @@ KX-TBSDATA ::= SEQUENCE {
 --     this keep the message format symmetrical, but it also means that a
 --     service can make a counter-proposal if it disagrees with a proposed
 --     ECDH group.
+--     **TODO:** Open to post-quantum methods of key exchange.
 -- 
 --   * The `till` field defines the latest time at which `TGS` requests based
 --     on this key would be permitted.  Each side makes a proposal, but the key
@@ -287,6 +290,7 @@ KX-TBSDATA ::= SEQUENCE {
 --     limited to Elliptic-Curve Diffie-Hellman algorithms, but future
 --     extensions may expand on this; unknown algorithms MUST be silently
 --     ignored.
+--     **TODO:** Open to post-quantum methods of key exchange.
 -- 
 --   * The `accept-sigalg` field indicates acceptable signature algorithms.
 --     **TODO:** Is this the right thing in the right place at the right time?
@@ -346,6 +350,10 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 --
 -- The value of `shared-key` is the value usually referred to as Z, and is
 -- included as a raw OCTET STRING; leading zero bytes are not removed.
+-- **TODO:** Consider moving `shared-key` into a HMAC key.
+--
+-- **TODO:** Consider additional salts, possibly from extensions.
+-- **TODO:** Consider incorporating a preceding key (by `kvno`).
 
 
 -- A virtually infinite sequence of SHA-256 computations can be constructed from
