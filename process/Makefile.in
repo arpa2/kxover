@@ -1,0 +1,5 @@
+PROJECT = KXOVER
+PROJECT_DESCRIPTION = "Kerberos Realm-Crossover (built on DANE/DNSSEC)"
+PROJECT_VERSION = @KXOVER_VERSION@
+
+include erlang.mk

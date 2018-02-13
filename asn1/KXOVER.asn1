@@ -68,7 +68,7 @@ KX-REQ ::= [APPLICATION 18] KX-REQ-MSG
 
 KX-REP ::= [APPLICATION 19] KX-REP-MSG
 
--- The `KX-REQ-MOD` is the special KDC request for the `KX` exchange; its main
+-- The `KX-REQ-MSG` is the special KDC request for the `KX` exchange; its main
 -- purpose is to transport and ECDH key exchange request.
 
 KX-REQ-MSG ::= SEQUENCE {
@@ -79,7 +79,7 @@ KX-REQ-MSG ::= SEQUENCE {
 }
 
 
--- The `KX-REP-MOD` is the special KDC request for the `KX` exchange; its main
+-- The `KX-REP-MSG` is the special KDC request for the `KX` exchange; its main
 -- purpose is to transport and ECDH key exchange response.
 
 KX-REP-MSG ::= SEQUENCE {
@@ -146,7 +146,7 @@ KX-OFFER ::= SEQUENCE {
         signature-input [1] KX-TBSDATA,
         signature-owner [2] SEQUENCE OF Certificate,
 
-    --  The action signature:
+    --  The actual signature:
         signature-alg   [3] AlgorithmIdentifier,
         signature-value [4] BIT STRING,
 
