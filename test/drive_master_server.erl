@@ -17,7 +17,8 @@ main( [FileKXoffer|_Args] ) ->
 
 	% Start the Unbound service process
 	%
-	unbound:start (),
+	%TODO% unbound:start( [ { forwarders,<<"10.0.2.5">> } ] ),
+	unbound:start(),
 
 	% Start a kxover_server with logic_server backend
 	%
@@ -45,6 +46,8 @@ main( [FileKXoffer|_Args] ) ->
 	Error1 ->
 		io:format( "Unexpected return value ~p~n",[Error1] ),
 		error( Error1 )
+	after 5000 ->
+		error( timeout )
 	end,
 
 	% Request a TLSA record under DNSSEC
@@ -61,11 +64,14 @@ main( [FileKXoffer|_Args] ) ->
 	Error2 ->
 		io:format( "Unexpected return value ~p~n",[Error2] ),
 		error( Error2 )
+	after 5000 ->
+		error( timeout )
 	end,
 
 	% Request KX signature verification based on TLSA
 	%
 	noreply = gen_perpetuum:event( Server,signature_verify,{ signature_good,signature_error }),
+	io:format( "Returned from signature verification request~n" ),
 
 	% Await the response to the signature verification
 	%
@@ -77,6 +83,8 @@ main( [FileKXoffer|_Args] ) ->
 	Error3 ->
 		io:format( "Unexpected return value ~p~n",[Error3] ),
 		error( Error3 )
+	after 5000 ->
+		error( timeout )
 	end,
 
 	%DEBUG% io:format( "Something returned is ~p~n",[STH] ),

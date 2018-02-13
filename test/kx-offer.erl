@@ -40,7 +40,8 @@ main (_Argh) ->
 
 	%TODO% Get a real Signature Algorithm OID in here (but who defines them?)
 	SigAlg = #'AlgorithmIdentifier' {
-		'algorithm' = { 1,2,3 } },
+		algorithm = { 1,2,840,113549,1,1,1 },
+		parameters = <<5,0>> },
 	PubKey = <<0:1,1:1,0:1,1:1,1:1>>,
 	PubKeyInfo = #'SubjectPublicKeyInfo' {
 		'algorithm' = SigAlg,
@@ -72,6 +73,12 @@ main (_Argh) ->
 
 	%PROBLEM% Cert = crypto:strong_rand_bytes( 600 ),
 
+	% Read the certificate from selfsig-cert.der
+	{ok,CertDER} = file:read_file( "selfsig-cert.der" ),
+	io:format( "Got ~p bytes worth of Certificate~n",[size( CertDER )] ),
+	{ok,Cert} = 'RFC5280':decode( 'Certificate',CertDER ),
+	io:format( "Certificate is ~p~n",[Cert] ),
+
 	SigVal = <<0:1,1:1,0:1,1:1,1:1>>,
 
 	Offer = #'KX-OFFER' {
@@ -81,8 +88,8 @@ main (_Argh) ->
 
 		% About the signature:
 		'signature-input' = TBSdata,
-		%PROBLEM% 'signature-owner' = [ Cert ],
-		'signature-owner' = [],
+		'signature-owner' = [ Cert ],
+		% 'signature-owner' = [],
 
 		%  The actual signature:
 		'signature-alg'   = SigAlg,

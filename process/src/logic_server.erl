@@ -253,7 +253,6 @@ signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 	[ Cert|_ ] = Owner,
 	#'SubjectPublicKeyInfo'{ algorithm=AlgId,subjectPublicKey=SubjPubKey } =
 		Cert#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo,
-	SigAlg = 
 	AlgOK = (AlgId == SigAlg),			%TODO%DROP%FROM%KXOFFER%
 	{_KeyAlg,HashAlg,VerifyPublicKey} = case {AlgOK,AlgId} of
 	%TODO% useful cases
@@ -281,16 +280,20 @@ signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 	% Validate the chain as a signed sequence of at least one Certificate,
 	% ending in a self-signed certificate.
 	%
-	CheckChain = fun( YF,Chain ) ->
-		case Chain of
+	CheckChain = fun( YF,OwnerChain ) ->
+		case OwnerChain of
 		[EndCert] ->
-			pubic_key:pkix_is_self_signed( EndCert );
+			{ok,EndCertDER} = 'RFC5280':encode( 'Certificate',EndCert ),
+			%DEBUG% io:format( "public_key:pkix_is_self_signed( ~p )~n",[EndCertDER] ),
+			public_key:pkix_is_self_signed( EndCertDER );
 		[FirstCert|[SecondCert|_]=MoreChain] ->
-			case public_key:pkix_is_issuer( FirstCert,SecondCert ) of
+			{ok, FirstCertDER} = 'RFC5280':encode( 'Certificate', FirstCert ),
+			{ok,SecondCertDER} = 'RFC5280':encode( 'Certificate',SecondCert ),
+			case public_key:pkix_is_issuer( FirstCertDER,SecondCertDER ) of
 			false ->
 				false;
 			true ->
-				YF( MoreChain )
+				YF( YF,MoreChain )
 			end
 		end
 	end,
@@ -319,7 +322,7 @@ signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 				{ Cert,false }
 			end,
 			% Selection: Take the Certificate or SubjectPublicKeyInfo
-			Selection = case Sel of
+			{ok,Selection} = case Sel of
 			full_cert ->
 				'RFC5280':encode( 'Certificate',Used );
 			pubkey ->
@@ -332,6 +335,7 @@ signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 			Matcher = if Mtch == exact ->
 				Selection;
 			true ->
+				%DEBUG% io:format( "Match = ~p~nSelection = ~p~n",[Mtch,Selection] ),
 				crypto:hash ( Mtch,Selection )
 			end,
 			if Matcher /= Data ->
@@ -346,7 +350,9 @@ signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 	% Pass back the final verdict through the Success or Failure signal
 	%
 	AllOK = AlgOK and SigOK and ChainOK and TrustOK,
-	gen_perpetuum:signal( self(),?ifthenelse( AllOK,Success,Failure ),noreply ).
+	io:format( "AlgOK=~p, SigOK=~p, ChainOK=~p, TrustOK=~p ==> AllOK=~p~n",[AlgOK,SigOK,ChainOK,TrustOK,AllOK] ),
+	gen_perpetuum:signal( self(),?ifthenelse( AllOK,Success,Failure ),noreply ),
+	{ noreply,AppState }.
 
 
 % Transition hook: Signature verification failed, drop most state.
