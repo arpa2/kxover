@@ -37,8 +37,14 @@
 -include_lib( "unbound/include/params.hrl" ).
 %TODO% -include_lib( "perpetuum/include/gen_perpetuum.hrl" ).
 
+-include( "KXOVER.hrl" ).
+-include( "RFC5280.hrl" ).
+-include( "RFC4120.hrl" ).
+
 
 -define(LambdaLift2(Atom), fun(X,Y) -> Atom( X,Y ) end).
+
+-define(ifthenelse(I,T,E), if I -> T; true -> E end).
 
 
 %
@@ -88,13 +94,13 @@ init( {},'$init',_PetriNet,{} ) ->
 %
 stop( {},'$stop',_Reason,AppState ) ->
 	Cleanup = fun( Key,_Val ) ->
-		if is_atom( Key ) ->
-			% Keep data where it is
-			true;
-		true ->
+		if not is_atom( Key ) ->
 			% Cancel, then remove from AppState
 			unbound:cancel( Key ),
-			false
+			false;
+		true ->
+			% Keep data where it is
+			true
 		end
 	end,
 	NewAppState = maps:filter( Cleanup,AppState ),
@@ -173,10 +179,17 @@ dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure,Domain}=_EventData,AppState )
 %
 % EventData holds the [ WireData::binary() ].
 %
-%TODO% Map SRV data to sorted list of tuples
+% The SRV records need not be sorted for the
+% KXOVER server logic, so we simply pass it
+% through dns:srvrdata2parsed().
 %
-got_SRV( {},got_SRV,WireData,AppState ) ->
-	NewAppState = maps:put( srv,WireData,AppState ),
+got_SRV( {},got_SRV,{ok,WireData},AppState ) ->
+	OlderSRV = maps:get( srv,AppState,[] ),
+	Protocol = udp,  %TODO% derive protocol
+	AddedSRV = dns:srvrdata2parsed( Protocol,WireData ),
+	NewerSRV = OlderSRV ++ AddedSRV,
+	io:format( "NewerSRV is ~p~n",[NewerSRV] ),
+	NewAppState = maps:put( srv,NewerSRV,AppState ),
 	{ noreply,NewAppState }.
 
 
@@ -206,19 +219,134 @@ dnssec_req_TLSA( {},dnssec_req_TLSA,{Success,Failure,Domain}=_EventData,AppState
 %
 % EventData holds the [ WireData::binary() ].
 %
-%TODO% Map TLSA data to list of tuples
-%
-got_TLSA( {},got_TLSA,WireData,AppState ) ->
-	NewAppState = maps:put( tlsa,WireData,AppState ),
+got_TLSA( {},got_TLSA,{ok,WireData},AppState ) ->
+	OlderTLSA = maps:get( tlsa,AppState,[] ),
+	Protocol = Port = dontcare,
+	AddedTLSA = dns:tlsardata2parsed (Protocol,Port,WireData),
+	NewerTLSA = OlderTLSA ++ AddedTLSA,
+	io:format( "NewerTLSA is ~p~n",[NewerTLSA] ),
+	NewAppState = maps:put( tlsa,NewerTLSA,AppState ),
 	{ noreply,NewAppState }.
 
 
 % Transition hook: Signature verification request.
 %
-% EventData holds nothing.
+% EventData holds {Success,Failure}.
 %
-signature_verify( {},signature_verify,_EventData,_AppState ) ->
-	error( notimpl ).
+% The verification does the following things:
+%  0. Check that signature-alg matches certificate alg
+%  1. Verify the KX-TBSDATA against the certificate key
+%  2. Evaluate the chain of certificates
+%  3. Evaluate DANE against the chain of certificates
+%
+signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
+	%
+	% Analyse the information provided inasfar as it is concerned
+	% with digital signing of the KX-OFFER.
+	%
+	{ok,ClientKX} = maps:get( ckx,AppState ),
+	io:format( "ClientKX = ~p~n",[ClientKX] ),
+	SigAlg = ClientKX#'KX-OFFER'.'signature-alg',   %TODO%DROP%FROM%KXOFFER%
+	SigBin = ClientKX#'KX-OFFER'.'signature-value',
+	KX_TBS = ClientKX#'KX-OFFER'.'signature-input',
+	Owner  = ClientKX#'KX-OFFER'.'signature-owner',
+	[ Cert|_ ] = Owner,
+	#'SubjectPublicKeyInfo'{ algorithm=AlgId,subjectPublicKey=SubjPubKey } =
+		Cert#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo,
+	SigAlg = 
+	AlgOK = (AlgId == SigAlg),			%TODO%DROP%FROM%KXOFFER%
+	{_KeyAlg,HashAlg,VerifyPublicKey} = case {AlgOK,AlgId} of
+	%TODO% useful cases
+	{true,#'AlgorithmIdentifier'{ algorithm={1,2,840,113549,1,1,5}, parameters=asn1_NOVALUE }} ->
+		{rsa,sha,SubjPubKey};
+	{true,#'AlgorithmIdentifier'{ algorithm={1,2,840,10040,4,3}, parameters=asn1_NOVALUE }} ->
+		{dsa,sha,SubjPubKey};
+	{true,#'AlgorithmIdentifier'{ algorithm={1,2,840,10045,4,1}, parameters=asn1_NOVALUE }} ->
+		%TODO% RFC 3279 allows parameters and/... pass in as ec_public_key()
+		ECPubKey = SubjPubKey,	%TODO% More elaborate juggling...
+		{ecdsa,sha,ECPubKey};
+	_ ->
+		{unknown,unknown,unknown}
+	end,
+	%
+	% Validate the signature on the KX-OFFER to be made by the
+	% first Certificate in the Owner sequence.
+	%
+	SigOK = if VerifyPublicKey == unknown ->
+		false;
+	true ->
+		public_key:verify( KX_TBS,HashAlg,SigBin,VerifyPublicKey )
+	end,
+	%
+	% Validate the chain as a signed sequence of at least one Certificate,
+	% ending in a self-signed certificate.
+	%
+	CheckChain = fun( YF,Chain ) ->
+		case Chain of
+		[EndCert] ->
+			pubic_key:pkix_is_self_signed( EndCert );
+		[FirstCert|[SecondCert|_]=MoreChain] ->
+			case public_key:pkix_is_issuer( FirstCert,SecondCert ) of
+			false ->
+				false;
+			true ->
+				YF( MoreChain )
+			end
+		end
+	end,
+	ChainOK = CheckChain( CheckChain,Owner ),
+	%
+	% Validate trust based on DANE.  When root certificates are also taken
+	% into account, including for the case of a federation, additionally
+	% check the last certificates to be a valid root certificate.
+	%
+	%TODO% implement! Trust based on optional check on root certificates (if configured)
+	%
+	CheckDANE = fun( YF,DANE ) ->
+		case DANE of
+		[] ->
+			false;
+		[{_,_,CrtUsg,Sel,Mtch,Data}|MoreDANE] ->
+			% Cert Usage: Pick a certificate and whether under a PublicCA
+			{Used,_PublicCA_TODO_USE} = case CrtUsg of
+			ca_constraint ->
+				{ lists:last( Owner ),true };
+			cert_constraint ->
+				{ Cert,true };
+			ta_assertion ->
+				{ lists:last( Owner ),false };
+			domain_issued_cert ->
+				{ Cert,false }
+			end,
+			% Selection: Take the Certificate or SubjectPublicKeyInfo
+			Selection = case Sel of
+			full_cert ->
+				'RFC5280':encode( 'Certificate',Used );
+			pubkey ->
+				% Known formal problem, except in everyday practice:
+				% Certificate is BER-encoded, we are re-encoding as DER
+				'RFC5280':encode( 'SubjectPublicKeyInfo',
+					Used#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo)
+			end,
+			% MatchType: Possibly hash the data before comparison
+			Matcher = if Mtch == exact ->
+				Selection;
+			true ->
+				crypto:hash ( Mtch,Selection )
+			end,
+			if Matcher /= Data ->
+				YF( YF,MoreDANE );
+			true ->
+				true
+			end
+		end
+	end,
+	TrustOK = CheckDANE( CheckDANE,maps:get( tlsa,AppState )),
+	%
+	% Pass back the final verdict through the Success or Failure signal
+	%
+	AllOK = AlgOK and SigOK and ChainOK and TrustOK,
+	gen_perpetuum:signal( self(),?ifthenelse( AllOK,Success,Failure ),noreply ).
 
 
 % Transition hook: Signature verification failed, drop most state.

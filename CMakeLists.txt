@@ -2,7 +2,7 @@
 # CMakeLists.txt for KXOVER
 #
 
-cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.2 FATAL_ERROR)
 project ("KXOVER")
 
 set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)

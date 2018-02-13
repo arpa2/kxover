@@ -95,7 +95,7 @@ srvless( { PrioA,WgtA,_,_,_ }, { PrioB,WgtB,_,_,_ }) ->
 %
 srvrdata2parsed( Proto,SRV_RdataList ) ->
 	ParseOne = fun( SRV_Rdata ) ->
-		HostLen = length( SRV_Rdata ) - 6,
+		HostLen = size( SRV_Rdata ) - 6,
 		<<Prio:16/big-unsigned-integer,
 		   Wgt:16/big-unsigned-integer,
 		  Port:16/big-unsigned-integer,
@@ -158,7 +158,7 @@ tlsardata2parsed( Proto,Port,TLSA_RdataList ) ->
 	SelOpts = [ full_cert, pubkey ],
 	MatchOpts = [ exact, sha256, sha512 ],
 	ParseOne = fun( TLSA_Rdata ) ->
-		DataLen = length( TLSA_Rdata ) - 3,
+		DataLen = size( TLSA_Rdata ) - 3,
 		<<CrtUse:8/unsigned-integer,
 		     Sel:8/unsigned-integer,
 		   Match:8/unsigned-integer,

@@ -7,6 +7,8 @@
 # CMake invokes Erlang.mk as an ExternalProject
 #
 
+cmake_minimum_required (VERSION 3.2 FATAL_ERROR)
+
 include (ExternalProject)
 
 set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR}/erlang/kxover-${KXOVER_VERSION})

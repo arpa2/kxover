@@ -182,6 +182,7 @@ KX-OFFER ::= SEQUENCE {
 --     `KX-PA-TBSDATA` contents, as defined in
 --     [RFC5280](http://tools.ietf.org/html/rfc5280#section-4.1.1.2)
 --     as a pair of an object identifier and optional parameters.
+--     TODO: This duplicates TBSCertificate.SubjectPublicKeyInfo.algorithm
 -- 
 --   * The `signature-value` field holds the actual signature, according to
 --     the outcome of the `signature-alg` field, and encoded just as the
