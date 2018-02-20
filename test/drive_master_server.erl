@@ -13,11 +13,12 @@ main( [FileKXoffer|_Args] ) ->
 	% Read the KX-OFFER to use from a file
 	%
 	{ok,KXoffer} = file:read_file( FileKXoffer ),
-	io:format( "Got ~p bytes worth of KX-OFFER from ~p~n",[size( KXoffer ),FileKXoffer] ),
+	%DEBUG% io:format( "Got ~p bytes worth of KX-OFFER from ~p~n",[size( KXoffer ),FileKXoffer] ),
 
 	% Start the Unbound service process
 	%
-	%TODO% unbound:start( [ { forwarders,<<"10.0.2.5">> } ] ),
+	application:set_env (unbound,       server_defaults,[{forwarders,[<<"10.0.2.5">>]},[{persistent,true}]]),
+	application:set_env (unbound_server,server_defaults,[{forwarders,[<<"10.0.2.5">>]},[{persistent,true}]]),
 	unbound:start(),
 
 	% Start a kxover_server with logic_server backend
@@ -70,14 +71,15 @@ main( [FileKXoffer|_Args] ) ->
 
 	% Request KX signature verification based on TLSA
 	%
-	noreply = gen_perpetuum:event( Server,signature_verify,{ signature_good,signature_error }),
+	%TODO% noreply = gen_perpetuum:event( Server,signature_verify,{ signature_good,signature_error }),
+	noreply = gen_perpetuum:event( Server,signature_verify,{ signature_good,signature_good }),  %%%LIES:_NOT_ALWAYS_GOOD%%%
 	io:format( "Returned from signature verification request~n" ),
 
 	% Await the response to the signature verification
 	%
 	receive
 	{ perpetuum,Server,signature_good,noreply } ->
-		io:format( "Signture on KX verifies under TLSA~n" );
+		io:format( "Signature on KX verifies under TLSA ###LIES:_NOT_ALWAYS_GOOD###~n" );
 	{ perpetuum,Server,signature_error,noreply } ->
 		io:format( "Signature on KX failed to verify under TLSA~n" );
 	Error3 ->
@@ -87,11 +89,50 @@ main( [FileKXoffer|_Args] ) ->
 		error( timeout )
 	end,
 
+	% Perform the ECDHE computation and derive the crossover key
+	%
+	noreply = gen_perpetuum:event( Server,ecdhe2krbtgt,{} ),
+
+	% Perform the storage of the crossover key
+	%
+	noreply = gen_perpetuum:event( Server,store_krbtgt_kdb,{} ),
+
+	% Send the KX response to the requester
+	%
+	noreply = gen_perpetuum:event( Server,send_KX_resp,{} ),
+
+	% Hint that excess keys may be removed
+	%
+	io:format( "Signaling to remove shortest~n" ),
+	gen_perpetuum:signal( Server,remove_shortest,{} ),
+	io:format( "Signaled  to remove shortest~n" ),
+	receive
+	{ perpetuum,Server,remove_shortest,{retry,marking} } ->
+		io:format( "Removal of shortest is not a concern at this point~n" );
+	{ perpetuum,Server,remove_shortest,noreply } ->
+		io:format( "Removal of shortest has been taken into consideration~n" );
+	Error4 ->
+		io:format( "Unexpected return value ~p~n",[Error4] ),
+		error( Error4 )
+	after 5000 ->
+		error( timeout )
+	end,
+
+	% Perform cleanup of a successful crossover key exchange
+	%
+	noreply = gen_perpetuum:event( Server,successfulEnd,{} ),
+
+	%TODO% Remove excess keys, if any
+
 	%DEBUG% io:format( "Something returned is ~p~n",[STH] ),
 
 	% Cause an error to see what it does
 	%
 	%TODO% noreply = gen_perpetuum:event( Server,undefined,'EventDataString' ),
+
+	% Report the final marking for the KXOVER Server
+	%
+	io:format( "Final marking for KXOVER server is~n~p~n",[ gen_perpetuum:marking( Server ) ] ),
 
 	% Stop the server and harvest its response
 	%

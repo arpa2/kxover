@@ -148,7 +148,7 @@ reject( {},TransName,_EventData,_AppState ) ->
 % EventData holds TODO: binary KX-OFFER
 %
 recv_KX_req( {},recv_KX_req,KXbin=_EventData,AppState ) ->
-	KXoffer = 'KXOVER':decode( 'KX-OFFER',KXbin ),
+	{ok,KXoffer} = 'KXOVER':decode( 'KX-OFFER',KXbin ),
 	io:format( "KX-OFFER is ~p~n",[KXoffer] ),
 	NewAppState = maps:put( ckx,KXoffer,AppState ),
 	{ noreply,NewAppState }.
@@ -246,7 +246,7 @@ signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 	% Analyse the information provided inasfar as it is concerned
 	% with digital signing of the KX-OFFER.
 	%
-	{ok,ClientKX} = maps:get( ckx,AppState ),
+	ClientKX = maps:get( ckx,AppState ),
 	io:format( "ClientKX = ~p~n",[ClientKX] ),
 	SigAlg = ClientKX#'KX-OFFER'.'signature-alg',   %TODO%DROP%FROM%KXOFFER%
 	SigBin = ClientKX#'KX-OFFER'.'signature-value',
@@ -382,20 +382,28 @@ ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
 	KXtbsdata = KXoffer#'KX-OFFER'.'signature-input',
 	#'SubjectPublicKeyInfo'{ algorithm=AlgId,subjectPublicKey=PeerPubKey } =
 		KXtbsdata#'KX-TBSDATA'.'key-exchange',
-	#'AlgorithmIdentifier'{ algorithm=_AlgOID,parameters=ECDHParams } =
+	#'AlgorithmIdentifier'{ algorithm=_AlgOID,parameters=_ECDHParams } =
 		AlgId,
-	{ _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
-	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,ECDHParams ),
+	io:format( "Generating ECDHE on secp192r1 (TODO:FIXED for now)~n" ),
+	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% io:format( "ECDHParams = ~p~n",[ECDHParams] ),
+	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% { _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
+	{ MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,secp192r1 ),
+	io:format( "MyPrivKey = ~p~nMyPubKey = ~p~nPeerPubKey = ~p~n",[MyPrivKey,MyPubKey,PeerPubKey] ),
+	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,ECDHParams ),
+	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,secp192r1 ),
+	io:format( "Generated ECDHE on secp192r1 (TODO:FIXED for now)~n" ),
 	%TODO% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
 	KeyInfo = Z,
 	%TODO% Following is preliminary redesign based on HMAC with Key=Z
 	%TODO% Note the fixed choice of hash, as it is not a security concern (and yet, HMAC?!?)
 	%TODO% Repeat with seq-nr for longer SharedKey segments if needed
 	SharedKey = crypto:hmac( sha256,Z,KeyInfo ),
+	io:format( "Z = ~p~nKeyInfo = ~p~nSharedKey = ~p~n",[Z,KeyInfo,SharedKey] ),
 	%TODO% Compute krbtgt blob
 	KrbTgt = krbtgtBlob_TODO,
 	NewAppState = maps:put( key,SharedKey,	%TODO% Why? only need MyPubKey...
 	              maps:put( krbtgt,KrbTgt,AppState )),
+	io:format( "NewAppState = ~p~n",[NewAppState] ),
 	{ noreply,NewAppState }.
 
 % MiscData hook: The process received asynchronous non-Perpetuum data.

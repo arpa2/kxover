@@ -39,10 +39,16 @@ main (_Argh) ->
 	KVNO = 123,
 
 	%TODO% Get a real Signature Algorithm OID in here (but who defines them?)
-	SigAlg = #'AlgorithmIdentifier' {
+	SigAlg_OLD = #'AlgorithmIdentifier' {
 		algorithm = { 1,2,840,113549,1,1,1 },
 		parameters = <<5,0>> },
-	PubKey = <<0:1,1:1,0:1,1:1,1:1>>,
+	SigAlg = #'AlgorithmIdentifier' {
+		algorithm = {1,2,840,10045,2,1},
+		parameters = <<6,5,43,129,4,0,10>> },
+	PubKey_OLD = <<0:1,1:1,0:1,1:1,1:1>>,
+	PubKey = <<4,205,3,102,67,82,53,171,60,251,102,71,179,236,170,16,4,211,75,
+              113,103,248,249,244,204,247,6,178,112,106,187,25,133,153,222,109,
+              71,19,88,72,237,7,70,121,111,5,213,75,249>>,
 	PubKeyInfo = #'SubjectPublicKeyInfo' {
 		'algorithm' = SigAlg,
 		'subjectPublicKey' = PubKey },

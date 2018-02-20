@@ -178,7 +178,10 @@ KX-OFFER ::= SEQUENCE {
 --     KXOVER below.  The root certificate is one that is assumed to be
 --     acceptable to the intended recipient; if not, then further negotiation
 --     may be required.  Most importantly, the first certificate in the list
---     must be confirmed through DANE as specified below.
+--     must be confirmed through DANE as specified below.  The certificates
+--     SHOULD be encoded as DER, not just the tbsCertificate; receivers MAY
+--     otherwise fail to recognise a certificate, or even be unable to parse
+--     KXOVER protocol elements.
 -- 
 --   * The `signature-alg` field holds the algorithm used to sign the
 --     `KX-PA-TBSDATA` contents, as defined in
@@ -217,6 +220,9 @@ KX-TBSDATA ::= SEQUENCE {
         accept-group    [7] SEQUENCE OF AlgorithmIdentifier OPTIONAL,
         accept-sigalg   [8] SEQUENCE OF AlgorithmIdentifier OPTIONAL,
         accept-ca       [9] SEQUENCE OF AuthorityKeyIdentifier OPTIONAL
+
+     -- **TODO:** Exchange kvno's of previously exchanged keys
+
 }
 
 -- The fields of this structure are defined as follows:
@@ -334,6 +340,9 @@ KXOVER-KEY-INFO ::= SEQUENCE {
         kvno            [4] KeyVersionNumber,           -- from KX-PA-TBSDATA
         etype           [5] EncryptionType,             -- from KX-PA-TBSDATA
         shared-key      [6] OCTET STRING                -- the standard value Z
+
+-- **TODO:** Include keys as described by kvno in KX-PA-TBSDATA
+
 }
 
 -- The value `kxover-name` is a fixed string.
