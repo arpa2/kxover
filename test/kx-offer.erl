@@ -14,10 +14,10 @@ main (_Argh) ->
 
 	Princ = #'PrincipalName' {
 		'name-type'   = 2,
-		'name-string' = [ "krbtgt", "ARPA2.ORG" ]
+		'name-string' = [ <<"krbtgt">>, <<"ARPA2.ORG">> ]
 	},
 
-	Realm = "SURFNET.NL",
+	Realm = <<"SURFNET.NL">>,
 
 	%%TODO%% Ugly, ugly calendar time... :'-(
 	Now = erlang:system_time( microsecond ),

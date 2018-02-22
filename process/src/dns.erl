@@ -19,8 +19,14 @@
 	srvrdata2sorted/2,
 	srvrdata2sorted/1,
 	srv2protoport/1,
-	tlsardata2parsed/3
+	tlsardata2parsed/3,
+	query_ub/5,
+	miscdata_ub/2,
+	cleanup_ub/1
 ]).
+
+-include_lib( "unbound/include/unbound.hrl" ).
+-include_lib( "unbound/include/params.hrl" ).
 
 -type protocol()  :: tcp | udp | sctp.
 
@@ -175,5 +181,104 @@ tlsardata2parsed( Proto,Port,TLSA_RdataList ) ->
 		  Data }
 	end,
 	lists:map( ParseOne,TLSA_RdataList ).
+
+
+% Send a query to Unbound for background handling, and delivery
+% through the '$miscdata' callback from gen_perpetuum.
+%
+% Quality is set to either dns or dnssec.  Success and Failure
+% are callback signals to be sent when handling the outcome.
+%
+% The routine processes AppState for client or server and returns
+% a proper return value for a callback from gen_perpetuum.
+%
+query_ub( Quality,#ub_question{}=Query,Success,Failure,AppState ) when (Quality==dns) or (Quality==dnssec) ->
+	case unbound:resolve( Query ) of
+	{ ok,QueryId } ->
+		NewAppState = maps:put( {unbound,QueryId},{Quality,Query,Success,Failure},AppState ),
+		{ noreply,NewAppState };
+	{ error,_ }=Error ->
+		% We do not trigger Failure because that would be a transition
+		% after this one, and this one is even failing.  So, we use the
+		% Perpetuum option of returning an {error,Reason}
+		Error
+	end.
+
+
+% Handle gen_perpetuum's callback '$miscdata', though it has already
+% been simplified to hold a #ub_callback{} and is further supplied
+% with AppState.  The routine handles the AppState for client or
+% server in the same manner.
+%
+miscdata_ub( #ub_callback{ref=Ref,result=Result}=Reply,AppState ) ->
+	% Ref = Reply#ub_callback.ref,
+	% Result = Reply#ub_callback.result,
+	{Entry,NewAppState} = maps:take( {unbound,Ref},AppState ),
+	io:format( "$miscdata uses DNS entry ~p~n",[Entry] ),
+	case Entry of
+	{ Tag,Query,Success,Failure } when (Tag==dns) or (Tag==dnssec) ->
+		if Reply#ub_callback.error ->
+			%DEBUG% io:format( "Technicalities got in the way~n" ),
+			gen_perpetuum:signal( self(),Failure,Reply#ub_callback.error );
+		Query /= Result#ub_result.question ->
+			%DEBUG% io:format( "Not my question~n" ),
+			gen_perpetuum:signal( self(),Failure,{error,mismatch} );
+		not Result#ub_result.havedata ->
+			%DEBUG% io:format( "No data, no reply~n" ),
+			gen_perpetuum:signal( self(),Failure,{error,nodata} );
+		(Tag==dnssec) and not Result#ub_result.secure ->
+			%DEBUG% io:format( "Should have been secure~n" ),
+			gen_perpetuum:signal( self(),Failure,{error,insecure} );
+		Result#ub_result.bogus ->
+			%DEBUG% io:format( "Bogus response~n" ),
+			gen_perpetuum:signal( self(),Failure,{error,{bogus,Result#ub_result.why_bogus}} );
+		Result#ub_result.nxdomain ->
+			%DEBUG% io:format( "Domain does not exist~n" ),
+			gen_perpetuum:signal( self(),Failure,{error,nxdomain} );
+		true ->
+			%DEBUG% io:format( "Yay, a proper result!  Signal both me and my parent~n" ),
+			gen_perpetuum:signal( self(),Success,{ok,Result#ub_result.data} )
+		end,
+		{noreply,NewAppState};
+	%TODO% Following has been changed to an exception with maps:take/2 instead of maps:get( _,_,{} )
+	{} ->
+		{error,no_such_query}
+	end.
+
+
+% Cleanup any outstanding Unbound requests from the AppState.
+%
+% Avoid race conditions from unprocessed Unbound responses by
+% removing them after their cancellation.  Cancellation with
+% Unbound may fail after delivery, but we ignore that.  After
+% cancellation we are certain that no new responses can arrive.
+%
+% The AppState may be for client or server.  The function
+% returns a new AppState value.
+%
+cleanup_ub( AppState ) ->
+	Cleanup = fun( Key,_Val ) ->
+		case Key of
+		{unbound,QueryId} ->
+			% Cancel, then remove from AppState
+			unbound:cancel( QueryId ),
+			false;
+		_ ->
+			% Keep data where it is
+			true
+		end
+	end,
+	RemoveUB = fun( YF ) ->
+		receive
+		#ub_callback{}=_Response ->
+			% ignore _Response and try another
+			YF( YF )
+		after 0 ->
+			ok
+		end
+	end,
+	NewAppState = maps:filter( Cleanup,AppState ),
+	RemoveUB( RemoveUB ),
+	NewAppState.
 
 

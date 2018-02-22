@@ -238,6 +238,7 @@ KX-TBSDATA ::= SEQUENCE {
 --     that is both meaningful and syntactically correct.  Extensions to
 --     `KX` that add a client-KDC connection may define other uses for these
 --     fields in the `Authenticator`.
+--     **TODO:** Without entropy in optionals, barely scattering the signature.
 -- 
 --   * The `kvno` is a key version number as used in Kerberos' `EncryptedData`
 --     [RFC4120](https://tools.ietf.org/html/rfc4120#section-5.2.9)
@@ -246,6 +247,7 @@ KX-TBSDATA ::= SEQUENCE {
 --     the same in the `KX-REQ` and `KX-REP` messages if the result of the
 --     key exchange is to be setup on both ends.  When they differ, the KDCs
 --     MUST NOT setup the key in their internal databases.
+--     **TODO:** Client cannot know the kvno, optional or use the highest one?
 --
 --   * The `kxname` is the desired principal name to setup with this exchange.
 --     With the `kxrealm` it MUST be `krbtgt/SERVICE.REALM@CLIENT.REALM`, where

@@ -29,6 +29,7 @@
 	got_TLSA/4,
 	signature_verify/4,
 	ecdhe2krbtgt/4,
+	send_KX_resp/4,
 	signature_error/4,
 	all_hooks/0
 ]).
@@ -94,17 +95,7 @@ init( {},'$init',_PetriNet,{} ) ->
 % not going to be around.
 %
 stop( {},'$stop',_Reason,AppState ) ->
-	Cleanup = fun( Key,_Val ) ->
-		if not is_atom( Key ) ->
-			% Cancel, then remove from AppState
-			unbound:cancel( Key ),
-			false;
-		true ->
-			% Keep data where it is
-			true
-		end
-	end,
-	NewAppState = maps:filter( Cleanup,AppState ),
+	NewAppState = dns:cleanup_ub( AppState ),
 	{ noreply,NewAppState }.
 
 
@@ -164,16 +155,7 @@ recv_KX_req( {},recv_KX_req,KXbin=_EventData,AppState ) ->
 %
 dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure,Domain}=_EventData,AppState ) ->
 	Query = #ub_question{ name=Domain, type=?UB_TY_SRV, class=?UB_CL_IN },
-	case unbound:resolve( Query ) of
-	{ ok,QueryId } ->
-		NewAppState = maps:put( QueryId,{dnssec,Query,Success,Failure},AppState ),
-		{ noreply,NewAppState };
-	{ error,_ }=Error ->
-		% We do not trigger Failure because that would be a transition
-		% after this one, and this one is even failing.  So, we use the
-		% Perpetuum option of returning an {error,Reason}
-		Error
-	end.
+	dns:query_ub( dnssec,Query,Success,Failure,AppState).
 
 
 % Transition hook: Received an SRV record.
@@ -186,7 +168,7 @@ dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure,Domain}=_EventData,AppState )
 %
 got_SRV( {},got_SRV,{ok,WireData},AppState ) ->
 	OlderSRV = maps:get( srv,AppState,[] ),
-	Protocol = udp,  %TODO% derive protocol
+	Protocol = tcp,
 	AddedSRV = dns:srvrdata2parsed( Protocol,WireData ),
 	NewerSRV = OlderSRV ++ AddedSRV,
 	io:format( "NewerSRV is ~p~n",[NewerSRV] ),
@@ -204,16 +186,7 @@ got_SRV( {},got_SRV,{ok,WireData},AppState ) ->
 %
 dnssec_req_TLSA( {},dnssec_req_TLSA,{Success,Failure,Domain}=_EventData,AppState ) ->
 	Query = #ub_question{ name=Domain, type=?UB_TY_TLSA, class=?UB_CL_IN },
-	case unbound:resolve( Query ) of
-	{ ok,QueryId } ->
-		NewAppState = maps:put( QueryId,{dnssec,Query,Success,Failure},AppState ),
-		{ noreply,NewAppState };
-	{ error,_ }=Error ->
-		% We do not trigger Failure because that would be a transition
-		% after this one, and this one is even failing.  So, we use the
-		% Perpetuum option of returning an {error,Reason}
-		Error
-	end.
+	dns:query_ub( dnssec,Query,Success,Failure,AppState ).
 
 
 % Transition hook: Received a TLSA record.
@@ -375,6 +348,11 @@ signature_error( {},signature_error,_EventData,AppState ) ->
 % public key is passed back to the client, but only after the
 % server has stored the krbtgt based on the shared key.
 %
+% The name is actually a misnomer; we don't actually construct
+% a krbtgt; rather, we store the information from which a KDC can
+% construct one, with the key data and times for renewal rolling
+% and expiration.
+%
 %TODO% Future crypto uses other names; likely to be post-quantum.
 %
 ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
@@ -393,59 +371,128 @@ ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
 	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,secp192r1 ),
 	io:format( "Generated ECDHE on secp192r1 (TODO:FIXED for now)~n" ),
 	%TODO% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
-	KeyInfo = Z,
+	KeyInfo = #'KXOVER-KEY-INFO'{
+		'kxover-name' = <<"KXOVER">>,
+		'seq-nr'      = 1,
+		kxname        = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxname,
+		kxrealm       = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxrealm,
+		till          = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.till,
+		kvno          = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kvno,
+		etype         = 1, %%%TODO:First_Acceptable_etype%%%
+		'shared-key'  = Z
+	},
+	{ok,KeyInfoBin} = 'KXOVER':encode( 'KXOVER-KEY-INFO',KeyInfo ),
 	%TODO% Following is preliminary redesign based on HMAC with Key=Z
 	%TODO% Note the fixed choice of hash, as it is not a security concern (and yet, HMAC?!?)
 	%TODO% Repeat with seq-nr for longer SharedKey segments if needed
-	SharedKey = crypto:hmac( sha256,Z,KeyInfo ),
+	%TODO%NAHHH% SharedKey = crypto:hmac( sha256,Z,KeyInfo ),
+	SharedKey = crypto:hash( sha256,KeyInfoBin ),
 	io:format( "Z = ~p~nKeyInfo = ~p~nSharedKey = ~p~n",[Z,KeyInfo,SharedKey] ),
 	%TODO% Compute krbtgt blob
 	KrbTgt = krbtgtBlob_TODO,
 	NewAppState = maps:put( key,SharedKey,	%TODO% Why? only need MyPubKey...
 	              maps:put( krbtgt,KrbTgt,AppState )),
-	io:format( "NewAppState = ~p~n",[NewAppState] ),
+	%DEBUG% io:format( "NewAppState = ~p~n",[NewAppState] ),
 	{ noreply,NewAppState }.
+
+
+% Transition hook: Construct the KX response frame.
+%
+% EventData holds nothing.  There is a {reply,ReplyKX} to the caller.
+%
+% This function constructs the #'KX-OFFER' record that can be used
+% to respond to the requester.  It is passed back as {reply,KXoffer}.
+% The process flow should have ensured support for the corresponding
+% krbtgt/SERVER.REALM@CLIENT.REALM and kvno/etype/... combination.
+%
+% The AppState for skx is also written by this procedure [do we need it?]
+%
+send_KX_resp( {},send_KX_resp,_EventData,AppState ) ->
+	ClientKX = maps:get( ckx,AppState ),
+	Nonce = ClientKX#'KX-OFFER'.nonce,
+	KVNO  = ClientKX#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kvno,
+	%
+	% Reconstruct certificate and key info
+	%
+	{ok,CertDER} = file:read_file( "selfsig-cert.der" ),
+	{ok,Cert} = 'RFC5280':decode( 'Certificate',CertDER ),
+	{ok,PrivDER} = file:read_file( "selfsig-key.der" ),
+	io:format( "PrivDER = ~p~n",[PrivDER] ),
+	Priv = public_key:der_decode( 'ECPrivateKey',PrivDER ),
+	io:format( "Priv = ~p~n",[Priv] ),
+	#'SubjectPublicKeyInfo'{ algorithm=SigAlg,subjectPublicKey=_SubjPubKey } =
+		PubKeyInfo =
+		Cert#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo,
+	%
+	% Construct the Authenticator
+	%
+	Princ = #'PrincipalName' {
+		'name-type'   = 2,
+		'name-string' = [ "krbtgt", "ARPA2.ORG" ]
+	},
+	Realm = "SURFNET.NL",
+	%%TODO%% Ugly, ugly calendar time... :'-(
+	Now = erlang:system_time( microsecond ),
+	%NowSec  = Now div 1000000,
+	NowUSec = Now rem 1000000,
+	%%%TODO:TIMES%%% {{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),
+	NowYear=2018,NowMonth=2,NowDay=21,NowHour=11,NowMinute=43,NowSecond=12,
+	NowStr = lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[NowYear,NowMonth,NowDay,NowHour,NowMinute,NowSecond])),
+	Author = #'Authenticator' {
+		% OPTIONAL fields not used
+		% crealm/cname ignored, set to anything
+		'authenticator-vno' = 5,
+		'crealm'            = Realm,
+		'cname'             = Princ,
+		'cusec'             = NowUSec,
+		'ctime'             = NowStr
+	},
+	%
+	% Construct the KX-TBSDATA
+	%
+	TBSdata = #'KX-TBSDATA' {
+		'authenticator'= Author,
+
+		% Key description information:
+		'kvno'         = KVNO,
+		'kxname'       = Princ,
+		'kxrealm'      = Realm,
+		'key-exchange' = PubKeyInfo,
+
+		% Timing information:
+		%ERROR% 'till' = (Now rem 10000000) + 86400 * 32,
+		'till' = NowStr,
+
+		% Negotiation terms, each in preference order:
+		'accept-etype'  = []
+		%OPTIONAL% 'accept-group'  = [],
+		%OPTIONAL% 'accept-sigalg' = [],
+		%OPTIONAL% 'accept-ca'     = []
+	},
+	{ok,TBSbytes} = 'KXOVER':encode( 'KX-TBSDATA',TBSdata ),
+	%TODO:FOR:REAL% TBSbytes = <<"TODO_FUNNY_TBS_BYTES">>,
+	SigVal = public_key:sign( TBSbytes,sha256,Priv ),	%%%TODO:FIXED:HASHALG%%%
+
+	ServerKX = #'KX-OFFER' {
+		% Transport-level information:
+		'nonce' = Nonce,
+		% About the signature:
+		'signature-input' = TBSdata,
+		'signature-owner' = [ Cert ],
+		%  The actual signature:
+		'signature-alg'   = SigAlg,
+		'signature-value' = SigVal
+	},
+	NewAppState = maps:put( skx,ServerKX,AppState ),
+	{ reply,ServerKX,NewAppState }.
+
 
 % MiscData hook: The process received asynchronous non-Perpetuum data.
 %
 % Callbacks from Unbound look like #ub_callback{}
 %
-%TODO% Process multiple responses, collect errors, conclude at end
-%
 miscdata( {},'$miscdata',#ub_callback{}=Reply,AppState ) ->
-	Ref = Reply#ub_callback.ref,
-	Result = Reply#ub_callback.result,
-	{Entry,NewAppState} = maps:take( Ref,AppState ),
-	io:format( "$miscdata uses DNS entry ~p~n",[Entry] ),
-	case Entry of
-	{ Tag,Query,Success,Failure } when (Tag==dns) or (Tag==dnssec) ->
-		if Reply#ub_callback.error ->
-			%DEBUG% io:format( "Technicalities got in the way~n" ),
-			gen_perpetuum:signal( self(),Failure,Reply#ub_callback.error );
-		Query /= Result#ub_result.question ->
-			%DEBUG% io:format( "Not my question~n" ),
-			gen_perpetuum:signal( self(),Failure,{error,mismatch} );
-		not Result#ub_result.havedata ->
-			%DEBUG% io:format( "No data, no reply~n" ),
-			gen_perpetuum:signal( self(),Failure,{error,nodata} );
-		(Tag==dnssec) and not Result#ub_result.secure ->
-			%DEBUG% io:format( "Should have been secure~n" ),
-			gen_perpetuum:signal( self(),Failure,{error,insecure} );
-		Result#ub_result.bogus ->
-			%DEBUG% io:format( "Bogus response~n" ),
-			gen_perpetuum:signal( self(),Failure,{error,{bogus,Result#ub_result.why_bogus}} );
-		Result#ub_result.nxdomain ->
-			%DEBUG% io:format( "Domain does not exist~n" ),
-			gen_perpetuum:signal( self(),Failure,{error,nxdomain} );
-		true ->
-			%DEBUG% io:format( "Yay, a proper result!  Signal both me and my parent~n" ),
-			gen_perpetuum:signal( self(),Success,{ok,Result#ub_result.data} )
-		end,
-		{noreply,NewAppState};
-	%TODO% Following has been changed to an exception with maps:take/2 instead of maps:get( _,_,{} )
-	{} ->
-		{error,no_such_query}
-	end
+	dns:miscdata_ub( Reply,AppState )
 .
 %miscdata( ... )
 
@@ -469,7 +516,7 @@ all_hooks() -> #{
 	signature_good		=> {logic_server,nop,{}},
 	ecdhe2krbtgt		=> {logic_server,ecdhe2krbtgt,{}},
 	store_krbtgt_kdb	=> {logic_server,nop,{}},
-	send_KX_resp		=> {logic_server,nop,{}},
+	send_KX_resp		=> {logic_server,send_KX_resp,{}},
 	expiration_timer	=> {logic_server,nop,{}},
 	remove_shortest		=> {logic_server,nop,{}},
 	successfulEnd		=> {logic_server,nop,{}},
