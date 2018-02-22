@@ -1,5 +1,6 @@
-PROJECT = KXOVER
-PROJECT_DESCRIPTION = "Kerberos Realm-Crossover (built on DANE/DNSSEC)"
+PROJECT = kxover
+PROJECT_DESCRIPTION = Kerberos Realm-Crossover (built on DANE/DNSSEC)
 PROJECT_VERSION = @KXOVER_VERSION@
+PROJECT_ENV = [ { root_certs,[<<"selfsig-cert.pem">>,<<"/etc/ssl/cert.pem">>] } ]
 
 include erlang.mk

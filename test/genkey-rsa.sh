@@ -9,3 +9,4 @@
 
 openssl req -x509 -nodes -newkey rsa:2048 -outform der -keyform der -out selfsig-cert.der -keyout selfsig-key.der -days 3650
 
+openssl x509 -inform der -outform pem -in selfsig-cert.der -out selfsig-cert.pem

@@ -44,6 +44,8 @@
 -include( "RFC4120.hrl" ).
 
 
+-define(LambdaLiftM1(M,F), fun(X  ) -> M:F ( X   ) end).
+-define(LambdaLift1(Atom), fun(X  ) -> Atom( X   ) end).
 -define(LambdaLift2(Atom), fun(X,Y) -> Atom( X,Y ) end).
 
 -define(ifthenelse(I,T,E), if I -> T; true -> E end).
@@ -255,12 +257,69 @@ signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
 	% Validate the chain as a signed sequence of at least one Certificate,
 	% ending in a self-signed certificate.
 	%
+	% We read the envvar kxover:root_certs for a file name with a PEM of
+	% root certificates to be trusted.  If no such value is provided, then
+	% RootCerts ends up as undefined, and no checks will be enforced; if
+	% the name is given, it must be readable and RootCerts will be a list
+	% of Certificate entries for validation.  An empty list would always
+	% fail, and will be carefully distinguished from undefined.
+	%
+	% The envvar may contain a single file name or a list of file names;
+	% each file may hold one or more PEM files with root certificates
+	% to be trusted.
+	%
+	%TODO% We seem to need to load explicitly?!?
+	%
+	application:load( kxover ),
+	RootCerts = case application:get_env( kxover,root_certs ) of
+	{ok,RootCertPemFiles} ->
+		io:format( "RootCertPemFiles = ~p~n",[RootCertPemFiles] ),
+		ReadAll = fun( YF,Files,Accu ) ->
+			case Files of
+			[] ->
+				% nothing more to collect
+				Accu;
+			[F|FS] ->
+				% use an efficient tail call:
+				YF( YF,FS,YF( YF,F,Accu ));
+			F when is_binary( F ) ->
+				% prefix an individual file;
+				% retention of entries' order
+				{ok,NewText} = file:read_file( F ),
+				[ NewText | Accu ]
+			end
+		end,
+		Extract = fun( YF,CrtList ) ->
+			case CrtList of
+			[ { 'Certificate',DER,not_encrypted } | Rest ] ->
+				[ DER | YF( YF,Rest ) ];
+			[ _ | Rest ] ->
+				YF( YF,Rest );
+			[] ->
+				[]
+			end
+		end,
+		PemBin = ReadAll( ReadAll,RootCertPemFiles,[] ),
+		Extract( Extract,lists:flatten( lists:map( ?LambdaLiftM1( public_key,pem_decode ),PemBin )));
+	undefined ->
+		undefined
+	end,
+	io:format( "RootCerts = ~p~n",[RootCerts] ),
 	CheckChain = fun( YF,OwnerChain ) ->
 		case OwnerChain of
 		[EndCert] ->
 			{ok,EndCertDER} = 'RFC5280':encode( 'Certificate',EndCert ),
 			%DEBUG% io:format( "public_key:pkix_is_self_signed( ~p )~n",[EndCertDER] ),
-			public_key:pkix_is_self_signed( EndCertDER );
+			SelfSigned = public_key:pkix_is_self_signed( EndCertDER ),
+			if not SelfSigned ->
+				false;
+			RootCerts == undefined ->
+				true;
+			is_list( RootCerts ) ->
+				%DEBUG% io:format( "Testing if ~p in ~p~n",[EndCertDER,RootCerts] ),
+				io:format( "End Cert found is ~p~n",[lists:member( EndCertDER,RootCerts )] ),
+				lists:member( EndCertDER,RootCerts )
+			end;
 		[FirstCert|[SecondCert|_]=MoreChain] ->
 			{ok, FirstCertDER} = 'RFC5280':encode( 'Certificate', FirstCert ),
 			{ok,SecondCertDER} = 'RFC5280':encode( 'Certificate',SecondCert ),

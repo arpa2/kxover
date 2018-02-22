@@ -23,3 +23,5 @@ echo 'Generating new self-signed certificate (stripping off the AlgOID manually 
 dd if=eckey.der of=selfsig-key.der bs=1 skip=7
 openssl req -new -x509 -nodes -keyform der -key selfsig-key.der -outform der -out selfsig-cert.der -days 3650
 
+openssl x509 -inform der -outform pem -in selfsig-cert.der -out selfsig-cert.pem
+
