@@ -57,8 +57,8 @@
 %   krbtgt  => binary	% constructed krbtgt
 %   key     => binary	% constructed key
 %
-% For DNS or DNSSEC, the map holds QueryId => {dns,   Succes,Failure}
-% For forced DNSSEC, the map holds QueryId => {dnssec,Succes,Failure}
+% For DNS or DNSSEC, the map holds {unbound,QueryId} => {dns,   Succes,Failure}
+% For forced DNSSEC, the map holds {unbound,QueryId} => {dnssec,Succes,Failure}
 %
 
 

@@ -67,8 +67,8 @@
 %   krbtgt  => binary	% constructed krbtgt
 %   key     => binary	% constructed key
 %
-% For DNS or DNSSEC, the map holds QueryId => {dns,   Succes,Failure}
-% For forced DNSSEC, the map holds QueryId => {dnssec,Succes,Failure}
+% For DNS or DNSSEC, the map holds {unbound,QueryId} => {dns,   Succes,Failure}
+% For forced DNSSEC, the map holds {unbound,QueryId} => {dnssec,Succes,Failure}
 %
 
 
@@ -143,8 +143,7 @@ reject( {},TransName,_EventData,_AppState ) ->
 recv_KX_req( {},recv_KX_req,KXbin=_EventData,AppState ) ->
 	{ok,KXoffer} = 'KXOVER':decode( 'KX-OFFER',KXbin ),
 	io:format( "KX-OFFER is ~p~n",[KXoffer] ),
-	NewAppState = maps:put( ckx,KXoffer,AppState ),
-	{ noreply,NewAppState }.
+	offer:recv( server,AppState,KXoffer ).
 
 
 % Transition hook: Request an SRV record with DNSSEC protection.
@@ -415,44 +414,7 @@ signature_error( {},signature_error,_EventData,AppState ) ->
 %TODO% Future crypto uses other names; likely to be post-quantum.
 %
 ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
-	KXoffer = maps:get( ckx,AppState ),
-	KXtbsdata = KXoffer#'KX-OFFER'.'signature-input',
-	#'SubjectPublicKeyInfo'{ algorithm=AlgId,subjectPublicKey=PeerPubKey } =
-		KXtbsdata#'KX-TBSDATA'.'key-exchange',
-	#'AlgorithmIdentifier'{ algorithm=_AlgOID,parameters=_ECDHParams } =
-		AlgId,
-	io:format( "Generating ECDHE on secp192r1 (TODO:FIXED for now)~n" ),
-	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% io:format( "ECDHParams = ~p~n",[ECDHParams] ),
-	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% { _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
-	{ MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,secp192r1 ),
-	io:format( "MyPrivKey = ~p~nMyPubKey = ~p~nPeerPubKey = ~p~n",[MyPrivKey,MyPubKey,PeerPubKey] ),
-	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,ECDHParams ),
-	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,secp192r1 ),
-	io:format( "Generated ECDHE on secp192r1 (TODO:FIXED for now)~n" ),
-	%TODO% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
-	KeyInfo = #'KXOVER-KEY-INFO'{
-		'kxover-name' = <<"KXOVER">>,
-		'seq-nr'      = 1,
-		kxname        = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxname,
-		kxrealm       = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxrealm,
-		till          = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.till,
-		kvno          = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kvno,
-		etype         = 1, %%%TODO:First_Acceptable_etype%%%
-		'shared-key'  = Z
-	},
-	{ok,KeyInfoBin} = 'KXOVER':encode( 'KXOVER-KEY-INFO',KeyInfo ),
-	%TODO% Following is preliminary redesign based on HMAC with Key=Z
-	%TODO% Note the fixed choice of hash, as it is not a security concern (and yet, HMAC?!?)
-	%TODO% Repeat with seq-nr for longer SharedKey segments if needed
-	%TODO%NAHHH% SharedKey = crypto:hmac( sha256,Z,KeyInfo ),
-	SharedKey = crypto:hash( sha256,KeyInfoBin ),
-	io:format( "Z = ~p~nKeyInfo = ~p~nSharedKey = ~p~n",[Z,KeyInfo,SharedKey] ),
-	%TODO% Compute krbtgt blob
-	KrbTgt = krbtgtBlob_TODO,
-	NewAppState = maps:put( key,SharedKey,	%TODO% Why? only need MyPubKey...
-	              maps:put( krbtgt,KrbTgt,AppState )),
-	%DEBUG% io:format( "NewAppState = ~p~n",[NewAppState] ),
-	{ noreply,NewAppState }.
+	offer:kex( server,AppState ).
 
 
 % Transition hook: Construct the KX response frame.
@@ -467,83 +429,7 @@ ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
 % The AppState for skx is also written by this procedure [do we need it?]
 %
 send_KX_resp( {},send_KX_resp,_EventData,AppState ) ->
-	ClientKX = maps:get( ckx,AppState ),
-	Nonce = ClientKX#'KX-OFFER'.nonce,
-	KVNO  = ClientKX#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kvno,
-	%
-	% Reconstruct certificate and key info
-	%
-	{ok,CertDER} = file:read_file( "selfsig-cert.der" ),
-	{ok,Cert} = 'RFC5280':decode( 'Certificate',CertDER ),
-	{ok,PrivDER} = file:read_file( "selfsig-key.der" ),
-	io:format( "PrivDER = ~p~n",[PrivDER] ),
-	Priv = public_key:der_decode( 'ECPrivateKey',PrivDER ),
-	io:format( "Priv = ~p~n",[Priv] ),
-	#'SubjectPublicKeyInfo'{ algorithm=SigAlg,subjectPublicKey=_SubjPubKey } =
-		PubKeyInfo =
-		Cert#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo,
-	%
-	% Construct the Authenticator
-	%
-	Princ = #'PrincipalName' {
-		'name-type'   = 2,
-		'name-string' = [ "krbtgt", "ARPA2.ORG" ]
-	},
-	Realm = "SURFNET.NL",
-	%%TODO%% Ugly, ugly calendar time... :'-(
-	Now = erlang:system_time( microsecond ),
-	%NowSec  = Now div 1000000,
-	NowUSec = Now rem 1000000,
-	%%%TODO:TIMES%%% {{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),
-	NowYear=2018,NowMonth=2,NowDay=21,NowHour=11,NowMinute=43,NowSecond=12,
-	NowStr = lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[NowYear,NowMonth,NowDay,NowHour,NowMinute,NowSecond])),
-	Author = #'Authenticator' {
-		% OPTIONAL fields not used
-		% crealm/cname ignored, set to anything
-		'authenticator-vno' = 5,
-		'crealm'            = Realm,
-		'cname'             = Princ,
-		'cusec'             = NowUSec,
-		'ctime'             = NowStr
-	},
-	%
-	% Construct the KX-TBSDATA
-	%
-	TBSdata = #'KX-TBSDATA' {
-		'authenticator'= Author,
-
-		% Key description information:
-		'kvno'         = KVNO,
-		'kxname'       = Princ,
-		'kxrealm'      = Realm,
-		'key-exchange' = PubKeyInfo,
-
-		% Timing information:
-		%ERROR% 'till' = (Now rem 10000000) + 86400 * 32,
-		'till' = NowStr,
-
-		% Negotiation terms, each in preference order:
-		'accept-etype'  = []
-		%OPTIONAL% 'accept-group'  = [],
-		%OPTIONAL% 'accept-sigalg' = [],
-		%OPTIONAL% 'accept-ca'     = []
-	},
-	{ok,TBSbytes} = 'KXOVER':encode( 'KX-TBSDATA',TBSdata ),
-	%TODO:FOR:REAL% TBSbytes = <<"TODO_FUNNY_TBS_BYTES">>,
-	SigVal = public_key:sign( TBSbytes,sha256,Priv ),	%%%TODO:FIXED:HASHALG%%%
-
-	ServerKX = #'KX-OFFER' {
-		% Transport-level information:
-		'nonce' = Nonce,
-		% About the signature:
-		'signature-input' = TBSdata,
-		'signature-owner' = [ Cert ],
-		%  The actual signature:
-		'signature-alg'   = SigAlg,
-		'signature-value' = SigVal
-	},
-	NewAppState = maps:put( skx,ServerKX,AppState ),
-	{ reply,ServerKX,NewAppState }.
+	offer:send( server,AppState ).
 
 
 % MiscData hook: The process received asynchronous non-Perpetuum data.
