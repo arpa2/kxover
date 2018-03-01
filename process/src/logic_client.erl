@@ -24,6 +24,8 @@
 	got_TLSA/4,
 	dns_req_A_AAAA/4,
 	got_A_AAAA/4,
+	send_KX_req/4,
+	got_KX_resp/4,
 	all_hooks/0
 ]).
 
@@ -252,6 +254,29 @@ got_A_AAAA( {},got_A_AAAA,_EventData,AppState ) ->
 	{ noreply,AppState }.
 
 
+% Transition hook: Construct a KX request to send.
+%
+% This event constructs a KX-OFFER and replies it to
+% the caller for submission to a KX server.  Note that
+% this differs from what the name suggest, namely that
+% a KX request will be sent by the logic module.
+%
+send_KX_req( {},send_KX_req,_EventData,AppState ) ->
+	KXreq = <<"KX-OFFER-to-go">>,
+	{ reply,KXreq, AppState }.
+
+
+% Transition hook: Receive a KX response.
+%
+% This event takes in a KX-OFFER as replied to the caller
+% by a KX server which was sent a KX request.  The actual
+% reception is not done in the logic module, even when the
+% name of this event sounds like it might.
+%
+got_KX_resp( {},got_KX_resp,_KXresp=_EventData,AppState ) ->
+	{ noreply, AppState }.
+
+
 % MiscData hook: The process received asynchronous non-Perpetuum data.
 %
 % Callbacks from Unbound look like #ub_callback{}
@@ -282,15 +307,16 @@ all_hooks() -> #{
 	dns_req_A_AAAA		=> {logic_client,dns_req_A_AAAA,{}},
 	failed_A_AAAA		=> {logic_client,pass,{}},
 	got_A_AAAA		=> {logic_client,got_A_AAAA,{}},
+	send_KX_req		=> {logic_client,send_KX_req,{}},
+	failed_KX		=> {logic_client,nop,{}},
+	got_KX_resp		=> {logic_client,got_KX_resp,{}},
 	'$default'		=> {logic_client,reject,{}},
 	'$miscdata'		=> {logic_client,miscdata,{}}
-%SERVER% 	recv_KX_req		=> {logic_client,recv_KX_req,{}},
 %SERVER% 	signature_verify	=> {logic_client,signature_verify,{}},
 %SERVER% 	signature_error		=> {logic_client,signature_error,{}},
 %SERVER% 	signature_good		=> {logic_client,nop,{}},
 %SERVER% 	ecdhe2krbtgt		=> {logic_client,ecdhe2krbtgt,{}},
 %SERVER% 	store_krbtgt_kdb	=> {logic_client,nop,{}},
-%SERVER% 	send_KX_resp		=> {logic_client,send_KX_resp,{}},
 %SERVER% 	expiration_timer	=> {logic_client,nop,{}},
 %SERVER% 	remove_shortest		=> {logic_client,nop,{}},
 %SERVER% 	successfulEnd		=> {logic_client,nop,{}},

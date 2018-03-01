@@ -27,16 +27,16 @@
       <place label-y="-1.5" name="await_KX" x="76.0" y="15.0"/>
       <transition label-x="1.0" label-y="-2.0" name="got_KX_resp" nservers-x="0.5" type="EXP" x="86.55" y="15.0"/>
       <place label-x="-0.5" label-y="2.0" name="responded_remote" x="91.0" y="15.0"/>
-      <transition label-x="1.5" label-y="-2.5" name="signature_good" nservers-x="0.5" type="EXP" x="97.55" y="9.0"/>
-      <transition label-x="2.0" label-y="-2.5" name="signature_error" nservers-x="0.5" type="EXP" x="97.55" y="17.0"/>
-      <place label-y="2.0" name="got_ecdhe" x="102.0" y="9.0"/>
-      <transition label-y="-2.0" name="ecdhe2krbtgt" nservers-x="0.5" type="EXP" x="107.55" y="9.0"/>
-      <place label-y="2.0" name="got_krbtgt" x="112.0" y="9.0"/>
-      <transition label-y="-2.0" name="store_krbtgt_kdb" nservers-x="0.5" type="EXP" x="117.55" y="9.0"/>
-      <place label-x="-4.0" label-y="-1.5" name="fresh_krbtgt" x="117.0" y="21.0"/>
-      <transition label-x="-1.5" label-y="2.0" name="krbtgt_refresh_timer" nservers-x="0.5" type="EXP" x="117.55" y="27.0"/>
-      <place label-x="-4.0" label-y="0.0" name="krbtgt_dawn" x="117.0" y="33.0"/>
-      <transition label-x="-0.5" label-y="2.0" name="krbtgt_expired_remove" nservers-x="0.5" type="EXP" x="117.55" y="39.0"/>
+      <transition label-y="-2.0" name="signature_good" nservers-x="0.5" type="EXP" x="107.55" y="9.0"/>
+      <transition label-x="4.0" label-y="0.0" name="signature_error" nservers-x="0.5" type="EXP" x="102.55" y="15.0"/>
+      <place label-y="2.0" name="got_ecdhe" x="112.0" y="9.0"/>
+      <transition label-y="-2.0" name="ecdhe2krbtgt" nservers-x="0.5" type="EXP" x="117.55" y="9.0"/>
+      <place label-y="2.0" name="got_krbtgt" x="122.0" y="9.0"/>
+      <transition label-y="-2.0" name="store_krbtgt_kdb" nservers-x="0.5" type="EXP" x="127.55" y="9.0"/>
+      <place label-x="-4.0" label-y="-1.5" name="fresh_krbtgt" x="127.0" y="21.0"/>
+      <transition label-x="-1.5" label-y="2.0" name="krbtgt_refresh_timer" nservers-x="0.5" type="EXP" x="127.55" y="27.0"/>
+      <place label-x="-4.0" label-y="0.0" name="krbtgt_dawn" x="127.0" y="33.0"/>
+      <transition label-x="-0.5" label-y="2.0" name="krbtgt_expired_remove" nservers-x="0.5" type="EXP" x="127.55" y="39.0"/>
       <text-box bold="true" border-color="#000000" fill-color="none" height="7.5" name="__textBox0" shadow="true" shape="ROUND_RECTANGLE" text-color="#000000" vert-pos="0" width="14.0" x="2.0" y="32.5">Separate network instances\\per $\langle$local,remote$\rangle$ pair.\\ \\Requests from local KDC\\trigger krbtgtMissing.</text-box>
       <place label-x="-2.5" label-y="2.0" name="want_KX_exchange" x="61.0" y="15.0"/>
       <transition label-x="-4.0" label-y="0.0" name="failed_TLSA" nservers-x="0.5" rotation="1.5707963267948966" type="EXP" x="71.55" y="19.0"/>
@@ -47,7 +47,7 @@
       <transition name="neither" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="76.55" y="27.0"/>
       <transition label-x="4.0" label-y="0.0" name="DANEwoKX" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="81.55" y="27.0"/>
       <transition label-x="-1.0" name="have_dawn_krbtgt" nservers-x="0.5" rotation="4.71238898038469" type="EXP" x="30.55" y="15.0"/>
-      <transition label-y="2.0" name="krbtgt_remove_dawn" nservers-x="0.5" type="EXP" x="122.55" y="33.0"/>
+      <transition label-y="2.0" name="krbtgt_remove_dawn" nservers-x="0.5" type="EXP" x="132.55" y="33.0"/>
       <place label-x="1.0" name="want_address" x="61.0" y="9.0"/>
       <transition name="dns_req_A_AAAA" nservers-x="0.5" type="EXP" x="66.55" y="9.0"/>
       <place label-x="0.5" name="lookup_address" x="76.0" y="9.0"/>
@@ -55,6 +55,8 @@
       <transition name="failed_A_AAAA" nservers-x="0.5" type="EXP" x="81.55" y="7.0"/>
       <transition label-x="-0.5" label-y="2.0" name="dnssec_req_SRV" nservers-x="0.5" type="EXP" x="45.55" y="9.0"/>
       <place label-y="-2.0" name="want_SRV" x="40.0" y="9.0"/>
+      <transition label-x="0.5" label-y="-2.0" name="signature_verify" nservers-x="0.5" type="EXP" x="97.55" y="9.0"/>
+      <place name="checking_signature" x="102.0" y="9.0"/>
     </nodes>
     <edges>
       <arc head="krbtgtMissing" kind="INHIBITOR" tail="failedCached"/>
@@ -89,12 +91,9 @@
       <arc head="await_KX" kind="OUTPUT" tail="send_KX_req"/>
       <arc head="got_KX_resp" kind="INPUT" tail="await_KX"/>
       <arc head="responded_remote" kind="OUTPUT" tail="got_KX_resp"/>
-      <arc head="signature_error" kind="INPUT" tail="responded_remote"/>
-      <arc head="signature_good" kind="INPUT" tail="responded_remote"/>
-      <arc head="signature_good" kind="INPUT" tail="keyed_remote"/>
       <arc head="failure" kind="OUTPUT" tail="signature_error">
-        <point x="98.0" y="34.0"/>
-        <point x="91.5" y="40.0"/>
+        <point x="103.0" y="34.0"/>
+        <point x="96.5" y="40.0"/>
         <point x="21.0" y="40.0"/>
       </arc>
       <arc head="got_ecdhe" kind="OUTPUT" tail="signature_good"/>
@@ -137,12 +136,12 @@
         <point x="22.5" y="36.0"/>
       </arc>
       <arc head="have_fresh_krbtgt" kind="INPUT" mult-k="0.6000976562500001" tail="fresh_krbtgt">
-        <point x="102.0" y="38.0"/>
+        <point x="112.0" y="38.0"/>
         <point x="42.0" y="38.0"/>
         <point x="42.0" y="21.0"/>
       </arc>
       <arc head="need_SRV" kind="INHIBITOR" mult-k="0.5999023437500001" tail="fresh_krbtgt">
-        <point x="102.0" y="38.0"/>
+        <point x="112.0" y="38.0"/>
         <point x="37.0" y="38.0"/>
         <point x="37.0" y="12.799367244616494"/>
       </arc>
@@ -150,7 +149,7 @@
         <point x="31.0" y="12.4380859375"/>
       </arc>
       <arc head="have_dawn_krbtgt" kind="INPUT" mult-k="0.6000976562500001" tail="krbtgt_dawn">
-        <point x="109.5" y="42.0"/>
+        <point x="120.5" y="42.0"/>
         <point x="30.0" y="42.0"/>
         <point x="30.0" y="18.5"/>
       </arc>
@@ -158,7 +157,7 @@
         <point x="35.5" y="16.0"/>
       </arc>
       <arc head="need_SRV" kind="INHIBITOR" mult-k="0.6000976562500001" tail="krbtgt_dawn">
-        <point x="109.5" y="42.0"/>
+        <point x="120.5" y="42.0"/>
         <point x="35.0" y="42.0"/>
         <point x="35.0" y="13.0"/>
       </arc>
@@ -166,19 +165,19 @@
       <arc head="fresh_krbtgt" kind="OUTPUT" mult-k="0.0" tail="have_fresh_krbtgt">
         <point x="42.0" y="21.0"/>
         <point x="42.0" y="38.0"/>
-        <point x="102.0" y="38.0"/>
+        <point x="112.0" y="38.0"/>
       </arc>
       <arc head="krbtgt_dawn" kind="OUTPUT" mult-k="0.0" tail="have_dawn_krbtgt">
         <point x="30.0" y="18.5"/>
         <point x="30.0" y="42.0"/>
-        <point x="109.5" y="42.0"/>
+        <point x="120.5" y="42.0"/>
       </arc>
       <arc head="krbtgt_remove_dawn" kind="INPUT" tail="krbtgt_dawn"/>
       <arc head="krbtgt_remove_dawn" kind="INPUT" tail="fresh_krbtgt">
-        <point x="123.0" y="22.0"/>
+        <point x="133.0" y="22.0"/>
       </arc>
       <arc head="fresh_krbtgt" kind="OUTPUT" tail="krbtgt_remove_dawn">
-        <point x="123.0" y="22.0"/>
+        <point x="133.0" y="22.0"/>
       </arc>
       <arc head="failed_TLSA" kind="INPUT" tail="lookup_DANE">
         <point x="77.0" y="6.0"/>
@@ -188,10 +187,9 @@
         <point x="77.0" y="20.0"/>
       </arc>
       <arc head="processingRequest" kind="OUTPUT" tail="have_dawn_krbtgt"/>
-      <arc head="signature_error" kind="INPUT" tail="keyed_remote"/>
       <arc head="successfulEnd" kind="INPUT" tail="processingRequest"/>
       <arc head="have_dawn_krbtgt" kind="INHIBITOR" mult-k="0.5999023437500001" tail="fresh_krbtgt">
-        <point x="102.0" y="38.0"/>
+        <point x="112.0" y="38.0"/>
         <point x="32.0" y="38.0"/>
         <point x="32.0" y="18.5"/>
       </arc>
@@ -217,6 +215,11 @@
       <arc head="want_SRV" kind="OUTPUT" mult-k="1.1473632812499996" tail="have_dawn_krbtgt">
         <point x="41.0" y="16.0"/>
       </arc>
+      <arc head="checking_signature" kind="OUTPUT" tail="signature_verify"/>
+      <arc head="signature_good" kind="INPUT" tail="checking_signature"/>
+      <arc head="signature_error" kind="INPUT" tail="checking_signature"/>
+      <arc head="signature_verify" kind="INPUT" tail="keyed_remote"/>
+      <arc head="signature_verify" kind="INPUT" tail="responded_remote"/>
     </edges>
   </gspn>
   <gspn name="kxover_server" show-color-cmd="false" show-fluid-cmd="false" show-timed-cmd="false" view-rates="false">
@@ -230,27 +233,29 @@
       <place label-y="2.0" name="want_cert" x="36.0" y="4.0"/>
       <transition label-y="-2.0" name="got_TLSA" nservers-x="0.5" type="EXP" x="54.55" y="4.0"/>
       <place label-y="2.0" name="keyed_remote" x="60.0" y="4.0"/>
-      <transition label-y="-2.0" name="signature_good" nservers-x="0.5" type="EXP" x="66.55" y="4.0"/>
-      <transition label-y="2.0" name="signature_error" nservers-x="0.5" type="EXP" x="60.55" y="16.0"/>
+      <transition label-y="-2.0" name="signature_good" nservers-x="0.5" type="EXP" x="78.55" y="4.0"/>
+      <transition label-y="2.0" name="signature_error" nservers-x="0.5" type="EXP" x="72.55" y="16.0"/>
       <place label-y="2.0" name="failed" x="36.0" y="16.0"/>
       <transition label-y="-2.0" name="send_KX_failed" nservers-x="0.5" type="EXP" x="30.55" y="16.0"/>
       <place label-y="2.0" name="failedCached" x="24.0" y="16.0"/>
       <transition label-y="-2.0" name="cache_exp_timer" nservers-x="0.5" type="EXP" x="18.55" y="16.0"/>
-      <place label-y="2.0" name="welcome" x="72.0" y="4.0"/>
-      <transition label-y="-2.0" name="ecdhe2krbtgt" nservers-x="0.5" type="EXP" x="78.55" y="4.0"/>
-      <place label-y="2.0" name="building_krbtgt" x="84.0" y="4.0"/>
-      <transition label-y="-2.0" name="store_krbtgt_kdb" nservers-x="0.5" type="EXP" x="90.55" y="4.0"/>
-      <place label-y="2.0" name="ready_to_send" x="96.0" y="4.0"/>
-      <transition label-y="-2.0" name="send_KX_resp" nservers-x="0.5" type="EXP" x="102.55" y="4.0"/>
+      <place label-y="2.0" name="welcome" x="84.0" y="4.0"/>
+      <transition label-y="-2.0" name="ecdhe2krbtgt" nservers-x="0.5" type="EXP" x="90.55" y="4.0"/>
+      <place label-y="2.0" name="building_krbtgt" x="96.0" y="4.0"/>
+      <transition label-y="-2.0" name="store_krbtgt_kdb" nservers-x="0.5" type="EXP" x="102.55" y="4.0"/>
+      <place label-y="2.0" name="ready_to_send" x="108.0" y="4.0"/>
+      <transition label-y="-2.0" name="send_KX_resp" nservers-x="0.5" type="EXP" x="114.55" y="4.0"/>
       <place label-y="2.0" name="success" x="36.0" y="22.0"/>
       <transition label-x="1.5" label-y="-2.0" name="successfulEnd" nservers-x="0.5" type="EXP" x="18.55" y="22.0"/>
-      <place label-x="4.0" label-y="0.0" name="have_krbtgt" x="90.0" y="10.0"/>
-      <transition label-x="4.0" label-y="-0.5" name="expiration_timer" nservers-x="0.5" type="EXP" x="90.55" y="16.0"/>
-      <transition label-x="-4.0" label-y="0.0" name="remove_shortest" nservers-x="0.5" type="EXP" x="84.55" y="10.0"/>
+      <place label-x="4.0" label-y="0.0" name="have_krbtgt" x="102.0" y="10.0"/>
+      <transition label-x="4.0" label-y="-0.5" name="expiration_timer" nservers-x="0.5" type="EXP" x="102.55" y="16.0"/>
+      <transition label-x="-4.0" label-y="0.0" name="remove_shortest" nservers-x="0.5" type="EXP" x="96.55" y="10.0"/>
       <transition label-y="-2.0" name="dnssec_req_TLSA" nservers-x="0.5" type="EXP" x="42.55" y="4.0"/>
       <place label-y="2.0" name="lookup_DANE" x="48.0" y="4.0"/>
       <transition label-x="-4.0" label-y="0.0" name="failed_SRV" nservers-x="0.5" type="EXP" x="24.55" y="10.0"/>
       <transition label-x="4.5" label-y="0.0" name="failed_TLSA" nservers-x="0.5" type="EXP" x="48.55" y="10.0"/>
+      <transition name="signature_verify" nservers-x="0.5" type="EXP" x="66.55" y="4.0"/>
+      <place name="checking_signature" x="72.0" y="4.0"/>
     </nodes>
     <edges>
       <arc head="want_kdc" kind="OUTPUT" tail="recv_KX_req"/>
@@ -259,8 +264,8 @@
       <arc head="got_SRV" kind="INPUT" tail="lookup_kdc"/>
       <arc head="want_cert" kind="OUTPUT" tail="got_SRV"/>
       <arc head="keyed_remote" kind="OUTPUT" tail="got_TLSA"/>
-      <arc head="signature_good" kind="INPUT" tail="keyed_remote"/>
-      <arc head="signature_error" kind="INPUT" tail="keyed_remote"/>
+      <arc head="signature_verify" kind="INPUT" tail="keyed_remote"/>
+      <arc head="signature_error" kind="INPUT" tail="checking_signature"/>
       <arc head="failed" kind="OUTPUT" tail="signature_error"/>
       <arc head="send_KX_failed" kind="INPUT" tail="failed"/>
       <arc head="failedCached" kind="OUTPUT" tail="send_KX_failed"/>
@@ -273,16 +278,16 @@
       <arc head="ready_to_send" kind="OUTPUT" tail="store_krbtgt_kdb"/>
       <arc head="send_KX_resp" kind="INPUT" tail="ready_to_send"/>
       <arc head="success" kind="OUTPUT" tail="send_KX_resp">
-        <point x="103.0" y="23.0"/>
+        <point x="115.0" y="23.0"/>
       </arc>
       <arc head="successfulEnd" kind="INPUT" tail="success"/>
       <arc head="have_krbtgt" kind="OUTPUT" tail="store_krbtgt_kdb"/>
       <arc head="expiration_timer" kind="INPUT" tail="have_krbtgt"/>
       <arc head="remove_shortest" kind="INPUT" mult="3" mult-k="0.70966796875" mult-x="0.9174800561461041" mult-y="-0.6980068140715066" tail="have_krbtgt">
-        <point x="88.0" y="10.0"/>
+        <point x="100.0" y="10.0"/>
       </arc>
       <arc head="have_krbtgt" kind="OUTPUT" mult="2" mult-k="0.8206054687500001" mult-x="-0.9999226482735963" mult-y="0.6179924866106532" tail="remove_shortest">
-        <point x="88.0" y="12.0"/>
+        <point x="100.0" y="12.0"/>
       </arc>
       <arc head="dnssec_req_TLSA" kind="INPUT" tail="want_cert"/>
       <arc head="lookup_DANE" kind="OUTPUT" tail="dnssec_req_TLSA"/>
@@ -304,6 +309,8 @@
       <arc head="successfulEnd" kind="INPUT" tail="servicing">
         <point x="13.0" y="23.0"/>
       </arc>
+      <arc head="signature_good" kind="INPUT" tail="checking_signature"/>
+      <arc head="checking_signature" kind="OUTPUT" tail="signature_verify"/>
     </edges>
   </gspn>
 </project>
