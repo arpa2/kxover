@@ -1,6 +1,6 @@
 #!/usr/bin/env escript
 %
-% drive_master_client2server.erl -- Run through the Petri Nets for the KXOVER client and server
+% drive_master_client.erl -- Run through the Petri Nets for the KXOVER client
 %
 % From: Rick van Rein <rick@openfortress.nl>
 

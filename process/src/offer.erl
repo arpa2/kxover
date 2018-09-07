@@ -74,7 +74,7 @@ send( client,AppState ) ->
 	io:format( "Generating ECDHE on secp256k1 (TODO:FIXED for now)~n" ),
 	%TODO%AGREE_ON_ECDH_CURVE_NOT_SINGLE_AND_FIXED% { _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
 	{ MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,secp256k1 ),
-	io:format( "ecdh/secp256k1.MyPubKey = ~p~necdh/secp256k1.MyPrivKey = ~p~n",[MyPubKey,MyPrivKey] ),
+	io:format( "Client MyPubKey = ~p~nClient MyPrivKey = ~p~n",[MyPubKey,MyPrivKey] ),
 	MidAppState =
 		maps:put( kexpub,MyPubKey,
 		maps:put( kexpriv,MyPrivKey,
@@ -96,8 +96,15 @@ send( AppState ) ->
 	Priv = public_key:der_decode( 'ECPrivateKey',PrivDER ),
 	io:format( "Priv = ~p~n",[Priv] ),
 	#'SubjectPublicKeyInfo'{ algorithm=SigAlg,subjectPublicKey=_SubjPubKey } =
-		PubKeyInfo =
 		Cert#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo,
+	%
+	% Construct key exchange info
+	%
+	KexAlg = #'AlgorithmIdentifier' {
+		algorithm = {1,2,840,10045,2,1},
+		parameters = <<6,5,43,129,4,0,10>> },
+	KexPubKey = maps:get( kexpub,AppState ),
+	KexData = #'SubjectPublicKeyInfo'{ algorithm=KexAlg,subjectPublicKey=KexPubKey },
 	%
 	% Construct the Authenticator
 	%
@@ -132,7 +139,7 @@ send( AppState ) ->
 		'kvno'         = KVNO,
 		'kxname'       = Princ,
 		'kxrealm'      = Realm,
-		'key-exchange' = PubKeyInfo,  %TODO% KEXdata
+		'key-exchange' = KexData,
 		%
 		% Timing information:
 		%ERROR% 'till' = (Now rem 10000000) + 86400 * 32,
@@ -145,7 +152,7 @@ send( AppState ) ->
 		%OPTIONAL% 'accept-ca'     = []
 	},
 	{ok,TBSbytes} = 'KXOVER':encode( 'KX-TBSDATA',TBSdata ),
-	SigVal = public_key:sign( TBSbytes,sha256,Priv ),	%%%TODO:FIXED:HASHALG%%%
+	SigVal = public_key:sign( TBSbytes,sha512,Priv ),	%%%TODO:FIXED:HASHALG%%%
 	%
 	% Construct the KX-OFFER record
 	%
@@ -192,9 +199,11 @@ kex( server,AppState ) ->
 	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% io:format( "ECDHParams = ~p~n",[ECDHParams] ),
 	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% { _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
 	{ MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,secp256k1 ),
-	io:format( "MyPrivKey = ~p~nMyPubKey = ~p~n",[MyPrivKey,MyPubKey] ),
+	io:format( "Server MyPubKey = ~p~nServer MyPrivKey = ~p~n",[MyPubKey,MyPrivKey] ),
+	MidAppState = maps:put( kexpub,MyPubKey,
+	              maps:put( kexpriv,MyPrivKey,AppState )),
 	KXvfy = maps:get( ckx,AppState ),
-	kex( AppState,KXvfy,MyPrivKey );
+	kex( MidAppState,KXvfy,MyPrivKey );
 %
 kex( client,AppState ) ->
 	{ MyPivKey,MidAppState } = maps:take( kexpriv,AppState ),
@@ -203,6 +212,7 @@ kex( client,AppState ) ->
 %
 kex( AppState,KXvfy,MyPrivKey ) ->
 	KXtbsdata = KXvfy#'KX-OFFER'.'signature-input',
+	%TODO%BUG% The PeerPubKey is the same on client and server -- and different from what's generated on both
 	#'SubjectPublicKeyInfo'{ algorithm=KXalg,subjectPublicKey=PeerPubKey } =
 		KXvfy#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.'key-exchange',
 	#'AlgorithmIdentifier'{ algorithm=_AlgOID,parameters=_ECDHParams } =
@@ -215,11 +225,18 @@ kex( AppState,KXvfy,MyPrivKey ) ->
 	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,secp256k1 ),
 	io:format( "Generated ECDHE on secp256k1 (TODO:FIXED for now)~n" ),
 	%TODO% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
+	Princ = #'PrincipalName' {
+		'name-type'   = 2,
+		%%%TODO%%% 'name-string' = [ "krbtgt", maps:get( srealm,AppState ) ]
+		'name-string' = [ "krbtgt", <<"ARPA2.NET">> ]
+	},
+	%%%TODO%%% Realm = maps:get( crealm,AppState ),
+	Realm = <<"SURFNET.NL">>,
 	KeyInfo = #'KXOVER-KEY-INFO'{
 		'kxover-name' = <<"KXOVER">>,
 		'seq-nr'      = 1,
-		kxname        = KXtbsdata#'KX-TBSDATA'.kxname,
-		kxrealm       = KXtbsdata#'KX-TBSDATA'.kxrealm,
+		kxname        = Princ,
+		kxrealm       = Realm,
 		till          = KXtbsdata#'KX-TBSDATA'.till,
 		kvno          = KXtbsdata#'KX-TBSDATA'.kvno,
 		etype         = 1, %%%TODO:First_Acceptable_etype_or_list_thereof%%%
@@ -229,8 +246,8 @@ kex( AppState,KXvfy,MyPrivKey ) ->
 	%TODO% Following is preliminary redesign based on HMAC with Key=Z
 	%TODO% Note the fixed choice of hash, as it is not a security concern (and yet, HMAC?!?)
 	%TODO% Repeat with seq-nr for longer SharedKey segments if needed
-	%TODO%NAHHH% SharedKey = crypto:hmac( sha256,Z,KeyInfo ),
-	SharedKey = crypto:hash( sha256,KeyInfoBin ),
+	%TODO%NAHHH% SharedKey = crypto:hmac( sha512,Z,KeyInfo ),
+	SharedKey = crypto:hash( sha512,KeyInfoBin ),
 	io:format( "Z = ~p~nKeyInfo = ~p~nSharedKey = ~p~n",[Z,KeyInfo,SharedKey] ),
 	%TODO% Compute krbtgt blob
 	KrbTgt = krbtgtBlob_TODO,

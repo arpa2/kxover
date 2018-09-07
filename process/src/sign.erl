@@ -5,7 +5,7 @@
 % For crypto support in Erlang, see
 % http://erlang.org/doc/apps/crypto/crypto.pdf
 %
-% Algorithms ecdsa and sha256 are supported.
+% Algorithms ecdsa and sha512 are supported.
 %
 % From: Rick van Rein <rick@openfortress.nl>
 
@@ -23,7 +23,7 @@
 % algorithm options.
 %
 sign( Msg,Key ) ->
-	crypto:sign( ecdsa,sha256,Msg,Key ).
+	crypto:sign( ecdsa,sha512,Msg,Key ).
 
 
 % Verifying is handed off to the crypto module.
@@ -32,6 +32,6 @@ sign( Msg,Key ) ->
 % algorithm options.
 %
 verify( Msg,Sig,Key ) ->
-	crypto:verify( ecdsa,sha256,Msg,Sig,Key ).
+	crypto:verify( ecdsa,sha512,Msg,Sig,Key ).
 
 
