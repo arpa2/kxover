@@ -18,6 +18,7 @@ main( [FileKXoffer,FileKXresponse|_Args] ) ->
 	% Start the Unbound service process
 	%
 	unbound:start(),
+	io:format( "Started Unbound service~n" ),
 
 	% Start a kxover_server with logic_server backend
 	%

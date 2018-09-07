@@ -18,6 +18,7 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 	% Start the Unbound service process
 	%
 	unbound:start(),
+	io:format( "Started Unbound service~n" ),
 
 	% Start a kxover_client with logic_client backend
 	%
@@ -110,10 +111,11 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 
 	% The A_AAAA is trivial in Erlang, so lap it up and continue immediately
 	%
-	receive
+	KXofferTmp = receive
 	{ perpetuum,Client,got_A_AAAA,noreply } ->
 		{ reply,KXofferCli} = gen_perpetuum:event( Client,send_KX_req,{} ),
-		io:format( "Constructed KX-OFFER from client: ~p~n",[KXofferCli] );
+		io:format( "Constructed KX-OFFER from client: ~p~n",[KXofferCli] ),
+		KXofferCli;
 	Error3 ->
 		io:format( "Unexpected return value ~p~n",[Error3] ),
 		error( Error3 )
@@ -126,7 +128,7 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 	%%%TODO%%% INSERT INTERACTION WITH A SERVER PROCESS AT THIS POINT
 	%%%TODO%%% HANDLING ERROR SITUATIONS DUE TO SERVER FAILURES
 	%%%TODO%%%
-	KXofferSrv = <<"tra-la-la">>,
+	{ok,KXofferSrv} = 'KXOVER':encode( 'KX-OFFER',KXofferTmp ),
 
 	% Receive the KXofferSrv and send it to the client code
 	%
@@ -156,7 +158,7 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 
 	% Request KX signature verification based on TLSA
 	%
-	%TODO% noreply = gen_perpetuum:event( Server,signature_verify,{ signature_good,signature_error }),
+	%TODO% noreply = gen_perpetuum:event( Client,signature_verify,{ signature_good,signature_error }),
 	noreply = gen_perpetuum:event( Client,signature_verify,{ signature_good,signature_good }),  %%%LIES:_NOT_ALWAYS_GOOD%%%
 	io:format( "Returned from signature verification request~n" ),
 
@@ -174,8 +176,21 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 		error( timeout )
 	end,
 
-	% CONTINUE HERE
+	% Perform the ECDHE computation and derive the crossover key
 	%
+	noreply = gen_perpetuum:event( Client,ecdhe2krbtgt,{} ),
+
+	% Perform the storage of the crossover key
+	%
+	noreply = gen_perpetuum:event( Client,store_krbtgt_kdb,{} ),
+
+	% Send the constructed krbtgt to all requesting clients
+	%
+	noreply = gen_perpetuum:event( Client,send_krbtgt_to_all_requesters,{} ),
+
+	% Successfully end the krbtgt construction client process
+	%
+	noreply = gen_perpetuum:event( Client,successfulEnd,{} ),
 
 	% Report the final marking for the KXOVER Client
 	%

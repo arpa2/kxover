@@ -8,7 +8,8 @@
 -export([
 	recv/3,
 	send/2,
-	kex/2
+	kex/2,
+	vfy/2
 ]).
 
 
@@ -19,6 +20,8 @@
 -include( "KXOVER.hrl" ).
 -include( "RFC5280.hrl" ).
 -include( "RFC4120.hrl" ).
+
+-define(LambdaLiftM1(M,F), fun(X  ) -> M:F ( X   ) end).
 
 -define(ifthenelse(I,T,E), if I -> T; true -> E end).
 
@@ -68,7 +71,17 @@ send( server,AppState ) ->
 	send( MidAppState );
 %
 send( client,AppState ) ->
-	send( AppState ).
+	io:format( "Generating ECDHE on secp256k1 (TODO:FIXED for now)~n" ),
+	%TODO%AGREE_ON_ECDH_CURVE_NOT_SINGLE_AND_FIXED% { _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
+	{ MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,secp256k1 ),
+	io:format( "ecdh/secp256k1.MyPubKey = ~p~necdh/secp256k1.MyPrivKey = ~p~n",[MyPubKey,MyPrivKey] ),
+	MidAppState =
+		maps:put( kexpub,MyPubKey,
+		maps:put( kexpriv,MyPrivKey,
+		maps:put( nonce,trunc( rand:uniform() * (1 bsl 32) ),
+		maps:put( kvno,123,  %TODO%KVNO%
+			AppState )))),
+	send( MidAppState ).
 %
 send( AppState ) ->
 	Nonce = maps:get( nonce,AppState ),
@@ -175,18 +188,18 @@ send( AppState ) ->
 % TODO:IFANY in case, of error, it returns {error,Reason}.
 %
 kex( server,AppState ) ->
-	KXvfy = maps:get( ckx,AppState ),
-	io:format( "Generating ECDHE on secp192r1 (TODO:FIXED for now)~n" ),
+	io:format( "Generating ECDHE on secp256k1 (TODO:FIXED for now)~n" ),
 	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% io:format( "ECDHParams = ~p~n",[ECDHParams] ),
 	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% { _MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,ECDHParams ),
-	{ MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,secp192r1 ),
+	{ MyPubKey,MyPrivKey } = crypto:generate_key( ecdh,secp256k1 ),
 	io:format( "MyPrivKey = ~p~nMyPubKey = ~p~n",[MyPrivKey,MyPubKey] ),
+	KXvfy = maps:get( ckx,AppState ),
 	kex( AppState,KXvfy,MyPrivKey );
 %
 kex( client,AppState ) ->
-	KXvfy = maps:get( skx,AppState ),
-	MyPivKey = fetch_MyPrivKey_TODO,
-	kex( AppState,KXvfy,MyPivKey ).
+	{ MyPivKey,MidAppState } = maps:take( kexpriv,AppState ),
+	KXvfy = maps:get( skx,MidAppState ),
+	kex( MidAppState,KXvfy,MyPivKey ).
 %
 kex( AppState,KXvfy,MyPrivKey ) ->
 	KXtbsdata = KXvfy#'KX-OFFER'.'signature-input',
@@ -198,8 +211,9 @@ kex( AppState,KXvfy,MyPrivKey ) ->
 	% Compute the standard shared value Z
 	%
 	%TODO%AGREE_ON_ECDH_CURVE_NOT_AUTOMATICALLY_SAME_AS_SIGNATURE% Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,ECDHParams ),
-	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,secp192r1 ),
-	io:format( "Generated ECDHE on secp192r1 (TODO:FIXED for now)~n" ),
+	io:format( "ecdh/secp256k1.PeerPubKey = ~p~necdh/secp256k1.MyPrivKey = ~p~n",[PeerPubKey,MyPrivKey] ),
+	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,secp256k1 ),
+	io:format( "Generated ECDHE on secp256k1 (TODO:FIXED for now)~n" ),
 	%TODO% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
 	KeyInfo = #'KXOVER-KEY-INFO'{
 		'kxover-name' = <<"KXOVER">>,
@@ -224,4 +238,193 @@ kex( AppState,KXvfy,MyPrivKey ) ->
 	              maps:put( krbtgt,KrbTgt,AppState )),
 	%DEBUG% io:format( "NewAppState = ~p~n",[NewAppState] ),
 	{ noreply,NewAppState }.
+
+
+% Verify a KX-OFFER signature; return true for succes, or false for failure.
+%
+% The verification does the following things:
+%  1. Check that data fields are acceptable to us
+%  2. Check that signature-alg matches certificate alg	%TODO%DROP%FROM%KXOFFER%
+%  3. Verify the KX-TBSDATA against the certificate key
+%  4. Evaluate the chain of certificates
+%  5. Evaluate DANE against the chain of certificates
+%
+vfy( client,AppState ) ->
+	KXoffer = maps:get( skx,AppState ),
+	io:format( "client got KXoffer = ~p~n",[KXoffer] ),
+	vfy( KXoffer,AppState );
+%
+vfy( server,AppState ) ->
+	KXoffer = maps:get( ckx,AppState ),
+	io:format( "server got KXoffer = ~p~n",[KXoffer] ),
+	vfy( KXoffer,AppState );
+%
+vfy( KXoffer,AppState ) ->
+	%
+	% Analyse the information provided inasfar as it is concerned
+	% with digital signing of the KX-OFFER.
+	%
+	SigAlg = KXoffer#'KX-OFFER'.'signature-alg',   %TODO%DROP%FROM%KXOFFER%
+	SigBin = KXoffer#'KX-OFFER'.'signature-value',
+	KX_TBS = KXoffer#'KX-OFFER'.'signature-input',
+	Owner  = KXoffer#'KX-OFFER'.'signature-owner',
+	[ Cert|_ ] = Owner,
+	#'SubjectPublicKeyInfo'{ algorithm=AlgId,subjectPublicKey=SubjPubKey } =
+		Cert#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo,
+	AlgOK = (AlgId == SigAlg),			%TODO%DROP%FROM%KXOFFER%
+	{_KeyAlg,HashAlg,VerifyPublicKey} = case {AlgOK,AlgId} of
+	%TODO% useful cases
+	{true,#'AlgorithmIdentifier'{ algorithm={1,2,840,113549,1,1,5}, parameters=asn1_NOVALUE }} ->
+		{rsa,sha,SubjPubKey};
+	{true,#'AlgorithmIdentifier'{ algorithm={1,2,840,10040,4,3}, parameters=asn1_NOVALUE }} ->
+		{dsa,sha,SubjPubKey};
+	{true,#'AlgorithmIdentifier'{ algorithm={1,2,840,10045,4,1}, parameters=asn1_NOVALUE }} ->
+		%TODO% RFC 3279 allows parameters and/... pass in as ec_public_key()
+		ECPubKey = SubjPubKey,	%TODO% More elaborate juggling...
+		{ecdsa,sha,ECPubKey};
+	_ ->
+		{unknown,unknown,unknown}
+	end,
+	%
+	% Validate the signature on the KX-OFFER to be made by the
+	% first Certificate in the Owner sequence.
+	%
+	SigOK = if VerifyPublicKey == unknown ->
+		false;
+	true ->
+		public_key:verify( KX_TBS,HashAlg,SigBin,VerifyPublicKey )
+	end,
+	%
+	% Validate the chain as a signed sequence of at least one Certificate,
+	% ending in a self-signed certificate.
+	%
+	% We read the envvar kxover:root_certs for a file name with a PEM of
+	% root certificates to be trusted.  If no such value is provided, then
+	% RootCerts ends up as undefined, and no checks will be enforced; if
+	% the name is given, it must be readable and RootCerts will be a list
+	% of Certificate entries for validation.  An empty list would always
+	% fail, and will be carefully distinguished from undefined.
+	%
+	% The envvar may contain a single file name or a list of file names;
+	% each file may hold one or more PEM files with root certificates
+	% to be trusted.
+	%
+	%TODO% We seem to need to load explicitly?!?
+	%
+	application:load( kxover ),
+	RootCerts = case application:get_env( kxover,root_certs ) of
+	{ok,RootCertPemFiles} ->
+		io:format( "RootCertPemFiles = ~p~n",[RootCertPemFiles] ),
+		ReadAll = fun( YF,Files,Accu ) ->
+			case Files of
+			[] ->
+				% nothing more to collect
+				Accu;
+			[F|FS] ->
+				% use an efficient tail call:
+				YF( YF,FS,YF( YF,F,Accu ));
+			F when is_binary( F ) ->
+				% prefix an individual file;
+				% retention of entries' order
+				{ok,NewText} = file:read_file( F ),
+				[ NewText | Accu ]
+			end
+		end,
+		Extract = fun( YF,CrtList ) ->
+			case CrtList of
+			[ { 'Certificate',DER,not_encrypted } | Rest ] ->
+				[ DER | YF( YF,Rest ) ];
+			[ _ | Rest ] ->
+				YF( YF,Rest );
+			[] ->
+				[]
+			end
+		end,
+		PemBin = ReadAll( ReadAll,RootCertPemFiles,[] ),
+		Extract( Extract,lists:flatten( lists:map( ?LambdaLiftM1( public_key,pem_decode ),PemBin )));
+	undefined ->
+		undefined
+	end,
+	io:format( "RootCerts = ~p~n",[RootCerts] ),
+	CheckChain = fun( YF,OwnerChain ) ->
+		case OwnerChain of
+		[EndCert] ->
+			{ok,EndCertDER} = 'RFC5280':encode( 'Certificate',EndCert ),
+			%DEBUG% io:format( "public_key:pkix_is_self_signed( ~p )~n",[EndCertDER] ),
+			SelfSigned = public_key:pkix_is_self_signed( EndCertDER ),
+			if not SelfSigned ->
+				false;
+			RootCerts == undefined ->
+				true;
+			is_list( RootCerts ) ->
+				%DEBUG% io:format( "Testing if ~p in ~p~n",[EndCertDER,RootCerts] ),
+				io:format( "End Cert found is ~p~n",[lists:member( EndCertDER,RootCerts )] ),
+				lists:member( EndCertDER,RootCerts )
+			end;
+		[FirstCert|[SecondCert|_]=MoreChain] ->
+			{ok, FirstCertDER} = 'RFC5280':encode( 'Certificate', FirstCert ),
+			{ok,SecondCertDER} = 'RFC5280':encode( 'Certificate',SecondCert ),
+			case public_key:pkix_is_issuer( FirstCertDER,SecondCertDER ) of
+			false ->
+				false;
+			true ->
+				YF( YF,MoreChain )
+			end
+		end
+	end,
+	ChainOK = CheckChain( CheckChain,Owner ),
+	%
+	% Validate trust based on DANE.  When root certificates are also taken
+	% into account, including for the case of a federation, additionally
+	% check the last certificates to be a valid root certificate.
+	%
+	%TODO% implement! Trust based on optional check on root certificates (if configured)
+	%
+	CheckDANE = fun( YF,DANE ) ->
+		case DANE of
+		[] ->
+			false;
+		[{_,_,CrtUsg,Sel,Mtch,Data}|MoreDANE] ->
+			% Cert Usage: Pick a certificate and whether under a PublicCA
+			{Used,_PublicCA_TODO_USE} = case CrtUsg of
+			ca_constraint ->
+				{ lists:last( Owner ),true };
+			cert_constraint ->
+				{ Cert,true };
+			ta_assertion ->
+				{ lists:last( Owner ),false };
+			domain_issued_cert ->
+				{ Cert,false }
+			end,
+			% Selection: Take the Certificate or SubjectPublicKeyInfo
+			{ok,Selection} = case Sel of
+			full_cert ->
+				'RFC5280':encode( 'Certificate',Used );
+			pubkey ->
+				% Known formal problem, except in everyday practice:
+				% Certificate is BER-encoded, we are re-encoding as DER
+				'RFC5280':encode( 'SubjectPublicKeyInfo',
+					Used#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo)
+			end,
+			% MatchType: Possibly hash the data before comparison
+			Matcher = if Mtch == exact ->
+				Selection;
+			true ->
+				%DEBUG% io:format( "Match = ~p~nSelection = ~p~n",[Mtch,Selection] ),
+				crypto:hash ( Mtch,Selection )
+			end,
+			if Matcher /= Data ->
+				YF( YF,MoreDANE );
+			true ->
+				true
+			end
+		end
+	end,
+	TrustOK = CheckDANE( CheckDANE,maps:get( tlsa,AppState )),
+	%
+	% Pass back the final verdict through the Success or Failure signal
+	%
+	AllOK = AlgOK and SigOK and ChainOK and TrustOK,
+	io:format( "AlgOK=~p, SigOK=~p, ChainOK=~p, TrustOK=~p ==> AllOK=~p~n",[AlgOK,SigOK,ChainOK,TrustOK,AllOK] ),
+	AllOK.
 

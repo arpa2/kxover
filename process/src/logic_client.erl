@@ -26,6 +26,10 @@
 	got_A_AAAA/4,
 	send_KX_req/4,
 	got_KX_resp/4,
+	signature_verify/4,
+	signature_error/4,
+	ecdhe2krbtgt/4,
+	send_krbtgt_to_all_requesters/4,
 	all_hooks/0
 ]).
 
@@ -67,8 +71,8 @@
 % Remove keys as listed from the AppState and return the result.
 % Non-existent keys are silently ignored.
 %
-%TODO:LATER% drop_state( KeysToGo,AppState ) ->
-%TODO:LATER% 	lists:foldl( ?LambdaLift2(maps:remove),AppState,KeysToGo ).
+drop_state( KeysToGo,AppState ) ->
+	lists:foldl( ?LambdaLift2(maps:remove),AppState,KeysToGo ).
 
 
 
@@ -262,9 +266,7 @@ got_A_AAAA( {},got_A_AAAA,_EventData,AppState ) ->
 % a KX request will be sent by the logic module.
 %
 send_KX_req( {},send_KX_req,_EventData,AppState ) ->
-	KXreq = <<"KX-OFFER-to-go">>,
-	{ reply,KXreq, AppState }.
-
+	offer:send( client,AppState ).
 
 % Transition hook: Receive a KX response.
 %
@@ -273,9 +275,65 @@ send_KX_req( {},send_KX_req,_EventData,AppState ) ->
 % reception is not done in the logic module, even when the
 % name of this event sounds like it might.
 %
-got_KX_resp( {},got_KX_resp,_KXresp=_EventData,AppState ) ->
-	{ noreply, AppState }.
+got_KX_resp( {},got_KX_resp,KXbin=_EventData,AppState ) ->
+	{ok,KXoffer} = 'KXOVER':decode( 'KX-OFFER',KXbin ),
+	io:format( "KX-OFFER is ~p~n",[KXoffer] ),
+	offer:recv( client,AppState,KXoffer ).
 
+
+% Transition hook: Signature verification request.
+%
+% EventData holds {Success,Failure}.
+%
+% The verification does the following things:
+%  1. Check that data fields are acceptable to us
+%  2. Check that signature-alg matches certificate alg	%TODO%DROP%FROM%KXOFFER%
+%  3. Verify the KX-TBSDATA against the certificate key
+%  4. Evaluate the chain of certificates
+%  5. Evaluate DANE against the chain of certificates
+%
+signature_verify( {},signature_verify,{Success,Failure},AppState ) ->
+	AllOK = offer:vfy( client,AppState ),
+	gen_perpetuum:signal( self(),?ifthenelse( AllOK,Success,Failure ),noreply ),
+	{ noreply,AppState }.
+
+
+% Transition hook: Signature verification failed, drop most state.
+%
+% EventData holds nothing.
+%
+signature_error( {},signature_error,_EventData,AppState ) ->
+	NewAppState = drop_state( [skx],AppState ),
+	{ noreply,NewAppState }.
+
+
+% Transition hook: ECDHE computation, derive shared key and krbtgt.
+%
+% EventData holds nothing.
+%
+% This local computation generates a private key and immediately
+% forgets about it, after having derived the session key.  The
+% public key is passed back to the client, but only after the
+% server has stored the krbtgt based on the shared key.
+%
+% The name is actually a misnomer; we don't actually construct
+% a krbtgt; rather, we store the information from which a KDC can
+% construct one, with the key data and times for renewal rolling
+% and expiration.
+%
+%TODO% Future crypto uses other names; likely to be post-quantum.
+%
+ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
+	offer:kex( client,AppState ).
+
+% Transition hook: Send constructed krbtgt to all requesters.
+%
+% EventData holds nothing.
+%
+send_krbtgt_to_all_requesters( {},send_krbtgt_to_all_requesters,_EventData,AppState ) ->
+	%%TODO%% Actually send something
+	NewAppState = AppState,
+	{ noreply,NewAppState }.
 
 % MiscData hook: The process received asynchronous non-Perpetuum data.
 %
@@ -292,31 +350,33 @@ miscdata( {},'$miscdata',#ub_callback{}=Reply,AppState ) ->
 % We report all known callbacks; any unknown ones will raise an error.
 %
 all_hooks() -> #{
-	'$init'			=> {logic_client,init,{}},
-	'$stop'			=> {logic_client,stop,{}},
-	krbtgtMissing		=> {logic_client,krbtgtMissing,{}},
-	have_krbtgt		=> {logic_client,have_krbtgt,{}},
-	have_dawn_krbtgt	=> {logic_client,have_dawn_krbtgt,{}},
-	need_SRV		=> {logic_client,nop,{}},
-	dnssec_req_SRV		=> {logic_client,dnssec_req_SRV,{}},
-	failed_SRV		=> {logic_client,pass,{}},
-	got_SRV			=> {logic_client,got_SRV,{}},
-	dnssec_req_TLSA		=> {logic_client,dnssec_req_TLSA,{}},
-	failed_TLSA		=> {logic_client,pass,{}},
-	got_TLSA		=> {logic_client,got_TLSA,{}},
-	dns_req_A_AAAA		=> {logic_client,dns_req_A_AAAA,{}},
-	failed_A_AAAA		=> {logic_client,pass,{}},
-	got_A_AAAA		=> {logic_client,got_A_AAAA,{}},
-	send_KX_req		=> {logic_client,send_KX_req,{}},
-	failed_KX		=> {logic_client,nop,{}},
-	got_KX_resp		=> {logic_client,got_KX_resp,{}},
-	'$default'		=> {logic_client,reject,{}},
-	'$miscdata'		=> {logic_client,miscdata,{}}
-%SERVER% 	signature_verify	=> {logic_client,signature_verify,{}},
-%SERVER% 	signature_error		=> {logic_client,signature_error,{}},
-%SERVER% 	signature_good		=> {logic_client,nop,{}},
-%SERVER% 	ecdhe2krbtgt		=> {logic_client,ecdhe2krbtgt,{}},
-%SERVER% 	store_krbtgt_kdb	=> {logic_client,nop,{}},
+	'$init'				=> {logic_client,init,{}},
+	'$stop'				=> {logic_client,stop,{}},
+	krbtgtMissing			=> {logic_client,krbtgtMissing,{}},
+	have_krbtgt			=> {logic_client,have_krbtgt,{}},
+	have_dawn_krbtgt		=> {logic_client,have_dawn_krbtgt,{}},
+	need_SRV			=> {logic_client,nop,{}},
+	dnssec_req_SRV			=> {logic_client,dnssec_req_SRV,{}},
+	failed_SRV			=> {logic_client,pass,{}},
+	got_SRV				=> {logic_client,got_SRV,{}},
+	dnssec_req_TLSA			=> {logic_client,dnssec_req_TLSA,{}},
+	failed_TLSA			=> {logic_client,pass,{}},
+	got_TLSA			=> {logic_client,got_TLSA,{}},
+	dns_req_A_AAAA			=> {logic_client,dns_req_A_AAAA,{}},
+	failed_A_AAAA			=> {logic_client,pass,{}},
+	got_A_AAAA			=> {logic_client,got_A_AAAA,{}},
+	send_KX_req			=> {logic_client,send_KX_req,{}},
+	failed_KX			=> {logic_client,nop,{}},
+	got_KX_resp			=> {logic_client,got_KX_resp,{}},
+	signature_verify		=> {logic_client,signature_verify,{}},
+	signature_error			=> {logic_client,signature_error,{}},
+	signature_good			=> {logic_client,nop,{}},
+	ecdhe2krbtgt			=> {logic_client,ecdhe2krbtgt,{}},
+	store_krbtgt_kdb		=> {logic_client,nop,{}},
+	send_krbtgt_to_all_requesters	=> {logic_client,send_krbtgt_to_all_requesters,{}},
+	successfulEnd			=> {logic_client,nop,{}},
+	'$default'			=> {logic_client,reject,{}},
+	'$miscdata'			=> {logic_client,miscdata,{}}
 %SERVER% 	expiration_timer	=> {logic_client,nop,{}},
 %SERVER% 	remove_shortest		=> {logic_client,nop,{}},
 %SERVER% 	successfulEnd		=> {logic_client,nop,{}},
