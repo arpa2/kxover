@@ -15,7 +15,7 @@
 
 -include_lib( "unbound/include/unbound.hrl" ).
 -include_lib( "unbound/include/params.hrl" ).
-%TODO% -include_lib( "perpetuum/include/gen_perpetuum.hrl" ).
+-include_lib( "perpetuum/include/gen_perpetuum.hrl" ).
 
 -include( "KXOVER.hrl" ).
 -include( "RFC5280.hrl" ).
@@ -114,26 +114,14 @@ send( AppState ) ->
 	},
 	Realm = maps:get( crealm,AppState ),
 	%%TODO%% Ugly, ugly calendar time... :'-(
-	Now = erlang:system_time( microsecond ),
-	%NowSec  = Now div 1000000,
-	NowUSec = Now rem 1000000,
 	%%%TODO:TIMES%%% {{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),
 	NowYear=2018,NowMonth=2,NowDay=21,NowHour=11,NowMinute=43,NowSecond=12,
 	NowStr = lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[NowYear,NowMonth,NowDay,NowHour,NowMinute,NowSecond])),
-	Author = #'Authenticator' {
-		% OPTIONAL fields not used
-		% crealm/cname ignored, set to anything
-		'authenticator-vno' = 5,
-		'crealm'            = Realm,
-		'cname'             = Princ,
-		'cusec'             = NowUSec,
-		'ctime'             = NowStr
-	},
 	%
 	% Construct the KX-TBSDATA record
 	%
 	TBSdata = #'KX-TBSDATA' {
-		'authenticator'= Author,
+		'request-time' = NowStr,
 		%
 		% Key description information:
 		'kvno'         = KVNO,

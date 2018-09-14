@@ -52,9 +52,7 @@
 % so the wire format can be taken out of their context
 % and we only have to deal with complete names.
 %
-%TODO% Prefer to use binaries for composed labels -- or compare label by label
 bin2dotted( WireName ) ->
-	% [ Y || <<X:8,Y:X/binary>> <= <<3,110,115,49,6,122,117,114,105,99,104,4,115,117,114,102,3,110,101,116,0>> ]
 	Labels = [ Label || << 0:2,LabelLen:6,Label:LabelLen/binary >> <= WireName ],
 	RootLen = size( lists:last( Labels )),
 	if RootLen > 0 ->
@@ -165,22 +163,30 @@ tlsardata2parsed( Proto,Port,TLSA_RdataList ) ->
 	MatchOpts = [ exact, sha256, sha512 ],
 	ParseOne = fun( TLSA_Rdata ) ->
 		DataLen = size( TLSA_Rdata ) - 3,
-		<<CrtUse:8/unsigned-integer,
-		     Sel:8/unsigned-integer,
-		   Match:8/unsigned-integer,
-		    Data:DataLen/binary>> = TLSA_Rdata,
-		%TODO:FILTER% Rogue DNS data could crash us...
-		%TODO:FILTER% CrtUse < lists:length( CrtUseOpts ),
-		%TODO:FILTER% Sel    < lists:length( SelOpts    ),
-		%TODO:FILTER% Match  < lists:length( MatchOpts  ) ].
-		{ Proto,
-		  Port,
-		  lists:nth( 1+CrtUse,CrtUseOpts ),
-		  lists:nth( 1+Sel,   SelOpts    ),
-		  lists:nth( 1+Match,MatchOpts   ),
-		  Data }
+		if DataLen =< 0 ->
+			false;
+		true ->
+			<<CrtUse:8/unsigned-integer,
+			     Sel:8/unsigned-integer,
+			   Match:8/unsigned-integer,
+			    Data:DataLen/binary>> = TLSA_Rdata,
+			OK1 = Sel    < length( SelOpts    ),
+			OK2 = CrtUse < length( CrtUseOpts ),
+			OK3 = Match  < length( MatchOpts  ),
+			if OK1 and OK2 and OK3 ->
+				{ true,
+					{ Proto,
+					  Port,
+					  lists:nth( 1+CrtUse,CrtUseOpts ),
+					  lists:nth( 1+Sel,   SelOpts    ),
+					  lists:nth( 1+Match,MatchOpts   ),
+					  Data } };
+			true ->
+				false
+			end
+		end
 	end,
-	lists:map( ParseOne,TLSA_RdataList ).
+	lists:filtermap( ParseOne,TLSA_RdataList ).
 
 
 % Send a query to Unbound for background handling, and delivery
@@ -240,7 +246,7 @@ miscdata_ub( #ub_callback{ref=Ref,result=Result}=Reply,AppState ) ->
 			gen_perpetuum:signal( self(),Success,{ok,Result#ub_result.data} )
 		end,
 		{noreply,NewAppState};
-	%TODO% Following has been changed to an exception with maps:take/2 instead of maps:get( _,_,{} )
+	% The following has been changed to an exception with maps:take/2 instead of maps:get( _,_,{} )
 	{} ->
 		{error,no_such_query}
 	end.

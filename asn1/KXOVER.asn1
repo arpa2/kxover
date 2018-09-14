@@ -69,29 +69,23 @@ KX-REQ ::= [APPLICATION 18] KX-REQ-MSG
 KX-REP ::= [APPLICATION 19] KX-REP-MSG
 
 -- The `KX-REQ-MSG` is the special KDC request for the `KX` exchange; its main
--- purpose is to transport and ECDH key exchange request.  The nonce is a
--- random value generated on the client, to be used both to recognise resends
--- of this message and to match the response from the server.
+-- purpose is to transport and ECDH key exchange request.
 
 KX-REQ-MSG ::= SEQUENCE {
         pvno            [0] INTEGER (5) ,
         msg-type        [1] INTEGER (18) --KX-REQ--,
-        nonce           [2] Nonce,
-        offer           [3] KX-OFFER,
+        offer           [2] KX-OFFER,
         ...
 }
 
 
 -- The `KX-REP-MSG` is the special KDC request for the `KX` exchange; its main
--- purpose is to transport and ECDH key exchange response.  The nonce repeats
--- the value as sent in the `KX-REQ-MSG`, so it can be matched as a response,
--- as well as to detect resends of that response.
+-- purpose is to transport and ECDH key exchange response.
 
 KX-REP-MSG ::= SEQUENCE {
         pvno            [0] INTEGER (5),
         msg-type        [1] INTEGER (19) --KX-REP--,
-        nonce           [2] Nonce,
-        offer           [3] KX-OFFER,
+        offer           [2] KX-OFFER,
         ...
 }
 
@@ -143,18 +137,22 @@ KX-REP-MSG ::= SEQUENCE {
 -- key to the realm's domain name mapping.
 --
 -- The `KX-OFFER` structure contains signed information, the signature,
--- information to validate the signature.  Most of the signing structures
--- are replicated from their PKIX counterparts.
+-- information to validate the signature, and a `nonce` field for fast resend
+-- discovery in the transport layer.  Most of the signing structures are
+-- replicated from their PKIX counterparts.
 
 KX-OFFER ::= SEQUENCE {
 
+     -- Transport-level information:
+        nonce           [0] Nonce,
+
      -- About the signature:
-        signature-input [0] KX-TBSDATA,
-        signature-owner [1] SEQUENCE OF Certificate,
+        signature-input [1] KX-TBSDATA,
+        signature-owner [2] SEQUENCE OF Certificate,
 
     --  The actual signature:
-        signature-alg   [2] AlgorithmIdentifier,
-        signature-value [3] BIT STRING,
+        signature-alg   [3] AlgorithmIdentifier,
+        signature-value [4] BIT STRING,
 
     -- Future extensions
     ...
@@ -163,6 +161,10 @@ KX-OFFER ::= SEQUENCE {
 
 
 -- In this structure:
+-- 
+--   * The `nonce` field holds a random value that should not be reused quickly.
+--     Its purpose is to match a `KX-REP` to a `KX-REQ`, and to detect resends
+--     due to (assumed) network dropouts at the transport level.
 -- 
 --   * The `signature-input` contains the to-be-signed data for this half of
 --     the exchange.  Any data in here will be certain to have come from the

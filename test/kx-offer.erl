@@ -20,21 +20,8 @@ main (_Argh) ->
 	Realm = <<"SURFNET.NL">>,
 
 	%%TODO%% Ugly, ugly calendar time... :'-(
-	Now = erlang:system_time( microsecond ),
-	NowSec  = Now div 1000000,
-	NowUSec = Now rem 1000000,
 	{{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),
 	NowStr = lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[NowYear,NowMonth,NowDay,NowHour,NowMinute,NowSecond])),
-
-	Author = #'Authenticator' {
-		% OPTIONAL fields not used
-		% crealm/cname ignored, set to anything
-		'authenticator-vno' = 5,
-		'crealm'            = Realm,
-		'cname'             = Princ,
-		'cusec'             = NowUSec,
-		'ctime'             = NowStr
-	},
 
 	KVNO = 123,
 
@@ -63,7 +50,7 @@ main (_Argh) ->
 	TBSdata = #'KX-TBSDATA' {
 
 		% Ensuring signature freshness / scattering:
-		'authenticator' = Author,
+		'request-time' = NowStr,
 
 		% Key description information:
 		'kvno'         = KVNO,

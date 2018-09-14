@@ -37,7 +37,7 @@
 
 -include_lib( "unbound/include/unbound.hrl" ).
 -include_lib( "unbound/include/params.hrl" ).
-%TODO% -include_lib( "perpetuum/include/gen_perpetuum.hrl" ).
+-include_lib( "perpetuum/include/gen_perpetuum.hrl" ).
 
 -include( "KXOVER.hrl" ).
 -include( "RFC5280.hrl" ).
@@ -138,7 +138,7 @@ reject( {},TransName,_EventData,_AppState ) ->
 %
 % This is not initialisation; for that, we have init/4 setup.
 %
-% EventData holds TODO: binary KX-OFFER
+% EventData holds binary KX-OFFER
 %
 recv_KX_req( {},recv_KX_req,KXbin=_EventData,AppState ) ->
 	{ok,KXoffer} = 'KXOVER':decode( 'KX-OFFER',KXbin ),
@@ -244,7 +244,7 @@ signature_error( {},signature_error,_EventData,AppState ) ->
 % construct one, with the key data and times for renewal rolling
 % and expiration.
 %
-%TODO% Future crypto uses other names; likely to be post-quantum.
+% Future crypto will use other names; likely to be post-quantum.
 %
 ecdhe2krbtgt( {},ecdhe2krbtgt,_EventData,AppState ) ->
 	offer:kex( server,AppState ).
