@@ -171,10 +171,13 @@ send( AppState ) ->
 		'name-string' = [ "krbtgt", maps:get( srealm,AppState ) ]
 	},
 	Realm = maps:get( crealm,AppState ),
-	%%TODONOW%% Ugly, ugly calendar time... :'-(
-	%%%TODONOW:TIMES%%% {{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),
-	NowYear=2018,NowMonth=2,NowDay=21,NowHour=11,NowMinute=43,NowSecond=12,
-	NowStr = lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[NowYear,NowMonth,NowDay,NowHour,NowMinute,NowSecond])),
+	{NowDate, NowTime} = calendar:universal_time(),
+	{NowYear, NowMonth, NowDay} = NowDate,
+	{NowHour, NowMinute, NowSecond} = NowTime,
+	NowStr = lists:flatten(
+		io_lib:format(
+			"~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",
+			[NowYear,NowMonth,NowDay,NowHour,NowMinute,NowSecond])),
 	%
 	% Construct the KX-TBSDATA record
 	%
