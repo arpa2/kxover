@@ -58,7 +58,7 @@ bin2dotted( WireName ) ->
 	if RootLen > 0 ->
 		error (no_fqdn);
 	true ->
-		lists:join( '.',Labels )
+		lists:join( <<".">>,Labels )
 	end.
 
 

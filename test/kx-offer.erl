@@ -14,10 +14,10 @@ main (_Argh) ->
 
 	Princ = #'PrincipalName' {
 		'name-type'   = 2,
-		'name-string' = [ <<"krbtgt">>, <<"ARPA2.ORG">> ]
+		'name-string' = [ <<"krbtgt">>, <<"SOAD.DEV.ARPA2.ORG">> ]
 	},
 
-	Realm = <<"SURFNET.NL">>,
+	Realm = <<"RHCP.DEV.ARPA2.ORG">>,
 
 	%%TODO%% Ugly, ugly calendar time... :'-(
 	{{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),

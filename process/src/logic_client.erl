@@ -183,8 +183,8 @@ krbtgtMissing( {},krbtgtMissing,{TGSreq,GotOneFresh,GotOneDawning,GotNone}=_Even
 % EventData holds { Success,Failure }
 %
 dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure}=_EventData,AppState ) ->
-	_SRealm = maps:get( srealm,AppState ),
-	Domain = <<"_kerberos._udp.stanford.edu">>, %Domain = << "_kerberos._tcp.",SRealm >>,
+	SRealm = maps:get( srealm,AppState ),
+	Domain = << "_kerberos._tcp.", SRealm/binary >>,
 	Query = #ub_question{ name=Domain, type=?UB_TY_SRV, class=?UB_CL_IN },
 	dns:query_ub( dnssec,Query,Success,Failure,AppState ).
 
@@ -211,11 +211,16 @@ got_SRV( {},got_SRV,{ok,WireData},AppState ) ->
 %
 % EventData holds { Success,Failure,Domain }
 %
-%TODONOW% Construct request from port and protocol in SRV
 %TODO% Query multiple
 %TODO% Prepare for collection of responses
 %
-dnssec_req_TLSA( {},dnssec_req_TLSA,{Success,Failure,Domain}=_EventData,AppState ) ->
+dnssec_req_TLSA( {},dnssec_req_TLSA,{Success,Failure}=_EventData,AppState ) ->
+	[SrvOne|_] = maps:get( srv,AppState ),
+	{_,_,ProtoCode,PortInt,HostLabels} = SrvOne,
+	Host = binary:list_to_bin( HostLabels ),
+	Proto = case ProtoCode of tcp -> <<"tcp">>; udp -> <<"udp">> end,
+	Port = binary:list_to_bin( integer_to_list( PortInt )),
+	Domain = << "_", Port/binary, "._", Proto/binary, ".", Host/binary >>,
 	Query = #ub_question{ name=Domain, type=?UB_TY_TLSA, class=?UB_CL_IN },
 	dns:query_ub( dnssec,Query,Success,Failure,AppState ).
 

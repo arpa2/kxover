@@ -52,7 +52,7 @@ main( [FileKXoffer,FileKXresponse|_Args] ) ->
 
 	% Request a TLSA record under DNSSEC
 	%
-	noreply = gen_perpetuum:event( Server,dnssec_req_TLSA,{ got_TLSA,failed_TLSA,<< "_443._tcp.internet.nl" >> }),
+	noreply = gen_perpetuum:event( Server,dnssec_req_TLSA,{ got_TLSA,failed_TLSA }),
 
 	% Await the response to the TLSA query
 	%

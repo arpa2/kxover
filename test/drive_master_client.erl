@@ -40,10 +40,10 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 		pvno = 5,
 		'msg-type' = 12,
 		'req-body' = #'KDC-REQ-BODY' {
-			realm = <<"ARPA2.NET">>,
+			realm = <<"RHCP.DEV.ARPA2.ORG">>,
 			sname = #'PrincipalName' {
 				'name-type' = 2,
-				'name-string' = [ <<"krbtgt">>, <<"SURFNET.NL">> ]
+				'name-string' = [ <<"krbtgt">>, <<"SOAD.DEV.ARPA2.ORG">> ]
 			},
 			nonce = trunc( rand:uniform() * (1 bsl 32) ),
 			till = NowStr,  %%%TODO:TOO:SHORT%%%
@@ -106,7 +106,7 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 
 	% Based on the SRV data, now request TLSA and A/AAAA as well
 	%
-	noreply = gen_perpetuum:event( Client,dnssec_req_TLSA,{ got_TLSA,failed_TLSA,<< "_443._tcp.internet.nl" >> }),
+	noreply = gen_perpetuum:event( Client,dnssec_req_TLSA,{ got_TLSA,failed_TLSA }),
 	noreply = gen_perpetuum:event( Client,dns_req_A_AAAA,{ got_A_AAAA,failed_A_AAAA,<< "internetwide.org" >> }),
 
 	% The A_AAAA is trivial in Erlang, so lap it up and continue immediately
