@@ -6,6 +6,10 @@
 -module( offer ).
 
 -export([
+	accept_etype/0,
+	accept_group/0,
+	accept_sigalg/0,
+	accept_ca/0,
 	recv/3,
 	send/2,
 	kex/2,
@@ -21,9 +25,63 @@
 -include( "RFC5280.hrl" ).
 -include( "RFC4120.hrl" ).
 
--define(LambdaLiftM1(M,F), fun(X  ) -> M:F ( X   ) end).
+-define(LambdaLiftM1(M,F), fun(X    ) -> M:F ( X     ) end).
+-define(LambdaLiftM2(M,F), fun(X,Y  ) -> M:F ( X,Y   ) end).
+-define(LambdaLiftM3(M,F), fun(X,Y,Z) -> M:F ( X,Y,Z ) end).
 
 -define(ifthenelse(I,T,E), if I -> T; true -> E end).
+
+
+% Map of accept-etype keys (EncryptionType, so INTEGER) to
+% a pair of lambda functions for (send,recv).
+%
+accept_etype () -> #{
+	% aes128-cts-hmac-sha1-96 = 17
+	% aes256-cts-hmac-sha1-96 = 18
+	18 => {
+			?LambdaLiftM2( ?MODULE,send ),
+			?LambdaLiftM2( ?MODULE,recv) }
+	% aes128-cts-hmac-sha256-128 = 19
+	% aes256-cts-hmac-sha384-192 = 20
+	% camellia128-cts-cmac = 25
+	% camellia256-cts-cmac = 26
+}.
+
+
+% Map of accept-group values from AlgorithmIdentifier to
+% a pair of lambda functions for (keypairgen,integrate).
+%
+accept_group () -> #{
+	% ECDH on P.256 (check oid / params)
+	#'AlgorithmIdentifier' {
+		algorithm = {1,2,840,10045,2,1},
+		parameters = <<6,5,43,129,4,0,10>> } => {
+			?LambdaLiftM2( ecdhcrypto,keygen ),
+			?LambdaLiftM3( ecdhcrypto,keycompute ) }
+}.
+
+
+% Map of accept-sigalg values from AlgorithmIdentifier to
+% a pair of lambda functions for (sign,verify).
+%
+accept_sigalg () -> #{
+	% ECDSA on P.256 (check oid / params)
+	#'AlgorithmIdentifier' {
+		algorithm = {1,2,840,10045,2,1},
+		parameters = <<6,5,43,129,4,0,10>> } => {
+			?LambdaLiftM2( ecdsacrypto,sign ),
+			?LambdaLiftM3( ecdsacrypto,verify ) }
+}.
+
+
+% Set of accept-ca values in the form of a list of
+% AuthorityKeyIdentifier values.
+%
+% The token self_signed allows self-signed certificates.
+% Other certificates may be added as AuthorityKeyIdentifier
+% values.
+%
+accept_ca () -> [ self_signed ].
 
 
 % Receive an incoming KX frame.  Do this for Role set to either
@@ -31,7 +89,9 @@
 % move in and out of the function.
 %
 % The output is a NewAppState holding the stored KX-OFFER in the
-% proper field, so either ckx or skx.
+% proper field, so either ckx or skx.  In addition, the following
+% fields are set to a choice, if not {error,Reason} for trouble:
+% accept_etype, accept_group, accept_sigalg, accept_ca.
 %
 recv( server,AppState,KXoffer ) ->
 	%TODO% Match KXalg/etc... against willingness (and prep2send)
@@ -51,7 +111,7 @@ recv( client,AppState,KXoffer ) ->
 %
 % This output is a #'KX-OFFER' record that can be used to message
 % to the remote peer.  It is returned as {reply,KXoffer,NewAppState}s
-% or, TODO:IFANY in case of error, as {error,Reason}.
+% or, in case of error, as {error,Reason}.
 %
 % The process flow should have ensured support for the corresponding
 % krbtgt/SERVER.REALM@CLIENT.REALM and kvno/etype/... combination.
@@ -65,9 +125,7 @@ send( server,AppState ) ->
 	MidAppState =
 		maps:put( nonce,Nonce,
 		maps:put( kvno,KVNO,
-		maps:put( crealm,<<"ARPA2.NET">>,
-		maps:put( srealm,<<"SURFNET.NL">>,
-			AppState )))),
+			AppState )),
 	send( MidAppState );
 %
 send( client,AppState ) ->
@@ -79,7 +137,7 @@ send( client,AppState ) ->
 		maps:put( kexpub,MyPubKey,
 		maps:put( kexpriv,MyPrivKey,
 		maps:put( nonce,trunc( rand:uniform() * (1 bsl 32) ),
-		maps:put( kvno,123,  %TODO%KVNO%
+		maps:put( kvno,123,  %TODONOW%KVNO%
 			AppState )))),
 	send( MidAppState ).
 %
@@ -113,8 +171,8 @@ send( AppState ) ->
 		'name-string' = [ "krbtgt", maps:get( srealm,AppState ) ]
 	},
 	Realm = maps:get( crealm,AppState ),
-	%%TODO%% Ugly, ugly calendar time... :'-(
-	%%%TODO:TIMES%%% {{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),
+	%%TODONOW%% Ugly, ugly calendar time... :'-(
+	%%%TODONOW:TIMES%%% {{NowYear, NowMonth, NowDay}, {NowHour, NowMinute, NowSecond}} = calendar:now_to_datetime( erlang:now() ),
 	NowYear=2018,NowMonth=2,NowDay=21,NowHour=11,NowMinute=43,NowSecond=12,
 	NowStr = lists:flatten(io_lib:format("~4..0w-~2..0w-~2..0wT~2..0w:~2..0w:~2..0w",[NowYear,NowMonth,NowDay,NowHour,NowMinute,NowSecond])),
 	%
@@ -179,8 +237,8 @@ send( AppState ) ->
 % assumed correct when processing arrives here.
 %
 % The function returns {noreply,NewAppState} where it will have
-% setup the key and TODO:krbtgt values in the NewAppState, or,
-% TODO:IFANY in case, of error, it returns {error,Reason}.
+% setup the key and krbtgt values in the NewAppState, or,
+% in case of error, it returns {error,Reason}.
 %
 kex( server,AppState ) ->
 	io:format( "Generating ECDHE on secp256k1 (TODO:FIXED for now)~n" ),
@@ -212,14 +270,12 @@ kex( AppState,KXvfy,MyPrivKey ) ->
 	io:format( "ecdh/secp256k1.PeerPubKey = ~p~necdh/secp256k1.MyPrivKey = ~p~n",[PeerPubKey,MyPrivKey] ),
 	Z = crypto:compute_key( ecdh,PeerPubKey,MyPrivKey,secp256k1 ),
 	io:format( "Generated ECDHE on secp256k1 (TODO:FIXED for now)~n" ),
-	%TODO% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
+	%TODONOW% Hash more than Z into the KeyInfo, as in KXOVER-KEY-INFO
 	Princ = #'PrincipalName' {
 		'name-type'   = 2,
-		%%%TODO%%% 'name-string' = [ "krbtgt", maps:get( srealm,AppState ) ]
-		'name-string' = [ "krbtgt", <<"ARPA2.NET">> ]
+		'name-string' = [ "krbtgt", maps:get( srealm,AppState ) ]
 	},
-	%%%TODO%%% Realm = maps:get( crealm,AppState ),
-	Realm = <<"SURFNET.NL">>,
+	Realm = maps:get( crealm,AppState ),
 	KeyInfo = #'KXOVER-KEY-INFO'{
 		'kxover-name' = <<"KXOVER">>,
 		'seq-nr'      = 1,
@@ -231,15 +287,15 @@ kex( AppState,KXvfy,MyPrivKey ) ->
 		'shared-key'  = Z
 	},
 	{ok,KeyInfoBin} = 'KXOVER':encode( 'KXOVER-KEY-INFO',KeyInfo ),
-	%TODO% Following is preliminary redesign based on HMAC with Key=Z
-	%TODO% Note the fixed choice of hash, as it is not a security concern (and yet, HMAC?!?)
-	%TODO% Repeat with seq-nr for longer SharedKey segments if needed
-	%TODO%NAHHH% SharedKey = crypto:hmac( sha512,Z,KeyInfo ),
+	%TODONOW% Following is preliminary redesign based on HMAC with Key=Z
+	%TODONOW% Note the fixed choice of hash, as it is not a security concern (and yet, HMAC?!?)
+	%TODONOW% Repeat with seq-nr for longer SharedKey segments if needed
+	%TODONOW%NAHHH% SharedKey = crypto:hmac( sha512,Z,KeyInfo ),
 	SharedKey = crypto:hash( sha512,KeyInfoBin ),
 	io:format( "Z = ~p~nKeyInfo = ~p~nSharedKey = ~p~n",[Z,KeyInfo,SharedKey] ),
-	%TODO% Compute krbtgt blob
+	%TODONOW% Compute krbtgt blob
 	KrbTgt = krbtgtBlob_TODO,
-	NewAppState = maps:put( key,SharedKey,	%TODO% Why? only need MyPubKey...
+	NewAppState = maps:put( key,SharedKey,	%TODONOW% Why? only need MyPubKey...
 	              maps:put( krbtgt,KrbTgt,AppState )),
 	%DEBUG% io:format( "NewAppState = ~p~n",[NewAppState] ),
 	{ noreply,NewAppState }.
@@ -249,7 +305,7 @@ kex( AppState,KXvfy,MyPrivKey ) ->
 %
 % The verification does the following things:
 %  1. Check that data fields are acceptable to us
-%  2. Check that signature-alg matches certificate alg	%TODO%DROP%FROM%KXOFFER%
+%  2. Check that signature-alg matches certificate alg
 %  3. Verify the KX-TBSDATA against the certificate key
 %  4. Evaluate the chain of certificates
 %  5. Evaluate DANE against the chain of certificates
@@ -269,14 +325,14 @@ vfy( KXoffer,AppState ) ->
 	% Analyse the information provided inasfar as it is concerned
 	% with digital signing of the KX-OFFER.
 	%
-	SigAlg = KXoffer#'KX-OFFER'.'signature-alg',   %TODO%DROP%FROM%KXOFFER%
+	SigAlg = KXoffer#'KX-OFFER'.'signature-alg',
 	SigBin = KXoffer#'KX-OFFER'.'signature-value',
 	KX_TBS = KXoffer#'KX-OFFER'.'signature-input',
 	Owner  = KXoffer#'KX-OFFER'.'signature-owner',
 	[ Cert|_ ] = Owner,
 	#'SubjectPublicKeyInfo'{ algorithm=AlgId,subjectPublicKey=SubjPubKey } =
 		Cert#'Certificate'.tbsCertificate#'TBSCertificate'.subjectPublicKeyInfo,
-	AlgOK = (AlgId == SigAlg),			%TODO%DROP%FROM%KXOFFER%
+	AlgOK = (AlgId == SigAlg),
 	{_KeyAlg,HashAlg,VerifyPublicKey} = case {AlgOK,AlgId} of
 	%TODO% useful cases
 	{true,#'AlgorithmIdentifier'{ algorithm={1,2,840,113549,1,1,5}, parameters=asn1_NOVALUE }} ->

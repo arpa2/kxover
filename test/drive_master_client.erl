@@ -40,10 +40,10 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 		pvno = 5,
 		'msg-type' = 12,
 		'req-body' = #'KDC-REQ-BODY' {
-			realm = <<"SURFNET.NL">>,
+			realm = <<"ARPA2.NET">>,
 			sname = #'PrincipalName' {
 				'name-type' = 2,
-				'name-string' = [ <<"krbtgt">>, <<"ARPA2.NET">> ]
+				'name-string' = [ <<"krbtgt">>, <<"SURFNET.NL">> ]
 			},
 			nonce = trunc( rand:uniform() * (1 bsl 32) ),
 			till = NowStr,  %%%TODO:TOO:SHORT%%%
@@ -86,7 +86,7 @@ main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 
 	% Request an SRV record for the remote realm KDC under DNSSEC protection
 	%
-	noreply = gen_perpetuum:event( Client,dnssec_req_SRV,{ got_SRV,failed_SRV,<< "_kerberos._udp.stanford.edu" >> }),
+	noreply = gen_perpetuum:event( Client,dnssec_req_SRV,{ got_SRV,failed_SRV }),
 
 	% Await the response to the SRV query
 	%

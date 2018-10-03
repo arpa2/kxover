@@ -34,7 +34,7 @@ main( [FileKXoffer,FileKXresponse|_Args] ) ->
 
 	% Request an SRV record under DNSSEC
 	%
-	noreply = gen_perpetuum:event( Server,dnssec_req_SRV,{ got_SRV,failed_SRV,<< "_kerberos._udp.stanford.edu" >> }),
+	noreply = gen_perpetuum:event( Server,dnssec_req_SRV,{ got_SRV,failed_SRV }),
 
 	% Await the response to the SRV query
 	%

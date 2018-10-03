@@ -136,25 +136,34 @@ reject( {},TransName,_EventData,_AppState ) ->
 
 % Transition hook: Receive KX request.
 %
-% This is not initialisation; for that, we have init/4 setup.
+% This is not process initialisation; for that, we have init/4 setup.
 %
 % EventData holds binary KX-OFFER
 %
 recv_KX_req( {},recv_KX_req,KXbin=_EventData,AppState ) ->
 	{ok,KXoffer} = 'KXOVER':decode( 'KX-OFFER',KXbin ),
+	#'PrincipalName' {
+		'name-type'   = 2,
+		'name-string' = ["krbtgt",ServerRealm]
+	} = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxname,
+	ClientRealm = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxrealm,
+	io:format( "Server received KX for krbtgt/~p@~p~n",[ServerRealm,ClientRealm] ),
+	NewAppState = maps:put( crealm,binary:list_to_bin( ClientRealm ),
+	              maps:put( srealm,binary:list_to_bin( ServerRealm ),
+	              AppState )),
 	io:format( "KX-OFFER is ~p~n",[KXoffer] ),
-	offer:recv( server,AppState,KXoffer ).
+	offer:recv( server,NewAppState,KXoffer ).
 
 
 % Transition hook: Request an SRV record with DNSSEC protection.
 %
+% We query only the TCP portion, so _kerberos._tcp.
+%
 % EventData holds { Success,Failure,Domain }
 %
-%TODO% Construct request from realm name in KX
-%TODO% Query UDP and TCP
-%TODO% Prepare for collection of responses
-%
-dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure,Domain}=_EventData,AppState ) ->
+dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure}=_EventData,AppState ) ->
+	_CRealm = maps:get( srealm,AppState ),
+	Domain = <<"_kerberos._udp.stanford.edu">>, %Domain = << "_kerberos._tcp.",CRealm >>,
 	Query = #ub_question{ name=Domain, type=?UB_TY_SRV, class=?UB_CL_IN },
 	dns:query_ub( dnssec,Query,Success,Failure,AppState).
 
@@ -181,7 +190,7 @@ got_SRV( {},got_SRV,{ok,WireData},AppState ) ->
 %
 % EventData holds { Success,Failure,Domain }
 %
-%TODO% Construct request from port and protocol in SRV
+%TODONOW% Construct request from port and protocol in SRV
 %TODO% Query multiple
 %TODO% Prepare for collection of responses
 %
@@ -210,7 +219,7 @@ got_TLSA( {},got_TLSA,{ok,WireData},AppState ) ->
 %
 % The verification does the following things:
 %  1. Check that data fields are acceptable to us
-%  2. Check that signature-alg matches certificate alg	%TODO%DROP%FROM%KXOFFER%
+%  2. Check that signature-alg matches certificate alg
 %  3. Verify the KX-TBSDATA against the certificate key
 %  4. Evaluate the chain of certificates
 %  5. Evaluate DANE against the chain of certificates

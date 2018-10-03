@@ -178,13 +178,13 @@ krbtgtMissing( {},krbtgtMissing,{TGSreq,GotOneFresh,GotOneDawning,GotNone}=_Even
 
 % Transition hook: Request an SRV record with DNSSEC protection.
 %
-% EventData holds { Success,Failure,Domain }
+% We query only the TCP portion, so _kerberos._tcp.
 %
-%TODO% Construct request from realm name in KX
-%TODO% Query UDP and TCP
-%TODO% Prepare for collection of responses
+% EventData holds { Success,Failure }
 %
-dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure,Domain}=_EventData,AppState ) ->
+dnssec_req_SRV( {},dnssec_req_SRV,{Success,Failure}=_EventData,AppState ) ->
+	_SRealm = maps:get( srealm,AppState ),
+	Domain = <<"_kerberos._udp.stanford.edu">>, %Domain = << "_kerberos._tcp.",SRealm >>,
 	Query = #ub_question{ name=Domain, type=?UB_TY_SRV, class=?UB_CL_IN },
 	dns:query_ub( dnssec,Query,Success,Failure,AppState ).
 
@@ -211,7 +211,7 @@ got_SRV( {},got_SRV,{ok,WireData},AppState ) ->
 %
 % EventData holds { Success,Failure,Domain }
 %
-%TODO% Construct request from port and protocol in SRV
+%TODONOW% Construct request from port and protocol in SRV
 %TODO% Query multiple
 %TODO% Prepare for collection of responses
 %
@@ -277,6 +277,19 @@ send_KX_req( {},send_KX_req,_EventData,AppState ) ->
 %
 got_KX_resp( {},got_KX_resp,KXbin=_EventData,AppState ) ->
 	{ok,KXoffer} = 'KXOVER':decode( 'KX-OFFER',KXbin ),
+	#'PrincipalName' {
+		'name-type'   = 2,
+		'name-string' = ["krbtgt",SrvRlm]
+	} = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxname,
+	CliRlm = KXoffer#'KX-OFFER'.'signature-input'#'KX-TBSDATA'.kxrealm,
+	ServerRealm = binary:list_to_bin( SrvRlm ),
+	ClientRealm = binary:list_to_bin( CliRlm ),
+	io:format( "Server responded KX for krbtgt/~p@~p~n",[ ServerRealm,ClientRealm ] ),
+	io:format( "Client expects   KX for krbtgt/~p@~p~n",[
+		maps:get( srealm,AppState ),
+		maps:get( crealm,AppState ) ]),
+	ServerRealm = maps:get( srealm,AppState ),
+	ClientRealm = maps:get( crealm,AppState ),
 	io:format( "KX-OFFER is ~p~n",[KXoffer] ),
 	offer:recv( client,AppState,KXoffer ).
 
@@ -287,7 +300,7 @@ got_KX_resp( {},got_KX_resp,KXbin=_EventData,AppState ) ->
 %
 % The verification does the following things:
 %  1. Check that data fields are acceptable to us
-%  2. Check that signature-alg matches certificate alg	%TODO%DROP%FROM%KXOFFER%
+%  2. Check that signature-alg matches certificate alg
 %  3. Verify the KX-TBSDATA against the certificate key
 %  4. Evaluate the chain of certificates
 %  5. Evaluate DANE against the chain of certificates
