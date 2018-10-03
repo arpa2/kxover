@@ -11,9 +11,6 @@
 
 
 main( [] ) ->
-	main( ["KX-OFFER.der","KX-RESPONSE.der"] )
-;
-main( [_FileKXoffer,_FileKXresponse|_Args] ) ->
 
 	% Start the Unbound service process
 	%
