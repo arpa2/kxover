@@ -239,8 +239,8 @@ KX-TBSDATA ::= SEQUENCE {
 --     that MAY be specified in `KX-REQ` messages to refresh a key.  When
 --     this is acceptable, the corersponding `KX-REP` message would hold
 --     the same `kvno` value and provide a new `till` time.  The range is
---     limited by the `till` time in the `KX-REQ` and by the `renew-till`
---     setting in a `RENEWABLE` ticket.
+--     limited by the `renew-till` time in the `KX-REQ` and the acceptable
+--     renewal query time by the `till` setting in a `RENEWABLE` ticket.
 --
 --     An alternate exchange would use a `KX-REQ` message without a `kvno`
 --     filled in.  The corresponding `KX-REP` should hold a new `kvno`
