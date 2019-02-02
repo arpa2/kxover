@@ -37,12 +37,6 @@ find_program (GNUMAKE
 # OPTIONS / BUILD SETTINGS
 #
 
-set (ERL_PATH_UNBOUND ""
-	CACHE PATH "Override path for the erlang-unbound project root (holding its ebin directory)")
-
-set (ERL_PATH_PERPETUUM ""
-	CACHE PATH "Override path for the Perpetuum project root (holding its ebin directory)")
-
 set (PERPETUUM_COMPILER_PATH "perpetuum"
 	CACHE PATH "Command or path for the Perpetuum Compiler")
 
@@ -59,24 +53,12 @@ get_version_from_git (KXOVER 0.0.0)
 #
 
 add_subdirectory (asn1)
-add_subdirectory (process)
+add_subdirectory (src)
 
 #KLUDGE#
 # add_compile_options (-Dconst=)
 
 # include_directories (include ${CMAKE_BINARY_DIR})
-
-add_custom_command (
-		OUTPUT	kxover_client.erl
-		COMMAND perpetuum
-			${CMAKE_SOURCE_DIR}/process/petrinet/kxover_client.pnml
-			${CMAKE_BINARY_DIR})
-
-add_custom_command (
-		OUTPUT	kxover_server.erl
-		COMMAND perpetuum
-			${CMAKE_SOURCE_DIR}/process/petrinet/kxover_server.pnml
-			${CMAKE_BINARY_DIR})
 
 # add_executable (kxover_client
 # 		kxover_client.c kxover_client.h kxover_server.h
