@@ -15,6 +15,7 @@ add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE})
 
 set (kxover_SRC
 	backend.c
+	udpwrap.c
 )
 
 add_executable (kxover ${kxover_SRC})

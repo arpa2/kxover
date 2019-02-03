@@ -44,6 +44,14 @@
 #endif
 
 
+/* The callback routines registered for writing and reading.
+ * These routines should return true when no further callbacks
+ * are required (of either kind) and processing is to be
+ * considered complete.
+ */
+typedef bool (*backend_callback) (struct backend *beh, void *cbdata);
+
+
 /* The administration of a current pool entry.
  *
  * The central idea is to allocate a unique UDP socket
@@ -63,6 +71,8 @@ struct backend {
 	struct backend *next;
 	int socket;
 	void *cbdata;
+	backend_callback cb_write_req;
+	backend_callback cb_read_resp;
 	ev_timer writer;
 	ev_io    reader;
 };
@@ -75,16 +85,6 @@ struct backend {
  */
 static struct backend  *_pool     = NULL;
 static struct backend **_pool_end = &_pool;
-
-
-/* The callback routines registered for writing and reading.
- * These routines should return true when no further callbacks
- * are required (of either kind) and processing is to be
- * considered complete.
- */
-typedef bool (*backend_callback) (struct backend *beh, void *cbdata);
-static backend_callback _cb_write_req = NULL;
-static backend_callback _cb_read_resp = NULL;
 
 
 /* The event loop is initialised along with the callback
@@ -140,7 +140,7 @@ static void _writer_handler (EV_P_ ev_timer *evt, int _revents) {
 		_pool_end = &beh->next;
 	}
 	/* Perform the callback */
-	stop_it = _cb_write_req (beh, beh->cbdata);
+	stop_it = beh->cb_write_req (beh, beh->cbdata);
 	if (stop_it) {
 		backend_stop (beh);
 	}
@@ -160,12 +160,12 @@ static void _reader_handler (EV_P_ ev_io *evt, int _revents) {
 	/* Test if this data looks spurious; if so, consume and drop it */
 	if (beh->cbdata == NULL) {
 		uint8_t  dropbuf [1500];
-		uint32_t droplen;
+		uint32_t droplen = 1500;
 		backend_recv (beh, &dropbuf, &droplen);
 		return;
 	}
 	/* Perform the callback */
-	stop_it = _cb_read_resp (beh, beh->cbdata);
+	stop_it = beh->cb_read_resp (beh, beh->cbdata);
 	if (stop_it) {
 		backend_stop (beh);
 	}
@@ -183,17 +183,13 @@ static void _reader_handler (EV_P_ ev_io *evt, int _revents) {
  *
  * Return true on success, false on failure with errno set.
  */
-bool backend_init (struct ev_loop *loop,
-			backend_callback cb_write_req,
-			backend_callback cb_read_resp) {
+bool backend_init (struct ev_loop *loop) {
 	struct backend *pool = calloc (BACKEND_POOLSIZE, sizeof(backend));
 	if (pool == NULL) {
 		errno = ENOMEM;
 		return false;
 	}
 	backend_loop = loop;
-	_cb_write_req = cb_write_req;
-	_cb_read_resp = cb_read_resp;
 	int i;
 	for (i=0; i<BACKEND_POOLSIZE; i++) {
 		int sox = socket (AF_INET, SOCK_DGRAM, 0);
@@ -205,8 +201,8 @@ bool backend_init (struct ev_loop *loop,
 			break;
 		}
 		pool [i].socket = sox;
-		ev_timer_init (&pool [i].writer, _writer_handler, 0.0, 1.0);
-		ev_io_init    (&pool [i].reader, _reader_handler, sox, 0);
+		ev_timer_init (&pool [i].writer, _writer_handler, 2.0, 1.0);
+		ev_io_init    (&pool [i].reader, _reader_handler, sox, EV_READ);
 		ev_io_start (backend_loop, &pool [i].reader);
 		if (_pool == NULL) {
 			/* We added a tail element to an empty list */
@@ -234,7 +230,9 @@ bool backend_init (struct ev_loop *loop,
  *
  * Return a handle on success, or NULL with errno set on failure.
  */
-struct backend *backend_start (void *cbdata) {
+struct backend *backend_start (void *cbdata,
+			backend_callback cb_write_req,
+			backend_callback cb_read_resp) {
 	assert (cbdata != NULL);
 	struct backend *beh = _pool;
 	if (beh == NULL) {
@@ -247,6 +245,11 @@ struct backend *backend_start (void *cbdata) {
 		_pool_end = &_pool;
 	}
 	beh->cbdata = cbdata;
+	beh->cb_write_req = cb_write_req;
+	beh->cb_read_resp = cb_read_resp;
+	/* Send the first attempt right now */
+	cb_write_req (beh, cbdata);
+	/* The timer will fire for re-sending */
 	ev_timer_start (backend_loop, &beh->writer);
 	return beh;
 }
