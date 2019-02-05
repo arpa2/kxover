@@ -69,14 +69,18 @@ struct wrapdata {
 	ev_io_t listener;
 	struct sockaddr_in6 client;
 	uint32_t flags;
+	uint32_t progress;
 	uint8_t *reqptr;
 	uint32_t reqlen;
 	uint32_t reqofs;
 	uint8_t *repptr;
 	uint32_t replen;
 	uint32_t repofs;
-	//TODO// tlsdata...
+	struct starttls_data *tlsdata;
 };
+#define PROGRESS_TLS             0x00000001
+#define PROGRESS_CLIENT_HOSTNAME 0x00000002
+#define PROGRESS_SERVER_HOSTNAME 0x00000004
 
 
 /* The list of TCP acceptors that have been created.
@@ -87,6 +91,36 @@ static struct acceptdata *tcpacceptors = NULL;
 /* The list of TCP wrappers that have been created.
  */
 //TODO//NOT_MANAGED// static struct wrapdata *tcpwrappers = NULL;
+
+
+/* The event loop used by the TCP wrapper.
+ */
+struct ev_loop *tcpwrap_loop = NULL;
+
+
+static void cb_starttls_handshaken (void *cbdata, int fd_new) {
+	struct wrapdata *wd = cbdata;
+	/* Forget the old socket, regardless of the new one */
+	wd->socket = fd_new;
+	/* When the TLS handshake failed, disconnect */
+	if (fd_new < 0) {
+		goto disconnect;
+	}
+	/* Flag willingness to take on KXOVER */
+	wd->progress |= PROGRESS_TLS;
+	/* Switch back to TCP processing, but now on fd_new */
+	ev_io_set (&wd->listener, fd_new, EV_READ | EV_ERROR);
+	ev_io_start (EV_DEFAULT, &wd->listener);
+	/* Done, finish */
+	return;
+disconnect:
+	if (wd->socket >= 0) {
+		/* This should also close the TLS handler... in general? */
+		close (wd->socket);
+	}
+	starttls_close (wd->tlsdata);
+	free (wd);
+}
 
 
 /* Backend callback function to write out the request.
@@ -106,6 +140,9 @@ static bool cb_write_request (struct backend *beh, struct wrapdata *wd) {
 	goto retry;
 disconnect:
 	close (wd->socket);
+	if (wd->tlsdata != NULL) {
+		starttls_close (wd->tlsdata);
+	}
 	free (wd);
 	return true;
 retry:
@@ -144,6 +181,9 @@ static bool cb_read_response (struct backend *beh, struct wrapdata *wd) {
 	goto disconnect;
 disconnect:
 	close (wd->socket);
+	if (wd->tlsdata != NULL) {
+		starttls_close (wd->tlsdata);
+	}
 	free (wd);
 	return true;
 retry:
@@ -196,7 +236,6 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 	/* Handle TCP flags, if any */
 	uint32_t len_flags = ntohl (* (uint32_t *) len_flags_buf);
 	if (len_flags & 0x80000000) {
-		wd->flags |= len_flags;
 		if (len_flags == 0x80000000) {
 			/* PROBE flag, tell it about STARTTLS */
 			* (uint32_t *) len_flags_buf = htonl (0x80000001);
@@ -205,6 +244,11 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 				goto disconnect;
 			}
 		} else if (len_flags == 0x80000001) {
+			/* Make sure that we are not nesting TLS inside TLS */
+			if ((len_flags & 0x00000001) == 0x00000001) {
+				/* Profusely refuse to confuse or diffuse the obtuse */
+				goto disconnect;
+			}
 			/* STARTTLS flag -- acknowledge to the client */
 			if (send (wd->socket, len_flags_buf, 4, 0) != 4) {
 				/* Failed send to reliable channel, exit */
@@ -212,11 +256,19 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 			}
 			/* Now stop TCP processing and delegate TLS */
 			ev_io_stop (loop, evt);
-			starttls_handshake_server (wd, &wd->socket, loop, evt);
+			if (!starttls_handshake (wd->socket, &wd->starttls_data,
+						NULL, NULL, /* No names yet */
+						&wd->tlsdata,
+						cb_starttls_handshaken, wd));
+			if (wd->tlsdata == NULL) {
+				goto disconnect_stopped;
+			}
 		} else {
 			/* Unrecognised flags, disconnect */
 			goto disconnect;
 		}
+		/* Take note of successfully processed flags (after success) */
+		wd->flags |= len_flags;
 		/* No continued processing when we just handled flags */
 		return;
 	}
@@ -258,7 +310,12 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 	return;
 disconnect:
 	ev_io_stop (loop, evt);
+	/* continue... */
+disconnect_stopped:
 	close (wd->socket);
+	if (wd->tlsdata != NULL) {
+		starttls_close (wd->tlsdata);
+	}
 	free (wd);
 	return;
 }
@@ -303,11 +360,13 @@ fail:
 }
 
 
-/* Initialise the TCP wrapper module.
+/* Initialise the TCP wrapper module.  This must be called
+ * before the actual service is started with tcpwrap_service().
  *
  * Return true on success, or false with errno set on failure.
  */
-bool tcpwrap_init (void) {
+bool tcpwrap_init (struct ev_loop *loop) {
+	tcpwrap_loop = loop;
 	return true;
 }
 
@@ -326,7 +385,7 @@ bool tcpwrap_init (void) {
  *
  * Return true on success, or false with errno set on failure.
  */
-bool tcpwrap_listen (struct ev_loop *loop, char *addr, uint16_t port) {
+bool tcpwrap_service (char *addr, uint16_t port) {
 	int sox = -1;
 	struct wrapdata *wd = NULL;
 	struct sockaddr_in6 sin6;
@@ -364,7 +423,7 @@ bool tcpwrap_listen (struct ev_loop *loop, char *addr, uint16_t port) {
 	tcpacceptors = ad;
 	/* EV_READ will detect opportunities for accept() */
 	ev_io_init (&ad->acceptor, _acceptor_handler, sox, EV_READ);
-	ev_io_start (loop, &ad->acceptor);
+	ev_io_start (tcpwrap_loop, &ad->acceptor);
 	return true;
 fail:
 	if (ad != NULL) {

@@ -2,10 +2,12 @@
 + Have a frontend module for UDP that relays via the backend module
 + Have a frontend module for TCP that relays like UDP does
 + Recognise TCP flags PROBE and STARTTLS and handle traffic like TCP
-- Delegate STARTTLS requests to the starttls module and the TLS Pool
-- Construct a dedicated KXOVER operations tool to list/get/set a KDB
++ Delegate STARTTLS requests to the starttls module and the TLS Pool
 - Construct a dedicated KXOVER server for daemon mode use
+- Construct a dedicated KXOVER client for daemon mode use
 - Construct a dedicated KXOVER client for command line use
+- Construct a dedicated KXOVER operations tool to list/get/set in KDB
 - Specialise KX-OFFER messages sent under STARTTLS as a KXOVER server
 - Specialise KDC-sent "not found" forwarding as a KXOVER client
 - We are not using void *watcher->data from libev, thus wasting space
+- Make the TLS Pool asynchronous, and follow that in starttls.c

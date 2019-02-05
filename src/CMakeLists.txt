@@ -17,6 +17,7 @@ set (kxover_SRC
 	backend.c
 	udpwrap.c
 	tcpwrap.c
+	starttls.c
 )
 
 add_executable (kxover ${kxover_SRC})
