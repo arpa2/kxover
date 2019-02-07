@@ -3,6 +3,7 @@
 + Have a frontend module for TCP that relays like UDP does
 + Recognise TCP flags PROBE and STARTTLS and handle traffic like TCP
 + Delegate STARTTLS requests to the starttls module and the TLS Pool
+- Implement a KXOVER module with a client and server side
 - Construct a dedicated KXOVER server for daemon mode use
 - Construct a dedicated KXOVER client for daemon mode use
 - Construct a dedicated KXOVER client for command line use

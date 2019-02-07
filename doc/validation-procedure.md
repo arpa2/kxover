@@ -116,3 +116,28 @@ is reasonable because the facilitation is generally useful:
     compared to a subjectAlternativeName.  In general, a certificate holds a
     list of such names, and the test will be if one of those matches the one
     provided for testing.
+
+Changes to the KDC
+------------------
+
+The bump-in-the-wire approach leaves surprisingly little to be desired from the
+KDC.  Most everything can be tapped and redirected.  But we are not completely
+lucky:
+
+-   The KDC should know that it must crossover to a realm for an unknown host
+    name.  A middle man cannot do this, because it should not know the client
+    key.  This can be done in a number of ways:
+
+    -   The mapping from hostname to realm is updated dynamically;
+
+    -   We somehow extend the KDB to hold a similar mapping;
+
+    -   The KDC itself checks `_kerberos TXT` for hosts not found.
+
+-   Not required, but probably useful: The crossover database was a separate
+    database, overriding the customary database for crossover attempts, stored
+    with its own access rights.  Especially when the crossover is triggered by a
+    `_kerberos TXT` lookup in the KDC itself, this should leave no questions
+    with the KDC about which way to turn.  This improves security by separating
+    administration of local users and machines from online-derived crossover
+    tickets.

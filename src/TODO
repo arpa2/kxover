@@ -1,0 +1,3 @@
+#!/usr/bin/env grep ^-
+# Leading characters are - for TODO, + for DONE, X for WONTFIX
+

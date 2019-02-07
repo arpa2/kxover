@@ -21,6 +21,17 @@
  *  4. The KDC hostname(s) are looked up as AAAA/A records, which need
  *     not be secured with DNSSEC because KDCs have protecting secrets.
  *
+ * In terms of validation, the starttls.c module takes care of just:
+ * 
+ *  1. Exchange of KDC host names.
+ *
+ *  2. Ensuring TLS certificates match the KDC host names.
+ * 
+ *  3. Validating the TLS certificates under DANE/DNSSEC.
+ *
+ *  3. Testing whether a realm occurs in a TLS certificate as a
+ *     SubjectAlternativeName.
+ *
  * An important final function for this module is to establish a password
  * that is the same on the client and server.  This will use information
  * from both KX-OFFER messages exchanged under TLS, and it will talk to
@@ -220,8 +231,7 @@ bool starttls_init (ev_loop *loop) {
  * without a need to close an old or open a new file descriptor.
  *
  * Clients would provide the client_hostname and server_hostname,
- * servers would provide neither.  Specify only one and except
- * the unexpected, including wrong behaviour and crashes.
+ * servers would provide just the latter.
  *
  * The callback is provided with the new file descriptor, or
  * -1 with errno set on error.  It is also given the data,
@@ -230,23 +240,35 @@ bool starttls_init (ev_loop *loop) {
  *
  *TODO* This is still blocking due to the TLS Pool API
  *
+ *TODO* Can the TLS Pool handle/produce non-blocking sockets?
+ *
  * Return true on success, or false with errno set on failure.
  * This coincides with *tlsdata_outvar being non-NULL or NULL.
  */
 typedef void (*starttls_cb_fd_t) (void *cbdata, int fd_new);
-struct starttls_data *starttls_handshake (int fd_old,
+bool starttls_handshake (int fd_old,
 			char *client_hostname, char *server_hostname,
 			struct starttls_data **tlsdata_outvar,
 			starttls_cb_fd_t cb, void *cbdata) {
 	assert (fd_old >= 0);
+	assert ( server_hostname != NULL);
+	assert (*server_hostname != '\0');
+	if (strlen (server_hostname) > 127) {
+		errno = ERANGE;
+		return NULL;
+	}
+	if ((client_hostname != NULL) && (strlen (client_hostname) > 127)) {
+		errno = ERANGE;
+		return NULL;
+	}
 	/* Allocate and initialise tlsdata */
-	tlsdata = calloc (1, sizeof (struct starttls_data));
+	struct starttls_data *tlsdata = calloc (1, sizeof (struct starttls_data));
 	*tlsdata_outvar = tlsdata;
 	if (tlsdata == NULL) {
 		errno = ENOMEM;
 		return false;
 	}
-	//TODO// Initialise tlsdata
+	//TODO// Initialise tlsdata: localid, remoteid
 	//TODO// Make this asynchronous and non-blocking!
 	fd_new = tlspool_starttls (fd_old, &tlsdata->cmd.pioc_starttls, NULL);
 	if (fd_new >= 0) {
