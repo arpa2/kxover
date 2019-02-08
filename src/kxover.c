@@ -62,6 +62,28 @@ static const derwalk krberror2code [] = {
 };
 
 
+/* Quick DER packer for KX-REQ-MSG and/or KX-REP-MSG,
+ * but only to decode shallow versions, returning the contained
+ * KX-OFFER for separate analysis.
+ */
+static const der_walk pack_msg_shallow [] = {
+	DER_PACK_ENTER | DER_SEQUENCE,
+	DER_PACK_STORE | DER_INTEGER,	/* pvno(5) */
+	DER_PACK_STORE | DER_INTEGER,	/* msg-type(...) */
+	DER_PACK_ANY,
+	DER_PACK_LEAVE,
+	DER_PACK_END
+};
+
+
+/* Quick DER packer and typedef for a KX-OFFER message.
+ */
+static const derwalk pack_KX_OFFER [] = {
+	DER_PACK_kxover_KX_OFFER,
+	DER_PACK_END
+};
+typedef DER_OVLY_kxover_KX_OFFER ovly_KX_OFFER;
+
 
 /* Quick DER pack/unpack instructions for KRB-ERROR.
  */
@@ -130,9 +152,10 @@ enum kxover_state {
 	KXS_CLIENT_HANDSHAKE,	/* Asked STARTTLS module to shake hands */
 	KXS_CLIENT_REALMSCHECK,	/* Checking both realms against TLS certs */
 	KXS_CLIENT_REALM2CHECK,	/* Checking 2nd  realm  against TLS certs */
-	KXS_CLIENT_KX_SENT,	/* Sent KX-OFFER to KXOVER server */
-	KXS_CLIENT_KX_RECEIVED,	/* Received KX-OFFER from KXOVER server */
+	KXS_CLIENT_KX_SENDING,	/* Sending KX-OFFER to KXOVER server */
+	KXS_CLIENT_KX_RECEIVING,/* Received KX-OFFER from KXOVER server */
 	// KXS_CLIENT_KX_CHECKS,	/* Checking if the KX-OFFERs match */
+	KXS_CLIENT_KEY_DERIVING,/* Key derivation in progress (uses TLS) */
 	KXS_CLIENT_KEY_STORING,	/* Key construction and storage for the KDC */
 				/* ...then on to KXS_SUCCESS */
 	KXS_CLIENT_POST,	/* Code after any client state */
@@ -140,13 +163,14 @@ enum kxover_state {
 	// KX Server states (already has TCP and STARTTLS)
 	KXS_SERVER_PRE,		/* Code before any server state */
 	KXS_SERVER_INITIALISED,	/* Server has been initialised */
-	KXS_SERVER_KX_RECEIVED,	/* Received KX-OFFER from KXOVER client */
+	KXS_SERVER_KX_RECEIVING,/* Received KX-OFFER from KXOVER client */
 	KXS_SERVER_REALMSCHECK,	/* Checking both realms against TLS certs */
 	KXS_SERVER_REALM2CHECK,	/* Checking 2nd  realm  against TLS certs */
 	KXS_SERVER_DNSSEC_KDC,	/* In DNSSEC query _kerberos-tls._tcp SRV */
-	// KXS_SERVER_HOSTCHECK,	/* Iterate SRV, compare to TLS client host */
+	KXS_SERVER_HOSTCHECK,	/* Iterate SRV, compare to TLS client host */
+	KXS_SERVER_KEY_DERIVING,/* Key derivation in progress (uses TLS) */
 	KXS_SERVER_KEY_STORING,	/* Key construction and storage for the KDC */
-	KXS_SERVER_KX_SENT,	/* Sent KX-OFFER back to KXOVER client */
+	KXS_SERVER_KX_SENDING,	/* Sending KX-OFFER back to KXOVER client */
 				/* ...then on to KXS_SUCCESS */
 	KXS_SERVER_POST,	/* Code after any server state */
 };
@@ -165,8 +189,10 @@ struct kxover_data {
 	void *cbdata;
 	derptr crealm;
 	derptr srealm;
-	derptr kx_req;
-	derptr kx_rep;
+	derptr kx_recv;
+	derptr kx_send;
+	DER_OVLY_kxover_KX_OFFER kx_req;
+	DER_OVLY_kxover_KX_OFFER kx_rep;
 	int kxoffer_fd;
 	char *kerberos_tls_hostname;
 	struct ub_result *ubres_txt;
@@ -177,7 +203,8 @@ struct kxover_data {
 	int ubqid_srv;
 	int ubqid_aaaa;
 	int ubqid_a;
-	ev_io ev_clicnx;
+	ev_timer ev_timeout;
+	ev_io ev_kxcnx;
 } kxover_t;
 
 
@@ -233,17 +260,21 @@ static ev_io kxover_unbound_watcher;
 
 /* DER-encoded data:
  *  - der_notfound should be in the KRB-ERROR error-code for NOTFOUND.
- *  - der_int_5 & der_int_30 encode integers 5 and 30.
+ *  - der_int_5, _18, _19 and _30 encode integers 5, 18, 19 and 30.
  *  - der_kstr_krbtgt encodes the "krbtgt" as KerberosString.
  */
 static const uint8_t der_notfound    [] = { 0x07 };
 static const uint8_t der_int_5       [] = { 0x02, 0x01, 5 };
+static const uint8_t der_int_18      [] = { 0x02, 0x01, 18 };
+static const uint8_t der_int_19      [] = { 0x02, 0x01, 19 };
 static const uint8_t der_int_30      [] = { 0x02, 0x01, 30 };
 static const uint8_t der_kstr_krbtgt [] = { 'k', 'r', 'b', 't', 'g', 't' };
-static const dercursor dercrs_notfound     = { der_notfound,    sizeof(der_notfound   ) };
-static const dercursor dercrs_int_5        = { der_int_5,       sizeof(der_int_5      ) };
-static const dercursor dercrs_int_30       = { der_int_30,      sizeof(der_int_30     ) };
-static const dercursor dercrs_kstr_krbtgt  = { der_kstr_krbtgt, sizeof(der_kstr_krbtgt) };
+static const dercursor dercrs_notfound     = { .derptr = der_notfound,    .derlen = sizeof(der_notfound   ) };
+static const dercursor dercrs_int_5        = { .derptr = der_int_5,       .derlen = sizeof(der_int_5      ) };
+static const dercursor dercrs_int_18       = { .derptr = der_int_18,      .derlen = sizeof(der_int_18     ) };
+static const dercursor dercrs_int_19       = { .derptr = der_int_19,      .derlen = sizeof(der_int_19     ) };
+static const dercursor dercrs_int_30       = { .derptr = der_int_30,      .derlen = sizeof(der_int_30     ) };
+static const dercursor dercrs_kstr_krbtgt  = { .derptr = der_kstr_krbtgt, .derlen = sizeof(der_kstr_krbtgt) };
 
 
 /* SRV iterators pass through the same records more than once, with
@@ -339,7 +370,7 @@ static void cb_kxs_client_dns_aaaa_a (
 		.cancel_offset    = offsetof (struct kxover_data, ubqid_aaaa),
 	};
 	if (!_kxover_unbound_proper (kxd, &proper_aaaa, err, result)) {
-		kxd->last_errno = 
+		kxd->last_errno = EBADMSG;
 		goto bailout;
 	}
 	static struct kx_ub_constraints proper_a = {
@@ -352,7 +383,7 @@ static void cb_kxs_client_dns_aaaa_a (
 		.cancel_offset    = offsetof (struct kxover_data, ubqid_a),
 	};
 	if (!_kxover_unbound_proper (kxd, &proper_a, err, result)) {
-		kxd->last_errno = 
+		kxd->last_errno = EBADMSG;
 		goto bailout;
 	}
 	/* Reset the iterator for AAAA and A; initiate connection attempts */
@@ -389,7 +420,7 @@ static void kx_resolve_aaaa_a (struct kxover_data *kxd) {
 	if (ok4 != ok6) {
 		ub_cancel (kxover_unbound_ctx,
 				ok4 ? kxd->ubqid_a : kxd->ubqid_aaaa);
-		kxd->errno = 
+		kxd->errno = ENXIO;
 		goto bailout;
 	}
 	/* Update the state and await progress */
@@ -456,7 +487,7 @@ void kxover_client_connect_attempt (struct kxover_data *kxd) {
 		iter_srv_next (&kxd->iter_srv, kxd->ubres_srv);
 	}
 	if (kxd->iter_srv.stopped) {
-		kxd->last_errno = 
+		kxd->last_errno = EHOSTUNREACH;
 		goto bailout;
 	}
 	/* Move AAAA/A forward, possibly to the first entry */
@@ -468,7 +499,7 @@ void kxover_client_connect_attempt (struct kxover_data *kxd) {
 			goto resolve;
 		} else {
 			/* No more options left, bail out */
-			kxd->last_errno = 
+			kxd->last_errno = EHOSTUNREACH;
 			goto bailout;
 		}
 	}
@@ -507,13 +538,13 @@ void kxover_client_connect_attempt (struct kxover_data *kxd) {
 		sin.sin_port = port_net_order;
 	}
 	/* Setup event handling with a connect() responder as callback */
-	ev_io_init (&kxd->ev_clicnx, cb_kxs_client_connecting, sox, EV_WRITE | EV_ERROR);
-	ev_io_start (kxover_loop, &kxd->ev_clicnx);
+	ev_io_init (&kxd->ev_kxcnx, cb_kxs_client_connecting, sox, EV_WRITE | EV_ERROR);
+	ev_io_start (kxover_loop, &kxd->ev_kxcnx);
 	/* Finally connect to the remote's AAAA/A and the port from SRV */
 	if (connect (sox, &sa, salen) < 0) {
 		/* Some values in errno are caused by the deferral */
 		if ((errno != EINPROGRESS) && (errno != EWOULDBLOCK) && (errno != EAGAIN)) {
-			kxd->last_errno =
+			kxd->last_errno = errno;
 			goto bailout;
 		}
 	}
@@ -545,18 +576,17 @@ static void cb_kxs_client_connecting (EV_P_ ev_io *evt, int revents) {
 	struct kxover_data *kxd =
 		(struct kxover_data *) (
 			((uint8_t *) evt) -
-				offsetof (struct kxover_data, ev_clicnx));
-	ev_io_stop (&kxd->ev_clicnx);
+				offsetof (struct kxover_data, ev_kxcnx));
+	ev_io_stop (evt);
 	/* On failure, try again on any further addresses */
 	if (revents & EV_ERROR) {
 		kxover_client_connect_attempt (kxd);
 		return;
 	}
 	/* Once we are connected, we switch the socket to reading mode */
-	ev_io_init (&kxd->ev_clicnx, cb_kxs_client_starttls,
+	ev_io_init (evt, cb_kxs_client_starttls,
 			kxd->kxoffer_fd, EV_READ | EV_ERROR);
-	ev_loop (kxover_loop, &kxd->ev_clicnx);
-	//TODO// Use another callback function, or set progress?
+	ev_io_start (kxover_loop, evt);
 	/* Send the STARTTLS flag */
 	uint8_t buf4 [4];
 	* (uint32_t *) buf4 = htonl (0x80000001);
@@ -582,27 +612,37 @@ static void cb_kxs_client_starttls (EV_P_ ev_io *evt, int revents) {
 	struct kxover_data *kxd =
 		(struct kxover_data *) (
 			((uint8_t *) evt) -
-				offsetof (struct kxover_data, ev_clicnx));
+				offsetof (struct kxover_data, ev_kxcnx));
 	/* Bail out when socket errors occurred */
 	if (revents & EV_ERROR) {
-		kxd->last_errno = 
+		kxd->last_errno = EIO;
 		goto bailout;
 	}
 	/* Read the STARTTLS reply and check it is what we need */
 	uint8_t ist4 [4];
 	static uint8_t soll4 [4] = { 0x80, 0x00, 0x00, 0x01 };
 	if (read (kxd->kxoffer_fd, ist4, 4) != 4) {
-		kxd->last_errno = 
+		kxd->last_errno = EINTR;
 		goto bailout;
 	}
 	if (memcmp (ist4, soll4, 4) != 0) {
-		kxd->last_errno = 
+		kxd->last_errno = EPROTO;
+		goto bailout;
+	}
+	/* Ask the Kerberos interface for the KDC name for kxd->crealm */
+	dercrs server_kdc;
+	dercrs client_kdc;
+	server_kdc.derptr = kxd->ubres_srv->data [kxd->iter_srv.cursor] + 6;
+	server_kdc.derlen = kxd->ubres_srv->len  [kxd->iter_srv.cursor] - 6;
+	client_kdc = kerberos_kdc_hostname (kxd->crealm);
+	if (!der_isnonempty (client_kdc)) {
+		kxd->last_errno = ENOENT;
 		goto bailout;
 	}
 	/* Both sides are now ready for TLS, so proceed */
 	if (!starttls_handshake (kxd->kxoffer_fd,
-			TODO_client_hostname,
-			kxd->ubres_srv->data [kxd->iter_srv.cursor];
+			client_kdc,
+			server_kdc,
 			&kxd->tlsdata,
 			cb_kxs_client_handshake, kxd)) {
 		kxd->last_errno = errno;
@@ -624,46 +664,94 @@ void cb_kxs_client_handshake (struct kxover_data *kxd, int fd_new) {
 	if (fd_new < 0) {
 		goto bailout;
 	}
-	/* Initiate checks for both realm names by starttls.c */
-	bool r_ok = starttls_remote_realm_check_certificate (
-			kxd->srealm,
-			kxd->tlsdata,
-			cb_kxs_client_realmscheck, kxd);
-	bool l_ok = starttls_local_realm_check_certificate (
-			kxd->crealm,
-			kxd->tlsdata,
-			cb_kxs_client_realmscheck, kxd);
-	/* Both sides must be checked, otherwise cancel */
-	if (r_ok != l_ok) {
-		starttls_cancel (...TODO...);
+	/* Check the realm names against the TLS certificates */
+	if (!kx_start_realmscheck (kxd)) {
+		/* kxd->last_errno has been set */
 		goto bailout;
 	}
 	/* Continue into realm checking */
 	kxd->progress = KXS_CLIENT_REALMSCHECK;
 	return;
 bailout:
+	return;
+};
+
+
+/* After the TLS handshake has succeeded and the client and service
+ * realm names are known, the _REALMSCHECK can be started.  This is
+ * possible on the client or server, as desired; the corresponding
+ * kxd->progress must be set before or right after calling this
+ * helper function.
+ *
+ * Return true on success, or false with errno set on failure.
+ */
+static bool kx_start_realmscheck (struct kxover_data *kxd) {
+	/* Initiate checks for both realm names by starttls.c */
+	bool r_ok = starttls_remote_realm_check_certificate (
+			kxd->srealm,
+			kxd->tlsdata,
+			cb_kxs_either_realmscheck, kxd);
+	bool l_ok = starttls_local_realm_check_certificate (
+			kxd->crealm,
+			kxd->tlsdata,
+			cb_kxs_either_realmscheck, kxd);
+	/* Both sides must be checked, otherwise cancel */
+	if (r_ok != l_ok) {
+		starttls_cancel (kxd->tlsdata);
+		kxd->last_errno = EIDRM;
+		goto bailout;
+	}
+	return true;
+bailout:
 	kxover_finish ();
+	return false;
 }
 
 
 /* The starttls.c module calls back whether each realm is mentioned
  * in the certificate at the same side of the TLS connection.
+ * This function can be used in client or server mode, as long as
+ * kxd->progress is set to _REALMSCHECK (and, on the second call, it
+ * will automatically update to _REALM2CHECK).
  */
-void cb_kxs_client_realmscheck (struct kxover_data *kxd, bool success) {
+void cb_kxs_either_realmscheck (struct kxover_data *kxd, bool success) {
 	/* Ensure success */
 	if (!success) {
 		kxd->last_errno = EACCES;
-		goto bailout;
+		/* During the 2nd, we will goto bailout */
 	}
 	/* Hold off activity during the first callback (of two) */
 	if (kxd->progress == KXS_CLIENT_REALMSCHECK) {
 		/* Change progress to "seen one, one more to come" */
 		kxd->progress = KXS_CLIENT_REALM2CHECK;
+		return;
+	} else if (kxd->progress == KXS_SERVER_REALMSCHECK) {
+		/* Change progress to "seen one, one more to come" */
+		kxd->progress = KXS_SERVER_REALM2CHECK;
+		return;
 	}
-	//TODO// The assertion fails with current trivial realms checks in starttls.c
-	assert (kxd->progress == KXS_CLIENT_REALM2CHECK);
-	/* Given correct realms on both sides, continue sending KX-OFFER */
-	kxover_client_send_offer (kxd);
+	/* Given two checked realms, we look for last_errno */
+	if (kxd->last_errno == EACCES) {
+		goto bailout;
+	}
+	/* Given two correct realms, proceed to the subsequent phase */
+	if (kxd->progress == KXS_SERVER_REALM2CHECK) {
+		/* Continue into DNS, asking for the client KDC's SRV records */
+		if (!kx_start_dnssec_kdc (kxd, kxd->crealm)) {
+			/* kdc->last_errno was set by kx_start_dnssec_kdc() */
+			goto bailout;
+		}
+		kxd->progress = KXS_SERVER_DNSSEC_KDC;
+	} else if (kxd->progress == KXS_CLIENT_REALM2CHECK) {
+		/* Continue into sending KX-OFFER */
+		kxover_client_kx_sent (kxd);
+		kxd->progress = KXS_CLIENT_KX_SENDING;
+	} else {
+		/* Fail with the message that mentions both acceptable states */
+		assert ((kxd->progress == KXS_CLIENT_REALM2CHECK) || (kxd->progress == KXS_SERVER_REALM2CHECK));
+		kxd->last_errno = ENOSYS;
+		goto bailout;
+	}
 	return;
 bailout:
 	kxover_finish ();
@@ -673,8 +761,83 @@ bailout:
 /* Construct a KX-OFFER from the client to the server, and wait
  * for the corresponding KX-OFFER being returned.
  */
-void kxover_client_send_offer (struct kxover_data *kxd) {
+void kxover_client_kx_sent (struct kxover_data *kxd) {
 	TODO:IMPLEMENT:FROMHERE
+	TODO:REGISTER:cb_kxs_client_kx_received()
+}
+
+
+/* Callback for incoming traffic from the server, to be stored
+ * as KX-OFFER in kxd->kx_recv, possibly arriving in parts.  The
+ * first part must be at least 5 bytes to be considered, however.
+ */
+void cb_kxs_client_kx_received_TODO_USE_IT (EV_P_ ev_io *evt, int revents) {
+	//TODO// SILLY: WRITTEN AS SERVER CODE BUT TURNED OUT TO BE UNNECESSARY SO EDITED TO CLIENT CODE BUT NOT USED YET
+	struct kxover_data *kxd =
+		(struct kxover_data *) (
+			((uint8_t *) evt) -
+				offsetof (struct kxover_data, ev_kxcnx));
+	/* Bail out immediately when there are connection problems */
+	if (revents & EV_ERROR) {
+		kxd->last_errno = EIO;
+		goto bailout;
+	}
+	/* Initially collect and analyse the initial 5 bytes */
+	if (kxd->kx_recv.derptr == NULL) {
+		uint8_t buf5 [5];
+		uint8_t tag;
+		size_t  len;
+		uint8_t hlen;
+		dercursor sofar;
+		if (recv (kxd->kxoffer_fd, buf5, 5, 0) != 5) {
+			/* Reject silly small transmission */
+			kxd->last_errno = EBADMSG;
+			goto bailout;
+		}
+		sofar.derptr = buf5;
+		sofar.derlen = 5;
+		if (der_header (&sofar, &tag, &len, &hlen) != 0) {
+			/* Error analysing the header */
+			kxd->last_errno = EBADMSG;
+			goto bailout;
+		}
+		kxd->kx_recv.derlen = hlen + len;
+		kxd->kx_recv.derptr = calloc (hlen + len, 1);
+		if (kxd->kx_recv.derptr == NULL) {
+			kxd->last_errno = ENOMEM;
+			goto bailout;
+		}
+		kxd->kxoffer_recvlen = 5;
+		memcpy (kxd->kx_recv.derptr, buf5, 5);
+	}
+	/* Try to receive data (and silently skip on failure) */
+	ssize_t recvlen = recv (kxd->kxoffer_fd, kxd->kx_recv.derptr + kxd->kxoffer_recvlen, kxd->kx_recv.derlen - kxd->kxoffer_recvlen);
+	if (recvlen < 0) {
+		/* Error, possibly temporary; continue to wait for EV_READ | EV_ERROR */
+		return;
+	}
+	kxd->kxoffer_recvlen += recvlen;
+	if (kxd->kxoffer_recvlen < kxd->kx_recv.derlen) {
+		/* The buffer isn't complete; continue to wait for EV_READ | EV_ERROR */
+		return;
+	}
+	/* When all arrived, stop further socket receiving */
+	ev_io_stop (evt);
+	/* Analyse the data and compare kx_req and kx_rep */
+	TODO:ANALYSE:COMPARE
+	/* End this callback, and continue with key derivation */
+	if (!kx_start_key_deriving (kxd)) {
+		/* kxd->last_errno is set by kx_start_key_deriving() */
+		/* ev_io_stop() was already called */
+		goto bailout_stopped;
+	}
+	kxd->progress = KXS_CLIENT_KEY_DERIVING;
+	return;
+bailout:
+	ev_io_stop (evt);
+	/* ...and continue: */
+bailout_stopped:
+	kxover_finish ();
 }
 
 
@@ -685,6 +848,39 @@ void kxover_client_send_offer (struct kxover_data *kxd) {
  */
 static void _cb_kxover_unbound (EV_P_ ev_io *_evt, int _revents) {
 	ub_process (kxover_unbound_ctx);
+}
+
+
+/* Start key determination and storage in the KDC database.
+ * On a KXOVER server, this runs before responding so the KDC
+ * is sure to have the key; on a KXOVER client, this runs
+ * after receiving a response because that information is
+ * needed to perform these computations.  After this call,
+ * progress should be set to KXS_x_KEY_DERIVING.
+ */
+static bool kx_start_key_deriving (kxover_data *kxd) {
+	/* Determine label and salt to use */
+	static const dercrs label = {
+		.derptr = "EXPERIMENTAL-ARPA2-KXOVER",
+		.derlen = 25,
+	};
+	static const dercrs no_ctxval = {
+		.derptr = NULL,
+		.derlen = 0,
+	};
+	/* Determine the key size needed, in bytes */
+	uint16_t keylen = 32;
+	uint8_t key [keylen];
+	/* Ask the starttls.c module to derive a shared key */
+	if (!starttls_export_key (label, no_ctxval,
+			keylen, key,
+			cb_kxs_either_key_deriving, kxd)) {
+		kxd->last_errno = errno;
+		goto bailout;
+	}
+	return;
+bailout:
+	kxover_finish ();
 }
 
 
@@ -794,6 +990,43 @@ tcpkrb5_t kxover_classify_kerberos_up (derptr krb) {
 }
 
 
+/* Unpack an incoming KX-OFFER message, contained in either
+ * KX-REQ-MSG (msg_type 18) or KX-REP-MSG (msg_type 19).
+ * Store the resulting dercrs values in outvars.
+ *
+ * Return true on success, or false with errno set on failure.
+ */
+bool kxoffer_unpack (dercursor msg, dercursor msg_type,
+			ovly_KX_OFFER *outvars) {
+	/* First unpack the message surroundings of KX-*-MSG */
+	dercursor msg_ovly [3];  /* 5, msg-type, KX-OFFER */
+	if (der_unpack (&msg, pack_msg_shallow, msg_ovly, 1) != 0) {
+		errno = EBADMSG;
+		goto bailout;
+	}
+	/* Verify the pvno and msg-type fields */
+	if (der_cmp (msg_ovly [0], der_int_5) != 0) {
+		errno = EPROTO;
+		goto bailout;
+	}
+	if (der_cmp (msg_ovly [1], msg_type) != 0) {
+		errno = EPROTO;
+		goto bailout;
+	}
+	/* Zoom in on the contained KX-OFFER */
+	msg = msg_ovly [2];
+	/* Unpack the KX-OFFER into outvars */
+	if (der_unpack (&msg, pack_KX_OFFER, outvars, 1) != 0) {
+	errno = EBADMSG;
+		goto bailout;
+	}
+	/* We succeeded in finding the KX-OFFER in the DER message */
+	return true;
+bailout:
+	return false;
+}
+
+
 /* Having classified TCPKRB5_KXOVER_REQ from upstream,
  * handle it locally by validating the client and, if
  * acceptable, constructing a key for realm crossover
@@ -818,9 +1051,13 @@ tcpkrb5_t kxover_classify_kerberos_up (derptr krb) {
  * returned, the callback function will be called to
  * report the overall success or failure of the
  * KXOVER operation.
+ *
+ * The server borrows the ownership of kx_req_msg
+ * for the duration of its processing, that data is
+ * assumed to be stable until the callback.
  */
 struct kxover_data *kxover_server (cb_kxover_server cb, void *cbdata,
-			derptr kx_req, int kxoffer_fd) {
+			derptr kx_req_msg, int kxoffer_fd) {
 	assert (reqptr != NULL);
 	assert (reqlen > 10);
 	assert (kxoffer_fd >= 0);
@@ -832,11 +1069,28 @@ struct kxover_data *kxover_server (cb_kxover_server cb, void *cbdata,
 		return NULL;
 	}
 	kxd->kxoffer_fd = kxoffer_fd;
-	kxd->kx_req = kx_req;
-	kxd->cb = cb;
 	kxd->cbdata = cbdata;
+	ev_timer_init (&kxd->ev_timeout, cb_kxover_timeout, 60.0, 0.0);
+	kxd->cb = cb;
 	kxd->progress = KXS_SERVER_INITIALISED;
+	/* Take in the server message, and unpack its DER */
+	kxd->kx_recv = kx_req_msg;
+	if (!kxoffer_unpack (kxd, kx_req_msg, der_int_18)) {
+		/* errno is set to EBADMSG in kxoffer_unpack() */
+		kxd->last_errno = errno;
+		goto bailout;
+	}
+	kxd->progress = KXS_SERVER_KX_RECEIVING;
+	/* Continue by checking the realms against the TLS certificate */
+	if (!kx_start_realmscheck (kxd)) {
+		/* kxd->last_errno has been set by kx_start_realmscheck() */
+		goto bailout;
+	}
+	kxd->progress = KXS_SERVER_REALMSCHECK;
 	return kxd;
+bailout:
+	free (kxd);
+	return NULL;
 }
 
 
@@ -908,6 +1162,7 @@ struct kxover_data *kxover_client (cb_kxover_server cb, void *cbdata,
 	kxd->srealm = service_realm;
 	kxd->cb = cb;
 	kxd->cbdata = cbdata;
+	ev_timer_init (&kxd->ev_timeout, kxover_timeout_fire, 60.0, 0.0);
 	kxd->progress = KXS_CLIENT_INITIALISED;
 	/* Initiate activity with a lookup of the realm with _kerberos TXT */
 	kerberos_REALM = malloc (10 + service_realm.derlen + 1);
@@ -922,7 +1177,7 @@ struct kxover_data *kxover_client (cb_kxover_server cb, void *cbdata,
 	if (!ub_resolve_async (kxover_unbound_ctx,
 			kerberos_REALM, DNS_TXT, DNS_INET
 			kxd, cb_kxs_client_dnssec_realm, &kxd->ubqid_txt)) {
-		errno = 
+		errno = ENXIO;
 		goto bailout;
 	}
 	/* Indicate that the realm lookup is in progress */
@@ -948,8 +1203,9 @@ bailout:
 static void _kxover_client_cleanup (struct kxover_data *kxd) {
 	switch (kxd->progress) {
 	case KXS_CLIENT_KEY_STORING:
-	case KXS_CLIENT_KX_RECEIVED:
-	case KXS_CLIENT_KX_SENT:
+	case KXS_CLIENT_KEY_DERIVING:
+	case KXS_CLIENT_KX_RECEIVING:
+	case KXS_CLIENT_KX_SENDING:
 	case KXS_CLIENT_REALMSCHECK:
 		;
 	case KXS_CLIENT_HANDSHAKE:
@@ -1028,6 +1284,9 @@ static void _kxover_cleanup (struct kxover_data *kxd) {
 	}
 }
 void kxover_finish (struct kxover_data *kxd) {
+	/* First of all, disarm the timeout timer */
+	ev_timer_stop (kxover_loop, &kxd->ev_timeout);
+	/* Now record the current progress, used later */
 	enum kxover_state orig_progress = kxd->progress;
 	/* Cleanup client or server specifics, if any */
 	_kxover_cleanup (kxd);
@@ -1154,6 +1413,7 @@ printf ("DEBUG: der0,1,2 # %d,%d,%d\tat %s:%d\n", der0.derlen, der1.derlen, der2
  */
 struct kx_ub_constraints {
 	enum kxover_state progress_pre ;
+	enum kxover_state progress_pre2;
 	char *qprefix;
 	uint16_t rrtype;
 	uint8_t require_0_1_many;
@@ -1178,7 +1438,7 @@ printf ("DEBUG: UNBOUND ok=%d at %s:%d\n", ok?1:0, __FILE__, __LINE__);
 printf ("DEBUG: UNBOUND ok=%d at %s:%d\n", ok?1:0, __FILE__, __LINE__);
 	ok = ok && (strncmp (kuc->qprefix, result->qname, strlen (kuc->qprefix)) == 0);
 printf ("DEBUG: UNBOUND ok=%d at %s:%d\n", ok?1:0, __FILE__, __LINE__);
-	ok = ok && (kxd->progress == kuc->progress_pre);
+	ok = ok && ((kxd->progress == kuc->progress_pre) || (kxd->progress == kuc->progress_pre2));
 printf ("DEBUG: UNBOUND ok=%d at %s:%d\n", ok?1:0, __FILE__, __LINE__);
 	/* Test multiplicity: 0, 1, many (where many means 1..N); -1 ignores */
 	switch (kuc->require_0_1_many) {
@@ -1233,23 +1493,51 @@ enum dns_rrtype {
 };
 
 
-/* Process an incoming SRV record with KDC host names for
- * the KXOVER client.  This will start an iterator that
- * passes over the following nesting:
- *  1. SRV records, in order of priority (not weight, sorry)
- *  2. AAAA/A records for the host name in the SRV record
- *  3. sockets attempting to connect to each IP address
- * A connected socket then has a secure server host name,
- * namely the name in the SRV record that we connected to.
+/* Start the _DNSSEC_KDC procedure on client or server.
+ * This needs a realm name, provided as a parameter.
+ * After success, the progress variable must be set to the
+ * apropriate _DNSSEC_KDC value for the client or server.
  */
-static void cb_kxs_client_dnssec_kdc (
+static bool kx_start_dnssec_kdc (struct kxover_data *kxd, dercursor realm_name) {
+	/* Construct the server realm name with "_kerberos-tls._tcp." prefixed */
+	char *kerberos_tls_hostname = malloc (19 + realmname->derlen + 1);
+	if (kerberos_tls_hostname == NULL) {
+		/* Out of memory */
+		kxd->last_errno = ENOMEM;
+		goto bailout;
+	}
+	krb->kerberos_tls_hostname = kerberos_tls_hostname;
+	memcpy (kerberos_tls_hostname   , "_kerberos-tls._tcp.");
+	memcpy (kerberos_tls_hostname+19, realmname->derptr, realmname->derlen);
+	kerberos_tls_hostname [19+realmname->derlen] = '\0';
+	/* Continue to look for the server realm's KDC address */
+	if (!ub_resolve_async (kxover_unbound_ctx,
+			kerberos_tls_hostname, DNS_SRV, DNS_INET,
+			kxd, cb_kxs_either_dnssec_kdc, &kxd->ubqid_srv) == 0) {
+	}
+	/* Success */
+	return true;
+bailout:
+	return false;
+}
+
+
+/* Process an incoming SRV record with KDC host names for
+ * the KXOVER client or server.  This will start an iterator
+ * over the SRV records, but what is done inside the loop
+ * differs: a client will lookup AAAA/A records and try to
+ * connect; a server will test if the hostname matches the
+ * certificate-negotiated server name.
+ */
+static void cb_kxs_either_dnssec_kdc (
 			struct kxover_data *cbdata,
 			int err, struct ub_result *result) {
 	/* Perform general sanity checks and administration */
 	static struct kx_ub_constraints proper = {
 		.qprefix          = "_kerberos-tls._tcp.",
 		.rrtype           = DNS_SRV,
-		.progress_pre     = KXS_CLIENT_DNSSEC_KDC,
+		.progress_pre     = KXS_SERVER_DNSSEC_KDC,
+		.progress_pre2    = KXS_CLIENT_DNSSEC_KDC,
 		.require_dnssec   = true,
 		.require_0_1_many = 2,
 		.result_offset    = offsetof (struct kxover_data, ubres_srv),
@@ -1258,8 +1546,42 @@ static void cb_kxs_client_dnssec_kdc (
 	if (!_kxover_unbound_proper (kxd, &proper, err, result)) {
 		return;
 	}
-	/* Iterate over SRV and AAAA/A, then connect() */
-	kxover_client_connect_attempt ();
+	/* Iterate over SRV, distinguishing client and server */
+	if (kxd->progress == KXS_SERVER_DNSSEC_KDC) {
+		/* Signal the new state, even if we currently don't wait in it */
+		kxd->progress = KXS_SERVER_HOSTCHECK;
+		/* On a server, check the host name against the certificate */
+		iter_srv_reset (&kxd->iter_srv);
+		while (iter_srv_next (&kxd->iter_srv, kxd->ubres_srv)) {
+			if (starttls_remote_hostname_check_certificate (
+					struct derptr hostname,
+					struct starttls_data *tlsdata)) {
+				/* Found it.  Move on to _KEY_DERIVING. */
+				if (!kx_start_key_deriving (kxd)) {
+					kxd->last_errno = ENOSYS;
+					goto bailout;
+				}
+				kxd->progress = KXS_SERVER_KEY_DERIVING;
+				return;
+			} else {
+				/* Mismatch.  Try the next. */
+				continue;
+			}
+		}
+		kxd->last_errno = ENOENT;
+		goto bailout;
+	} else if (kxd->progress == KXS_CLIENT_DNSSEC_KDC) {
+		/* On a client, work towards a connected socket */
+		kxover_client_connect_attempt ();
+		return;
+	} else {
+		/* Trigger an error with an assertion that cannot succeed */
+		assert ((kxd->progress == KXS_SERVER_DNSSEC_KDC) || (kxd->progress == KXS_CLIENT_DNSSEC_KDC));
+		return;
+}
+bailout:
+	kxover_finish (kxd);
+	return;
 }
 
 
@@ -1290,24 +1612,12 @@ static void cb_kxs_client_dnssec_realm (
 		goto bailout;
 	}
 	//TODO// regexpmatch: DNS style, uppercase only
-	/* Construct the server realm name with "_kerberos-tls._tcp." prefixed */
-	char *kerberos_tls_hostname = malloc (19 + label1len + 1);
-	if (kerberos_tls_hostname == NULL) {
-		/* Out of memory */
-		kxd->last_errno = ENOMEM;
-		goto bailout;
-	}
-	krb->kerberos_tls_hostname = kerberos_tls_hostname;
-	memcpy (kerberos_tls_hostname   , "_kerberos-tls._tcp.");
-	memcpy (kerberos_tls_hostname+19, &result->data[0][1], label1len);
-	kerberos_tls_hostname [19+label1len] = '\0';
+	/* Look for the KDC based on the _kerberos TXT realm */
+	//TODO//BUG// Longevity of realm information copy!!!
+	kxd->srealm.derptr = &result->data[0][1];
 	kxd->srealm.derlen = label1len;
-	kxd->srealm.derptr = kerberos_tls_hostname + 19;
-	/* Continue to look for the server realm's KDC address */
-	if (!ub_resolve_async (kxover_unbound_ctx,
-			kerberos_tls_hostname, DNS_SRV, DNS_INET,
-			kxd, cb_kxs_client_dnssec_kdc, &kxd->ubqid_srv) == 0) {
-		kxd->last_errno = EADDRNOTAVAIL;
+	if (!kx_start_dnssec_kdc (kxd, kxd->srealm)) {
+		/* kdc->last_errno was set by kx_start_dnssec_kdc() */
 		goto bailout;
 	}
 	/* Success; return from this callback function */
@@ -1316,6 +1626,34 @@ static void cb_kxs_client_dnssec_realm (
 bailout:
 	kxover_finish ();
 	return;
+}
+
+
+/* Add a timeout to the given KXOVER handle.  This can be called after
+ * a successful kxover_client() or kxover_server() call.  It will lead
+ * to an automatic breakdown of communications and a callback with
+ * error code ETIMEDOUT when the given time (in seconds) expires before
+ * the exchange is done.  Call this again to restart the timer.  Any
+ * timeout value <= 0.0 will stop the timer.
+ */
+void kxover_timeout (struct kxover_data *kxd, float timeout_seconds) {
+	ev_timer_stop (kxover_loop, &kxd->ev_timeout);
+	if (timeout_seconds > 0.0) {
+		ev_timer_set (&kxd->ev_timeout, timeout_seconds, 0.0);
+		ev_timer_start (kxover_loop, &kxd->ev_timeout);
+	}
+}
+
+
+/* Fire the timeout and make it report ETIMEDOUT.
+ */
+static void cb_kxover_timeout (EV_P_ ev_timer evt, int _revents) {
+	struct kxover_data *kxd =
+		(struct kxover_data *) (
+			((uint8_t *) evt) -
+				offsetof (struct kxover_data, ev_timeout));
+	kxd->last_errno = ETIMEDOUT;
+	kxover_finish (kxd);
 }
 
 
