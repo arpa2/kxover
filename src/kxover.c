@@ -82,7 +82,20 @@ static const derwalk pack_KX_OFFER [] = {
 	DER_PACK_kxover_KX_OFFER,
 	DER_PACK_END
 };
-typedef DER_OVLY_kxover_KX_OFFER ovly_KX_OFFER;
+static const derwalk pack_KX_REQ_MSG [] = {
+	DER_PACK_kxover_KX_REQ_MSG,
+	DER_PACK_END
+};
+static const derwalk pack_KX_REP_MSG [] = {
+	DER_PACK_kxover_KX_REP_MSG,
+	DER_PACK_END
+};
+
+typedef DER_OVLY_kxover_KX_OFFER   ovly_KX_OFFER  ;
+typedef DER_OVLY_kxover_KX_REQ_MSG ovly_KX_REQ_MSG;
+typedef DER_OVLY_kxover_KX_REP_MSG ovly_KX_REP_MSG;
+
+typedef DER_PACK_rfc4120_PrincipalName pack_PrincipalName;
 
 
 /* Quick DER pack/unpack instructions for KRB-ERROR.
@@ -191,8 +204,8 @@ struct kxover_data {
 	derptr srealm;
 	derptr kx_recv;
 	derptr kx_send;
-	DER_OVLY_kxover_KX_OFFER kx_req;
-	DER_OVLY_kxover_KX_OFFER kx_rep;
+	ovly_KX_REQ_MSG kx_req;
+	ovly_KX_REP_MSG kx_rep;
 	int kxoffer_fd;
 	char *kerberos_tls_hostname;
 	struct ub_result *ubres_txt;
@@ -205,6 +218,8 @@ struct kxover_data {
 	int ubqid_a;
 	ev_timer ev_timeout;
 	ev_io ev_kxcnx;
+	uint8_t salt [32];
+	dercrs kxname2 [2];
 } kxover_t;
 
 
@@ -590,7 +605,7 @@ static void cb_kxs_client_connecting (EV_P_ ev_io *evt, int revents) {
 	/* Send the STARTTLS flag */
 	uint8_t buf4 [4];
 	* (uint32_t *) buf4 = htonl (0x80000001);
-	if (write (kxd->kxoffer_fd, buf4, 4) != 4) {
+	if (send (kxd->kxoffer_fd, buf4, 4, 0) != 4) {
 		/* Close the socket and let event handler signal it */
 		close (kxd->kxoffer_fd);
 		kxd->kxoffer_fd = -1;
@@ -613,6 +628,8 @@ static void cb_kxs_client_starttls (EV_P_ ev_io *evt, int revents) {
 		(struct kxover_data *) (
 			((uint8_t *) evt) -
 				offsetof (struct kxover_data, ev_kxcnx));
+	/* For now, stop reports from the socket */
+	ev_io_stop (evt);
 	/* Bail out when socket errors occurred */
 	if (revents & EV_ERROR) {
 		kxd->last_errno = EIO;
@@ -744,7 +761,7 @@ void cb_kxs_either_realmscheck (struct kxover_data *kxd, bool success) {
 		kxd->progress = KXS_SERVER_DNSSEC_KDC;
 	} else if (kxd->progress == KXS_CLIENT_REALM2CHECK) {
 		/* Continue into sending KX-OFFER */
-		kxover_client_kx_sent (kxd);
+		kx_start_client_kx_sending (kxd);
 		kxd->progress = KXS_CLIENT_KX_SENDING;
 	} else {
 		/* Fail with the message that mentions both acceptable states */
@@ -760,10 +777,67 @@ bailout:
 
 /* Construct a KX-OFFER from the client to the server, and wait
  * for the corresponding KX-OFFER being returned.
+ *
+ * We consider the following information vital in the KX-OFFER:
+ *  - ticket request Realm: SERVICE.REALM
+ *  - ticket PrincipalName: krbtgt/CLIENT.REALM
+ *  - salt, 32 bytes of locally generated random material
+ *  - kvno is left open to the service KDC
+ *  - enctypes that are acceptable to the client
+ *  - from/till, requested begin and end of validity
+ *
+ * When we already have a ticket and are merely refreshing it
+ * before it expires, we could set a future from timestamp, so
+ * we have time to process the new key and initiate it at the
+ * same time as the service KDC.  When this is a new crossover
+ * request, we are in a hurry but also have no risk of clashes,
+ * so we can activate immediately.
+ * TODO: For now, _refresh_only will not be used for delay.
  */
-void kxover_client_kx_sent (struct kxover_data *kxd) {
-	TODO:IMPLEMENT:FROMHERE
-	TODO:REGISTER:cb_kxs_client_kx_received()
+void kx_start_client_kx_sending (struct kxover_data *kxd, bool _refresh_only) {
+	/* Create basic setup for the kx_req */
+	ovly_KX_REQ_MSG *msg = &kxd->kx_req;
+	msg->pvno = dercrs_int_5;
+	msg->msg_type = dercrs_int_18;
+	/* Fill in the ticket PrincipalName and Realm */
+	msg->kxname2[0] = dercrs_kstr_krbtgt;
+	msg->kxname2[1] = kxd->crealm;
+	msg->offer.kxrealm = kxd->srealm;
+	/* Set the enctypes to the ones allowed locally */
+	//TODO// enctypes-der-from-kerberos
+	//TODO// set from to "now"
+	//TODO// set till to "now" + configured #days
+	/* Fill the salt with random bytes */
+	if (!kerberos_prng (kxd->salt, sizeof (kxd->salt))) {
+		kxd->last_errno = errno;
+		goto bailout;
+	}
+	msg->salt.derptr = &kxd->salt[0];
+	msg->salt.derlen = sizeof (kxd->salt);
+	/* Map the fields in kx_req to a DER message kx_send */
+	der_prepack (&msg->kxname2[0], 2, &msg->kxname, &kxd->kx_req.TODO);
+	size_t   reqlen = der_pack (pack_KX_REQ_MSG, msg, NULL);
+	uint8_t *reqptr = malloc (kxd->kx_send.derlen);
+	if (reqptr == NULL) {
+		errno = ENOMEM;
+		goto bailout;
+	der_pack (pack_KX_REQ_MSG, msg, reqptr + reqlen);
+	kxd->kx_send.derlen = reqlen;
+	kxd->kx_send.derptr = reqptr;
+	/* Now send the kx_send message over kxoffer_fd */
+	if (send (kxd->kxoffer_fd, reqptr, reqlen, 0) != reqlen) {
+		/* Close the socket and let event handler signal it */
+		/* Note: We could send with callbacks, if need be */
+		close (kxd->kxoffer_fd);
+		kxd->kxoffer_fd = -1;
+		return;
+	}
+	/* Register the next callback function to collect the response */
+	ev_io_init (evt, cb_kxs_client_kx_receiving, fd, EV_READ | EV_ERROR);
+	ev_io_start (kxover_loop, evt);
+	return;
+bailout:
+	kxover_finish ();
 }
 
 
@@ -771,8 +845,7 @@ void kxover_client_kx_sent (struct kxover_data *kxd) {
  * as KX-OFFER in kxd->kx_recv, possibly arriving in parts.  The
  * first part must be at least 5 bytes to be considered, however.
  */
-void cb_kxs_client_kx_received_TODO_USE_IT (EV_P_ ev_io *evt, int revents) {
-	//TODO// SILLY: WRITTEN AS SERVER CODE BUT TURNED OUT TO BE UNNECESSARY SO EDITED TO CLIENT CODE BUT NOT USED YET
+static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 	struct kxover_data *kxd =
 		(struct kxover_data *) (
 			((uint8_t *) evt) -
@@ -784,31 +857,24 @@ void cb_kxs_client_kx_received_TODO_USE_IT (EV_P_ ev_io *evt, int revents) {
 	}
 	/* Initially collect and analyse the initial 5 bytes */
 	if (kxd->kx_recv.derptr == NULL) {
-		uint8_t buf5 [5];
+		uint8_t buf4 [4];
 		uint8_t tag;
 		size_t  len;
 		uint8_t hlen;
-		dercursor sofar;
-		if (recv (kxd->kxoffer_fd, buf5, 5, 0) != 5) {
+		//TODO//NOT// dercursor sofar;
+		if (recv (kxd->kxoffer_fd, buf4, 4, 0) != 4) {
 			/* Reject silly small transmission */
 			kxd->last_errno = EBADMSG;
 			goto bailout;
 		}
-		sofar.derptr = buf5;
-		sofar.derlen = 5;
-		if (der_header (&sofar, &tag, &len, &hlen) != 0) {
-			/* Error analysing the header */
-			kxd->last_errno = EBADMSG;
-			goto bailout;
-		}
-		kxd->kx_recv.derlen = hlen + len;
-		kxd->kx_recv.derptr = calloc (hlen + len, 1);
+		uint32_t tmplen = ntohl (* (uint32_t *) buf4);
+		kxd->kx_recv.derptr = calloc (kd->kx_recv.derlen, 1);
 		if (kxd->kx_recv.derptr == NULL) {
 			kxd->last_errno = ENOMEM;
 			goto bailout;
 		}
-		kxd->kxoffer_recvlen = 5;
-		memcpy (kxd->kx_recv.derptr, buf5, 5);
+		kxd->kx_recv.derlen = tmplen;
+		kxd->kxoffer_recvlen = 0;
 	}
 	/* Try to receive data (and silently skip on failure) */
 	ssize_t recvlen = recv (kxd->kxoffer_fd, kxd->kx_recv.derptr + kxd->kxoffer_recvlen, kxd->kx_recv.derlen - kxd->kxoffer_recvlen);
@@ -823,8 +889,44 @@ void cb_kxs_client_kx_received_TODO_USE_IT (EV_P_ ev_io *evt, int revents) {
 	}
 	/* When all arrived, stop further socket receiving */
 	ev_io_stop (evt);
+	/* Compare the outer DER length and unpack the KX-REP-MSG */
+	dercrs inicrs = kxd->kx_recv;
+	if ((der_header (&inicrs, &tag, &len, &hlen) != 0) || (len+hlen != kxd-kx_recv.derlen)) {
+		/* Error analysing the header */
+		kxd->last_errno = EBADMSG;
+		goto bailout;
+	}
+	if (!kxoffer_unpack (kxd->kx_recv, der_int_19, kxd->kx_rep)) {
+		kxd->last_errno = errno;
+		goto bailout;
+	}
 	/* Analyse the data and compare kx_req and kx_rep */
-	TODO:ANALYSE:COMPARE
+	if (der_cmp (kxd->kx_req.nonce, kxd->kx_rep.nonce) != 0) {
+		/* Nonce in KX-REQ and KX-REP did not match */
+		goto bailout_EPROTO;
+	}
+	if (der_cmp (kxd->kx_req.from, kxd->kx_rep.from) != 0) {
+		/* Request Time in KX-REQ and KX-REP did not match */
+		goto bailout_EPROTO;
+	}
+	if (der_cmp (kxd->kx_req.kxrealm, kxd->kx_rep.kxrealm) != 0) {
+		/* Realm in KX-REQ and KX-REP did not match */
+		goto bailout_EPROTO;
+	}
+	dercrs service_realm;
+	if (!_parse_service_principalname (2, kxd->kxname, NULL, &service_realm)) {
+		kxd->last_errno = errno;
+		goto bailout;
+	}
+	//TODO// regexp: all-lowercase requirement
+	if (der_cmp (service_realm, kxd->kxname2[1]) != 0) {
+		/* Service hostname in KX-REQ and KX-REP did not match */
+		goto bailout_EPROTO;
+	}
+	//TODO// For now, in lieu of spec certainty, enforce kvno presence in KX-REP
+	if (!der_isnonempty (kxd->kx_rep.kvno)) {
+		goto bailout_EPROTO;
+	}
 	/* End this callback, and continue with key derivation */
 	if (!kx_start_key_deriving (kxd)) {
 		/* kxd->last_errno is set by kx_start_key_deriving() */
@@ -833,6 +935,9 @@ void cb_kxs_client_kx_received_TODO_USE_IT (EV_P_ ev_io *evt, int revents) {
 	}
 	kxd->progress = KXS_CLIENT_KEY_DERIVING;
 	return;
+bailout_EPROTO:
+	errno = EPROTO;
+	/* ...and continue: */
 bailout:
 	ev_io_stop (evt);
 	/* ...and continue: */
@@ -861,9 +966,12 @@ static void _cb_kxover_unbound (EV_P_ ev_io *_evt, int _revents) {
 static bool kx_start_key_deriving (kxover_data *kxd) {
 	/* Determine label and salt to use */
 	static const dercrs label = {
-		.derptr = "EXPERIMENTAL-ARPA2-KXOVER",
-		.derlen = 25,
+		.derptr = "EXPERIMENTAL-EXPORTER-INTERNETWIDE-KXOVER",
+		.derlen = 41,
+		// .derptr = "EXPORTER-INTERNETWIDE-KXOVER",
+		// .derlen = 28,
 	};
+	assert (strlen (label.derptr) == label.derlen);
 	static const dercrs no_ctxval = {
 		.derptr = NULL,
 		.derlen = 0,
@@ -910,7 +1018,7 @@ bool kxover_init (ev_loop *loop, char *dnssec_rootkey_file) {
 	}
 	/* Initialise the event loop, with Unbound service */
 	kxover_loop = loop;
-	ev_io_init (&kxover_unbound_watcher, _cb_kxover_unbound, fd, EV_READ);
+	ev_io_init (&kxover_unbound_watcher, _cb_kxover_unbound, fd, EV_READ | EV_ERROR);
 	ev_io_start (loop, &kxover_unbound_watcher);
 	return true;
 teardown_unbound:
@@ -1205,7 +1313,18 @@ static void _kxover_client_cleanup (struct kxover_data *kxd) {
 	case KXS_CLIENT_KEY_STORING:
 	case KXS_CLIENT_KEY_DERIVING:
 	case KXS_CLIENT_KX_RECEIVING:
+		if (kxd->rep_msg.derptr) {
+			free (kxd->rep_msg.derptr);
+			kxd->rep_msg.derptr = NULL;
+		}
+		kxd->rep_msg.derlen = 0;
 	case KXS_CLIENT_KX_SENDING:
+		if (kxd->req_msg.derptr) {
+			free (kxd->req_msg.derptr);
+			kxd->req_msg.derptr = NULL;
+		}
+		kxd->req_msg.derlen = 0;
+	case KXS_CLIENT_REALM2CHECK:
 	case KXS_CLIENT_REALMSCHECK:
 		;
 	case KXS_CLIENT_HANDSHAKE:
@@ -1317,51 +1436,25 @@ inline void kxover_client_cancel (struct kxover_data *kxd) { kxover_cancel (kxd)
 inline void kxover_server_cancel (struct kxover_data *kxd) { kxover_cancel (kxd); }
 
 
-/* Having classified TCPKRB5_KXOVER_REP from downstream,
- * handle it locally by finishing realm crossover and
- * continuing processing after it completes.  This
- * involves KXOVER server validation.
+/* Parse the DER format for a PrincipalName, and check
+ * it to either be krbtgt/REALM@REALM (for name_type 2)
+ * or another service in service/host@REALM (for
+ * name_type 3).  The output is true when the name has
+ * a proper structure, and the level0 and level1 strings
+ * are output.
  *
- * Server validation is partially done by the starttls
- * module, notably the part from the server host name
- * through DANE.  Plus, if we sent the KXOVER request
- * before, we know that the server host name was found
- * securely.  The caution that remains here is to see
- * to it that the KXOVER response matches the KXOVER
- * request.
+ * Note that unpack() only gets halfway with PrincipalName;
+ * the name-string in the PrincipalName is a SEQUENCE OF
+ * KerberosString, and must be iterated manually.  This is
+ * what this function does.
  *
- * This function wraps around kxover_client() and adds
- * parsing of the Kerberos response to determine the
- * client and service realms.  The callback is called
- * with the given callback data and an indication of
- * success, as well as the client and service realms
- * in case of success.
- *
- * The return value is either an opaque object as from
- * kxover_client() or it is NULL to indicate failure
- * to parse or setup the client, with detail in errno.
+ * Return true on success, or false with errno set on failure.
  */
-struct kxover_data *kxover_client (cb_kxover_server cb, void *cbdata,
-			derptr krbdata) {
-	ovly_KRB_ERROR fields;
-	der_unpack (&krbdata, pack_KRB_ERROR, fields, 1);
-	if (der_cmp (fields.pvno), der_int_5) != 0) {
-		errno = EPROTO;
-printf ("DEBUG: kvno != 5\n");
-		return NULL;
-	}
-	if (der_cmp (fields.msg_type, der_int_30) != 0) {
-		errno = EPROTO;
-printf ("DEBUG: msg_type != 30\n");
-		return NULL;
-	}
-	/* Test service ticket name: 2 levels, 1st != "krbtgt" */
+bool _parse_service_principalname (int name_type, const pack_PrincipalName *princname,
+			dercrs *out_label0, dercrs *out_label1) {
 	bool ok = true;
-	derptr der0 = fields.sname;         /* copy */
-printf ("DEBUG: der0     # %d\tat %s:%d\n", der0.derlen, __FILE__, __LINE__);
-	ok = ok && (0 == der_enter (der0)); /* into princname */
-printf ("DEBUG: der0     # %d\tat %s:%d\n", der0.derlen, __FILE__, __LINE__);
-	ok = ok && (0 == der_skip  (der0)); /* pass name-type */
+	/* We simply ignore the name_type, as directed by RFC 4120 */
+	derptr der0 = princname.name_string;         /* copy */
 printf ("DEBUG: der0     # %d\tat %s:%d\n", der0.derlen, __FILE__, __LINE__);
 	ok = ok && (0 == der_enter (der0));
 printf ("DEBUG: der0     # %d\tat %s:%d\n", der0.derlen, __FILE__, __LINE__);
@@ -1381,18 +1474,97 @@ printf ("DEBUG: der0,1,2 # %d,%d,%d\tat %s:%d\n", der0.derlen, der1.derlen, der2
 	ok = ok &&  der_isnonempty (der1);
 	ok = ok && !der_isnonempty (der2);
 	if (!ok) {
-		errno = EBADMSG;
+		goto bad_message;
+	}
+	bool is_krbtgt = (der_cmp (der0, der_kstr_krbtgt) == 0);
+	if (name_type == 2) {
+		if (!is_krbtgt) {
+			goto not_permitted;
+		}
+	} else if (name_type == 3) {
+		if (is_krbtgt) {
+			goto not_permitted;
+		}
+	} else {
+		goto not_permitted;
+	}
+	/* Success!  Deliver outputs and return cheerfully. */
+	if (out_label1 != NULL) {
+		*out_label1 = der0;
+	}
+	if (out_label2 != NUL) {
+		*out_label2 = der1;
+	}
+	return true;
+bad_message:
+	errno = EBADMSG;
+	return false;
+not_permitted:
+	errno = EPERM;
+	return false;
+}
+
+
+
+/* Having classified KRB_ERROR message from downstream,
+ * handle it locally by initiating realm crossover and
+ * return the structure for its handling.  When done,
+ * the callback will be invoked to indicate success or
+ * failure in setting up a crossover key and allowing
+ * another attempt that should be more successful (if
+ * the KDC can infer the home realm for the requested
+ * service ticket).
+ *
+ * Server validation is partially done by the starttls
+ * module, notably the part from the server host name
+ * through DANE.  Plus, if we sent the KXOVER request
+ * before, we know that the server host name was found
+ * securely.  The caution that remains here is to see
+ * to it that the KXOVER response matches the KXOVER
+ * request.
+ *
+ * This function wraps around kxover_client() and adds
+ * parsing of the Kerberos response to determine the
+ * client and service realms.  The callback is called
+ * with the given callback data and an indication of
+ * success, as well as the client and service realms
+ * in case of success.
+ *
+ * The return value is either an opaque object as from
+ * kxover_client() or it is NULL to indicate failure
+ * to parse or setup the client, with detail in errno.
+ * This function will regularly fail, but it can be
+ * freely tried.  Other errors or otherwise unfit
+ * messages will simply return failure.
+ */
+struct kxover_data *kxover_client_for_KRB_ERROR (
+			cb_kxover_server cb, void *cbdata,
+			derptr krbdata) {
+	ovly_KRB_ERROR fields;
+	der_unpack (&krbdata, pack_KRB_ERROR, fields, 1);
+	if (der_cmp (fields.pvno), der_int_5) != 0) {
+		errno = EPROTO;
+printf ("DEBUG: kvno != 5\n");
 		return NULL;
 	}
-	if (der_cmp (der0, der_kstr_krbtgt) == 0) {
-		errno = EPERM;
+	if (der_cmp (fields.msg_type, der_int_30) != 0) {
+		errno = EPROTO;
+printf ("DEBUG: msg_type != 30\n");
+		return NULL;
+	}
+	/* Test service ticket name: 2 levels, 1st != "krbtgt" */
+	dercrs der0, der1;
+	if (!_parse_service_principalname (3, &fields.sname, NULL, NULL)) {
+		/* errno has been set in the test */
+printf ("DEBUG: PrincipalName not acceptable\n");
 		return NULL;
 	}
 	// We might also check ctime, cusec, stime, susec
 	// But: The origin is our trusted backend.
+printf ("DEBUG: Starting KXOVER client for KRB-ERROR\n");
 	return kxover_client (cb, cbdata,
-				fields.crealm,  /* client realm */
-				fields.realm); /* service realm */
+				fields.crealm,   /* client realm */
+				fields. realm); /* service realm */
 }
 
 

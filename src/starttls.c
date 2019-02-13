@@ -443,6 +443,7 @@ bool starttls_export_key (dercrs label, dercrs opt_ctxval,
 			struct starttls_data *tlsdata;
 			starttls_cb_test_t cb, void *cbdata) {
 	/* Prepare the zero-terminated variables expected by the TLS Pool */
+	//TODO// This is a weakness in the TLS Pool API, use ptr/len there too!!!
 	char label0 [label.derlen+1];
 	memcpy (label0, label.derptr, label.derlen);
 	label0 [label.derlen] = '\0';

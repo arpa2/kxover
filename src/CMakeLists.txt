@@ -13,6 +13,12 @@ add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE})
 # Source Files and Compiler Instructions
 #
 
+
+#TODO# add the libev library in a portable manner
+#TODO# consider https://github.com/ksophocleous/libev
+#HUH?# find_library (LIB_EV ev)
+#HUH?# if ...${LIBEV-NOTFOUND}...
+
 set (kxover_SRC
 	backend.c
 	udpwrap.c
@@ -23,8 +29,6 @@ set (kxover_SRC
 
 add_executable (kxover ${kxover_SRC})
 target_link_libraries (kxover ev) # (... quick_der tlspool)
-
-#TODO# add the libev library in a portable manner
 
 
 #
