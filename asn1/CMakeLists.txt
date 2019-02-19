@@ -2,9 +2,10 @@
 
 cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
 
-set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR}/erlang/kxover-${KXOVER_VERSION})
+#ERLANG.MK# set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR}/erlang/kxover-${KXOVER_VERSION})
+set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR})
 
-set (SPECNAMES RFC4120 RFC5280 KXOVER)
+set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover)
 
 
 add_custom_command (OUTPUT kxover-libdir-asn1
@@ -17,10 +18,29 @@ add_custom_command (OUTPUT kxover-libdir-asn1
 set (OUTPUTFILES)
 foreach (SPEC ${SPECNAMES})
 
-	set (OUTPUTFILES ${OUTPUTFILES} ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1)
+	set (OUTPUTFILES ${OUTPUTFILES}
+		${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
+		${KXOVER_LIBDIR}/asn1/${SPEC}.md
+		${KXOVER_LIBDIR}/asn1/${SPEC}.h
+		${KXOVER_LIBDIR}/asn1/${SPEC}.py
+	)
 
 	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
 		COMMAND cmake -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
+		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
+
+	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.md
+		COMMAND asn1literate ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_LIBDIR}/asn1/${SPEC}.md
+		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
+
+	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.h
+		COMMAND asn2quickder -l c -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1
+		WORKING_DIRECTORY ${KXOVER_LIBDIR}/asn1
+		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
+
+	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.py
+		COMMAND asn2quickder -l python -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1
+		WORKING_DIRECTORY ${KXOVER_LIBDIR}/asn1
 		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
 
 endforeach()
