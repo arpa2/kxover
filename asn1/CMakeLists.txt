@@ -5,7 +5,8 @@ cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
 #ERLANG.MK# set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR}/erlang/kxover-${KXOVER_VERSION})
 set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR})
 
-set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover)
+#NONEED# set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover)
+set (SPECNAMES kxover)
 
 
 add_custom_command (OUTPUT kxover-libdir-asn1

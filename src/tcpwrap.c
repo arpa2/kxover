@@ -29,9 +29,12 @@
  */
 
 
+#include <stddef.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
+#include <assert.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -39,7 +42,14 @@
 
 #include <errno.h>
 
-#include <libev/ev.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#include <ev.h>
+
+
+/* Forward or opaque declarations */
+struct backend;
 
 
 
@@ -49,7 +59,7 @@
 struct acceptdata {
 	struct acceptdata *next;
 	int socket;
-	ev_io_t acceptor;
+	ev_io acceptor;
 };
 
 
@@ -66,7 +76,8 @@ struct acceptdata {
 struct wrapdata {
 	//TODO:DONT// struct wrapdata *next;
 	int socket;
-	ev_io_t listener;
+	int sendctr;
+	ev_io listener;
 	struct sockaddr_in6 client;
 	uint32_t flags;
 	uint32_t progress;
@@ -256,7 +267,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 			}
 			/* Now stop TCP processing and delegate TLS */
 			ev_io_stop (loop, evt);
-			if (!starttls_handshake (wd->socket, &wd->starttls_data,
+			if (!starttls_handshake (wd->socket, &wd->tlsdata,
 						NULL, NULL, /* No names yet */
 						&wd->tlsdata,
 						cb_starttls_handshaken, wd));
@@ -291,7 +302,8 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 	assert (wd->reqofs < wd->reqlen);
 	ssize_t recvlen = recv (wd->socket,
 				wd->reqptr + wd->reqofs,
-				wd->reqlen - wd->reqofs);
+				wd->reqlen - wd->reqofs,
+				0);
 	if (recvlen <= 0) {
 		/* Funny size, ignore this attempt */
 		return;
@@ -340,8 +352,9 @@ static void _acceptor_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 		goto fail;
 	}
 	/* Try to accept the new connection, and determine the client address */
-	wd->socket = accept (ad->socket, &wd->client, sizeof (wd->client));
-	if (wd->socket < 0) {
+	socklen_t wdlen = sizeof (wd->client);
+	wd->socket = accept (ad->socket, (struct sockaddr *) &wd->client, &wdlen);
+	if ((wd->socket < 0) || (wdlen != sizeof (wd->client))) {
 		/* No work to be done, client may have retracted */
 		goto fail;
 	}
@@ -400,7 +413,7 @@ bool tcpwrap_service (char *addr, uint16_t port) {
 		return false;
 	}
 	sin6.sin6_port = htons (port);
-	int sox = socket (AF_INET6, SOCK_STREAM, 0);
+	sox = socket (AF_INET6, SOCK_STREAM, 0);
 	if (sox < 0) {
 		goto fail;
 	}
@@ -408,13 +421,13 @@ bool tcpwrap_service (char *addr, uint16_t port) {
 	if (fcntl (sox, F_SETFL, soxflags | O_NONBLOCK) != 0) {
 		goto fail;
 	}
-	if (bind (sox, &sin6, sizeof (sin6)) != 0) {
+	if (bind (sox, (struct sockaddr *) &sin6, sizeof (sin6)) != 0) {
 		goto fail;
 	}
 	if (listen (sox, 10) != 0) {
 		goto fail;
 	}
-	struct wrapdata *ad = calloc (1, sizeof (struct acceptdata));
+	struct acceptdata *ad = calloc (1, sizeof (struct acceptdata));
 	if (ad == NULL) {
 		goto fail;
 	}

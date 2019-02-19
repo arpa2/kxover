@@ -33,9 +33,12 @@
  */
 
 
-#include <stdbool.h>
+#include <stddef.h>
+#include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -43,8 +46,14 @@
 
 #include <errno.h>
 
-#include <libev/ev.h>
+#include <unistd.h>
+#include <fcntl.h>
 
+#include <ev.h>
+
+
+/* Forward and opaque declarations */
+struct backend;
 
 
 /* The structure of a single message being processed.
@@ -65,7 +74,7 @@
  * benefit of a few, this choice is under discussion.
  */
 struct udpmsg {
-	sockaddr_in6 client;
+	struct sockaddr_in6 client;
 	uint8_t *reqptr;
 	uint32_t reqlen;
 	uint8_t *repptr;
@@ -80,7 +89,7 @@ struct udpmsg {
 struct wrapdata {
 	struct wrapdata *next;
 	int socket;
-	ev_io_t listener;
+	ev_io listener;
 };
 
 
@@ -124,15 +133,16 @@ static bool cb_read_response (struct backend *beh, struct udpmsg *msg) {
 	assert (msg != NULL);
 	uint8_t buf [1500+1];
 	uint32_t buflen = 1500+1;
-	if (!backend_recv (beh, buf, buflen)) {
+	if (!backend_recv (beh, buf, &buflen)) {
 		goto fail;
 	}
-	if ((msglen < 1) || (msglen > 1500)) {
+	if ((buflen < 1) || (buflen > 1500)) {
 		goto fail;
 	}
 	//TODO:IMPLEMENT// Match response against request
 	/* Actually send; UDP is lossy, so no checks made */
-	sendto (msg->socket, buf, buflen, 0, &msg->client, sizeof (msg->client));
+	sendto (msg->socket, buf, buflen, 0,
+				(struct sockaddr *) &msg->client, sizeof (msg->client));
 	free (msg);
 	return true;
 fail:
@@ -155,9 +165,11 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 				offsetof (struct wrapdata, listener));
 	/* Load the data and client address into temporary buffers */
 	uint8_t buf [1500+1];
-	sockaddr_sin6 sin6;
-	ssize_t recvlen = recvfrom (wd.socket, buf, 1500+1, 0, &sin6, sizeof (sin6));
-	if ((recvlen <= 0) || (recvlen > 1500)) {
+	struct sockaddr_in6 sin6;
+	socklen_t sin6len = sizeof (sin6);
+	ssize_t recvlen = recvfrom (wd->socket, buf, 1500+1, 0,
+				(struct sockaddr *) &sin6, &sin6len);
+	if ((sin6len != sizeof (sin6)) || (recvlen <= 0) || (recvlen > 1500)) {
 		/* Funny size, drop the UDP message */
 		return;
 	}
@@ -167,10 +179,10 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 		/* Out of memory, drop the UDP message */
 		return;
 	}
-	msg->reqptr = &msg[1];	/* Pointing beyond the structure */
+	msg->reqptr = (uint8_t *) &msg[1];	/* Pointing beyond the structure */
 	msg->reqlen = recvlen;
 	memcpy (&msg->client, &sin6, sizeof (msg->client));
-	mempcy (msg->reqptr, buf, recvlen);
+	memcpy (msg->reqptr, buf, recvlen);
 	/* Request a backend construct to proxy the UDP message */
 	if (backend_start (msg, cb_write_request, cb_read_response) == NULL) {
 		/* Backend failure, drop the UDP message */
@@ -204,7 +216,7 @@ bool udpwrap_init (struct ev_loop *loop, char *addr, uint16_t port) {
 		return false;
 	}
 	sin6.sin6_port = htons (port);
-	int sox = socket (AF_INET6, SOCK_DGRAM, 0);
+	sox = socket (AF_INET6, SOCK_DGRAM, 0);
 	if (sox < 0) {
 		goto fail;
 	}
@@ -212,13 +224,13 @@ bool udpwrap_init (struct ev_loop *loop, char *addr, uint16_t port) {
 	if (fcntl (sox, F_SETFL, soxflags | O_NONBLOCK) != 0) {
 		goto fail;
 	}
-	if (bind (sox, &sin6, sizeof (sin6)) != 0) {
+	if (bind (sox, (struct sockaddr *) &sin6, sizeof (sin6)) != 0) {
 		goto fail;
 	}
 	if (listen (sox, 10) != 0) {
 		goto fail;
 	}
-	struct wrapdata *wd = calloc (1, sizeof (struct wrapdata));
+	wd = calloc (1, sizeof (struct wrapdata));
 	if (wd == NULL) {
 		goto fail;
 	}

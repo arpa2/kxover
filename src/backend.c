@@ -19,6 +19,7 @@
  */
 
 
+#include <stddef.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -26,12 +27,13 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <arpa/netinet.h>
+#include <arpa/inet.h>
 
 #include <errno.h>
 #include <unistd.h>
 
-#include <libev/ev.h>
+#include <endian.h>
+#include <ev.h>
 
 
 /* BACKEND_POOLSIZE limits overlapping backend requests.
@@ -42,6 +44,13 @@
 #ifndef BACKEND_POOLSIZE
 #define BACKEND_POOLSIZE 512
 #endif
+
+
+/* Forward and opaque declarations */
+struct backend;
+void backend_stop (struct backend *beh);
+bool backend_recv (struct backend *beh,
+			uint8_t *outptr, uint32_t *outlen);
 
 
 /* The callback routines registered for writing and reading.
@@ -104,9 +113,13 @@ static struct ev_loop *backend_loop;
  * Since we need access to the KDB too, we assume
  * localhost (over IPv6 of course) and port 88.
  */
-static sockaddr_in6 kdc_sockaddr = {
+static struct sockaddr_in6 kdc_sockaddr = {
 	.sin6_family = AF_INET6,
-	.sin6_port = htons (88),
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+	.sin6_port = 0x5800,	/* port 88 (little endian) */
+#else
+	.sin6_port = 0x0058,	/* port 88 (big endian) */
+#endif
 	.sin6_addr = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 }
 };
 
@@ -140,7 +153,7 @@ static void _writer_handler (EV_P_ ev_timer *evt, int _revents) {
 		_pool_end = &beh->next;
 	}
 	/* Perform the callback */
-	stop_it = beh->cb_write_req (beh, beh->cbdata);
+	bool stop_it = beh->cb_write_req (beh, beh->cbdata);
 	if (stop_it) {
 		backend_stop (beh);
 	}
@@ -161,11 +174,11 @@ static void _reader_handler (EV_P_ ev_io *evt, int _revents) {
 	if (beh->cbdata == NULL) {
 		uint8_t  dropbuf [1500];
 		uint32_t droplen = 1500;
-		backend_recv (beh, &dropbuf, &droplen);
+		backend_recv (beh, dropbuf, &droplen);
 		return;
 	}
 	/* Perform the callback */
-	stop_it = beh->cb_read_resp (beh, beh->cbdata);
+	bool stop_it = beh->cb_read_resp (beh, beh->cbdata);
 	if (stop_it) {
 		backend_stop (beh);
 	}
@@ -184,7 +197,7 @@ static void _reader_handler (EV_P_ ev_io *evt, int _revents) {
  * Return true on success, false on failure with errno set.
  */
 bool backend_init (struct ev_loop *loop) {
-	struct backend *pool = calloc (BACKEND_POOLSIZE, sizeof(backend));
+	struct backend *pool = calloc (BACKEND_POOLSIZE, sizeof(struct backend));
 	if (pool == NULL) {
 		errno = ENOMEM;
 		return false;
@@ -196,7 +209,8 @@ bool backend_init (struct ev_loop *loop) {
 		if (sox < 0) {
 			break;
 		}
-		if (connect (sox, &kdc_sockaddr, sizeof(kdc_sockaddr)) != 0) {
+		if (connect (sox, (struct sockaddr *) &kdc_sockaddr,
+					sizeof(kdc_sockaddr)) != 0) {
 			close (sox);
 			break;
 		}
@@ -290,7 +304,7 @@ bool backend_send (struct backend *beh,
 	assert (beh->socket >= 0);
 	assert (inptr != NULL);
 	assert (inlen > 0);
-	ssize_t sent = send (pool [pix], inptr, inlen, MSG_DONTWAIT);
+	ssize_t sent = send (beh->socket, inptr, inlen, MSG_DONTWAIT);
 	if ((sent >= 0) && (sent != inlen)) {
 		/* send() did not set errno, so we will */
 		errno = EAGAIN;
