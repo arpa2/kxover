@@ -9,6 +9,11 @@ set (BACKEND_POOLSIZE 512 CACHE STRING
 add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE})
 
 
+option (FAKE_TLS
+	"Bypass TLS for now; use plain TCP and claim OK on any tests"
+	OFF)
+
+
 #
 # Source Files and Compiler Instructions
 #
@@ -19,11 +24,17 @@ add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE})
 #HUH?# find_library (LIB_EV ev)
 #HUH?# if ...${LIBEV-NOTFOUND}...
 
+if (FAKE_TLS)
+	set (TLS_SOURCE "faketls.c")
+elseif(FAKE_TLS)
+	set (TLS_SOURCE "starttls.c")
+endif(FAKE_TLS)
+
 set (kxover_SRC
 	backend.c
 	udpwrap.c
 	tcpwrap.c
-	starttls.c
+	${TLS_SOURCE}
 	kxover.c
 )
 

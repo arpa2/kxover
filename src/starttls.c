@@ -271,7 +271,7 @@ void starttls_close (struct starttls_data *tlsdata) {
  * This cannot be called before starttls_handshake() is done.
  * TODO: It should still be ok after starttls_*_realm_check_certificate().
  */
-struct derptr starttls_local_hostname_fetch_certificate (struct starttls_data *tlsdata) {
+struct dercursor starttls_local_hostname_fetch_certificate (struct starttls_data *tlsdata) {
 	struct dercursor hostname;
 	char *localid = tlsdata->localid;
 	hostname->derptr = localid;
@@ -287,7 +287,7 @@ struct derptr starttls_local_hostname_fetch_certificate (struct starttls_data *t
  * This cannot be called before starttls_handshake() is done.
  * TODO: It should still be ok after starttls_*_realm_check_certificate().
  */
-struct derptr starttls_remote_hostname_fetch_certificate (struct starttls_data *tlsdata) {
+struct dercursor starttls_remote_hostname_fetch_certificate (struct starttls_data *tlsdata) {
 	struct dercursor hostname;
 	char *remoteid = tlsdata->remoteid;
 	hostname->derptr = remoteid;
