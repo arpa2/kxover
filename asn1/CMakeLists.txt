@@ -23,7 +23,7 @@ foreach (SPEC ${SPECNAMES})
 		${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
 		${KXOVER_LIBDIR}/asn1/${SPEC}.md
 		${KXOVER_LIBDIR}/asn1/${SPEC}.h
-		${KXOVER_LIBDIR}/asn1/${SPEC}.py
+		#NONEED# ${KXOVER_LIBDIR}/asn1/${SPEC}.py
 	)
 
 	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1

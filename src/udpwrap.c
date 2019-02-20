@@ -33,27 +33,8 @@
  */
 
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <string.h>
-#include <assert.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-
-#include <errno.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-
-#include <ev.h>
-
-
-/* Forward and opaque declarations */
-struct backend;
+#include "udpwrap.h"
+#include "backend.h"
 
 
 /* The structure of a single message being processed.
@@ -104,7 +85,8 @@ static struct wrapdata *udpwrappers = NULL;
  * true to stop the backend when we have been sending for
  * too long.
  */
-static bool cb_write_request (struct backend *beh, struct udpmsg *msg) {
+static bool cb_write_request (struct backend *beh, void *cbdata) {
+	struct udpmsg *msg = cbdata;
 	assert (beh != NULL);
 	assert (msg != NULL);
 	if (msg->sendctr++ > 3) {
@@ -128,7 +110,8 @@ cleanup:
  * as a result of our proxy function with reuse of backends.
  * Any matching before passing on reduces this risk.
  */
-static bool cb_read_response (struct backend *beh, struct udpmsg *msg) {
+static bool cb_read_response (struct backend *beh, void *cbdata) {
+	struct udpmsg *msg = cbdata;
 	assert (beh != NULL);
 	assert (msg != NULL);
 	uint8_t buf [1500+1];

@@ -9,10 +9,11 @@
 - Construct a dedicated KXOVER client for command line use
 - Construct a dedicated KXOVER operations tool to list/get/set in KDB
 - Specialise KX-OFFER messages sent under STARTTLS as a KXOVER server
-- KX-OFFER += salt (both sides), += extensions, -= accept-*
-- KX' ASN.1 += format for "context info"; label is ranked "spec req"
++ KX-OFFER += salt (both sides), += extensions, -= accept-*
++ KX' ASN.1 += format for "context info"; label is ranked "spec req"
 - Specialise KDC-sent "not found" forwarding as a KXOVER client
 - Specialise KDC-sent krbtgt/A@B redirect as refresh hints
 - We are not using void *watcher->data from libev, thus wasting space
 - Make the TLS Pool asynchronous, and follow that in starttls.c
 - Docker demo: reveal static keys, actual DANE, KDC [::1]:77,:99
+- Allow a test mode without TLS, through a faketls.c file

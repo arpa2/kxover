@@ -19,47 +19,7 @@
  */
 
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <assert.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-
-#include <errno.h>
-#include <unistd.h>
-
-#include <endian.h>
-#include <ev.h>
-
-
-/* BACKEND_POOLSIZE limits overlapping backend requests.
- * This rate limits the load passed to the local KDC.
- *
- * //XXX// Or this could rate limit requests per second.
- */
-#ifndef BACKEND_POOLSIZE
-#define BACKEND_POOLSIZE 512
-#endif
-
-
-/* Forward and opaque declarations */
-struct backend;
-void backend_stop (struct backend *beh);
-bool backend_recv (struct backend *beh,
-			uint8_t *outptr, uint32_t *outlen);
-
-
-/* The callback routines registered for writing and reading.
- * These routines should return true when no further callbacks
- * are required (of either kind) and processing is to be
- * considered complete.
- */
-typedef bool (*backend_callback) (struct backend *beh, void *cbdata);
-
+#include "backend.h"
 
 /* The administration of a current pool entry.
  *

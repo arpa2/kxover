@@ -29,27 +29,9 @@
  */
 
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <string.h>
-#include <assert.h>
-
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-
-#include <errno.h>
-
-#include <unistd.h>
-#include <fcntl.h>
-
-#include <ev.h>
-
-
-/* Forward or opaque declarations */
-struct backend;
+#include "tcpwrap.h"
+#include "backend.h"
+#include "starttls.h"
 
 
 
@@ -140,7 +122,8 @@ disconnect:
  * true to stop the backend when we have been sending for
  * too long.
  */
-static bool cb_write_request (struct backend *beh, struct wrapdata *wd) {
+static bool cb_write_request (struct backend *beh, void *cbdata) {
+	struct wrapdata *wd = cbdata;
 	assert (beh != NULL);
 	assert (wd  != NULL);
 	if (wd->sendctr++ > 3) {
@@ -175,12 +158,13 @@ retry:
  * as a result of our proxy function with reuse of backends.
  * Any matching before passing on reduces this risk.
  */
-static bool cb_read_response (struct backend *beh, struct wrapdata *wd) {
+static bool cb_read_response (struct backend *beh, void *cbdata) {
+	struct wrapdata *wd = cbdata;
 	assert (beh != NULL);
 	assert (wd  != NULL);
 	uint8_t buf [1500+1];
 	uint32_t buflen = 1500+1;
-	if (!backend_recv (beh, buf, buflen)) {
+	if (!backend_recv (beh, buf, &buflen)) {
 		goto retry;
 	}
 	if ((buflen < 1) || (buflen > 1500)) {
@@ -267,7 +251,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 			}
 			/* Now stop TCP processing and delegate TLS */
 			ev_io_stop (loop, evt);
-			if (!starttls_handshake (wd->socket, &wd->tlsdata,
+			if (!starttls_handshake (wd->socket,
 						NULL, NULL, /* No names yet */
 						&wd->tlsdata,
 						cb_starttls_handshaken, wd));
