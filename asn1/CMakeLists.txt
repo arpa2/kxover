@@ -3,14 +3,24 @@
 cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
 
 #ERLANG.MK# set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR}/erlang/kxover-${KXOVER_VERSION})
-set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR})
+# set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR})
+set (KXOVER_DOCDIR ${CMAKE_BINARY_DIR}/doc)
+set (KXOVER_INCDIR ${CMAKE_BINARY_DIR}/include)
+set (QUICKDER_INCDIR ${KXOVER_INCDIR}/quick-der)
 
-#NONEED# set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover)
-set (SPECNAMES kxover)
+include_directories (${KXOVER_INCDIR})
+
+set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover)
 
 
-add_custom_command (OUTPUT kxover-libdir-asn1
-	COMMAND cmake -E make_directory ${KXOVER_LIBDIR}/asn1)
+# add_custom_command (OUTPUT kxover-libdir-asn1
+# 	COMMAND cmake -E make_directory ${KXOVER_LIBDIR}/asn1)
+
+add_custom_command (OUTPUT kxover-docdir
+	COMMAND cmake -E make_directory ${KXOVER_DOCDIR})
+
+add_custom_command (OUTPUT kxover-incdir-quickder
+	COMMAND cmake -E make_directory ${QUICKDER_INCDIR})
 
 #
 # Targets deriving Erlang code from the Petri Nets perpetuum/*.pnml
@@ -20,29 +30,29 @@ set (OUTPUTFILES)
 foreach (SPEC ${SPECNAMES})
 
 	set (OUTPUTFILES ${OUTPUTFILES}
-		${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
-		${KXOVER_LIBDIR}/asn1/${SPEC}.md
-		${KXOVER_LIBDIR}/asn1/${SPEC}.h
+		#NONEED# ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
+		${KXOVER_DOCDIR}/${SPEC}.md
+		${QUICKDER_INCDIR}/${SPEC}.h
 		#NONEED# ${KXOVER_LIBDIR}/asn1/${SPEC}.py
 	)
 
-	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
-		COMMAND cmake -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
-		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
+	#DEPENDS# add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
+	#DEPENDS# 	COMMAND cmake -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_LIBDIR}/asn1/${SPEC}.asn1
+	#DEPENDS# 	DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
 
-	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.md
-		COMMAND asn1literate ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_LIBDIR}/asn1/${SPEC}.md
-		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
+	add_custom_command (OUTPUT ${KXOVER_DOCDIR}/${SPEC}.md
+		COMMAND asn1literate ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_DOCDIR}/${SPEC}.md
+		DEPENDS kxover-docdir)
 
-	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.h
+	add_custom_command (OUTPUT ${QUICKDER_INCDIR}/${SPEC}.h
 		COMMAND asn2quickder -l c -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1
-		WORKING_DIRECTORY ${KXOVER_LIBDIR}/asn1
-		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
+		WORKING_DIRECTORY ${QUICKDER_INCDIR}
+		DEPENDS kxover-incdir-quickder)
 
-	add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.py
-		COMMAND asn2quickder -l python -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1
-		WORKING_DIRECTORY ${KXOVER_LIBDIR}/asn1
-		DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
+	#DEPENDS# add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.py
+	#DEPENDS# 	COMMAND asn2quickder -l python -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1
+	#DEPENDS# 	WORKING_DIRECTORY ${KXOVER_LIBDIR}/asn1
+	#DEPENDS# 	DEPENDS kxover-libdir-asn1 ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1)
 
 endforeach()
 
