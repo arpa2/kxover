@@ -1,0 +1,90 @@
+-- # Prior Key Entropy for KXOVER
+
+-- > *When two realms connect repeatedly, they may have older keys that
+-- > have not expired yet.  The entropy contained in these older keys
+-- > can be put to use as a source of additional entropy, to increase
+-- > the burden of attackers.*
+
+-- Imagine a World in which Quantum Computing is available and cheap.
+-- This would mean that any encryption based in modular exponentiation
+-- algorithms such as RSA, DSA, ECDSA, DH are all breakable.  It is even
+-- possible with traffic stored from the past.
+
+-- To make it more difficult, it can be helpful to chain the entropy
+-- from a series of exchanges, because failure to store links in the
+-- chain would mean that entropy is lost.  By the same mechanism, the
+-- entropy from a manually agreed key might be put to good use in
+-- establishing new ones.
+
+-- Prior Key Entropy arranges this linking.  It basically states the
+-- `kvno` values for keys that are currently stored as part of the
+-- `KX-OFFER`.  The client can say what keys it holds (for all the
+-- `etypes` being proposed) and the server can respond which of
+-- those it also has (and that ought to be at least the same).
+
+-- Care should be taken not to convey more information that necessary.
+-- A first principle should be to only supply information to a party
+-- whose identity matches the expectations for the keys requested;
+-- A second principle may be to require a minimum use of prior keys;
+-- A third principle should be to refuse to respond to clients that
+-- enumerate keys unknown to the KXOVER server; the whole design of
+-- KXOVER wants to assure that all crossover keys known to clients
+-- are guaranteed to be known at the server.
+
+
+KXOVER-EXT-PRIORKEY DEFINITIONS EXPLICIT TAGS ::= BEGIN
+
+IMPORTS KX-OFFER, KX-OFFER-EXTENSION, KeyVersionNumber, id-kxover-ext FROM KXOVER;
+
+
+-- ## Definitions
+
+-- The extension uses an Object Identifier to uniquely represent it:
+
+id-kxover-ext-priorkey OBJECT IDENTIFIER ::= {
+        1 3 6 1 4 1 arpa2(44469) experimental(666) kerberos(88) kxover(1)
+        ext(2) priorkey(2) }
+
+-- The data structure stored in the `KX-OFFER-EXTENSION` field `value` is:
+
+ExtPriorkey ::= SEQUENCE OF KeyVersionNumber
+
+-- The data structure used in the `extension-info` field of the
+-- `KXOVER-KEY-INFO` structure is a sequence of key-dependent data TODO:
+
+ExtPriorkeyInfo ::= SEQUENCE OF OCTET STRING
+
+
+-- ## Usage Example
+
+-- Imagine that a `KX-REQ` is about to be sent between two KDCs who already
+-- share keys with `kvno` values 23241 and 32054.  Then the value to be
+-- stored in the respective `KX-OFFER-EXTENSION` value is:
+
+--asn1ate: exampleExtPriorkey KX-OFFER-EXTENSION ::= SEQUENCE {
+--asn1ate:         oid        id-kxover-ext-priorkey,
+--asn1ate:         critical   TRUE,
+--asn1ate:         value      { 23241, 32054 }
+--asn1ate: }
+
+-- The extension is marked critical, so as to be sure that the keys will
+-- indeed be incorporated into the key derivation procedure.  During this,
+-- a constructed field is needed of the same `KX-OFFER-EXTENSION` structure
+-- bit with different contents.  Specifically, the same OID is used but the
+-- `value` field will be an `ExtPriorkeyInfo` field, with one value for
+-- each of the keys input:
+
+--asn1ate: exampleExtPriorkeyInfo KX-OFFER-EXTENSION ::= SEQUENCE {
+--asn1ate:         '4A61726F7573736B79'H,
+--asn1ate:         '56616E205265696E'H,
+--asn1ate:         '446573736179'H
+--asn1ate: }
+
+-- TODO: replace the `req-salt` and `rep-salt` fields?
+-- TODO: how are the OCTET STRINGs derived?
+-- TODO: hash to keep it short?  what hash alg?
+
+
+-- End of the extension definition for Prior Key Entropy.
+
+END

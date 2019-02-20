@@ -1,0 +1,66 @@
+-- # Reliability Update for AuthorizatioData during KXOVER
+
+-- > *When realms connect, it may be vital to learn which of the values
+-- > in AuthorizationData are taken care of by the remote peer, certainly
+-- > when this peer is a KDC.*
+
+-- The `KX-EXT-AUTZDATA` extension to the `KX-OFFER` message contains the
+-- list of `AuthorizationData` fields that the remote peer provides.  Since
+-- KXOVER defines a direct exchange with that peer when the negotiated keys
+-- are used, this is data that is bound to the keys.  It is therefore
+-- specific to the crossover relation, and so may vary from realm to realm.
+
+-- The default policy for a KDC is to replicate any `AuthorizationData`
+-- that it does not recognise, as per RFC 4120.  As a result, remote KDC's
+-- cannot trust any such fields, *unless* they are explicitly configured
+-- to believe otherwise, as part of a trusted exchange with a party that
+-- is entitled to speak.  As long as only a KDC is trusted for statements on
+-- what that KDC does, this should not be a problem.
+
+
+
+KXOVER-EXT-AUTZDATA DEFINITIONS EXPLICIT TAGS ::= BEGIN
+
+IMPORTS
+        KX-OFFER, KX-OFFER-EXTENSION, id-kxover-ext FROM KXOVER
+	Int32 FROM RFC4120;
+
+
+-- ## Definitions
+
+-- The OID for KXOVER-EXT-AUTZDATA is just a unique value that helps to
+-- distinguish this extension uniquely.
+
+id-kxover-ext-autzdata OBJECT IDENTIFIER ::= {
+        1 3 6 1 4 1 arpa2(44469) experimental(666) kerberos(88) kxover(1)
+        ext(2) autzdata(1) }
+
+-- The data structure held in the extension is a sequence of values for
+-- `ad-type` fields in `AuthorizationData` as in RFC 4120.  These values
+-- indicate that the respective bit of data can be trusted as having
+-- been assured by the peer that sends its tag in this extension.
+
+ExtAutzdata ::= SEQUENCE OF Int32
+
+
+-- ## Usage Example
+
+-- Consider an example where the `AuthorizationData` holds the value -7
+-- for `TODO-AD-DIAMETER` for content structured as a Diameter message.
+-- Such messages could not be trusted under the default KDC policy of
+-- passing it verbatim, so a KDC that filters and rewrites the content
+-- and allows nothing through that it does not understand and agree with
+-- should tell another party that might not be aware of this virtue.
+
+-- To make this statement, a non-critical extension is constructed with
+-- the following contents:
+
+--asn1ate: exampleExtAutzdata KX-OFFER-EXTENSION ::= SEQUENCE {
+--asn1ate:         oid       id-kxover-ext-autzdata,
+--asn1ate:         critical  FALSE,
+--asn1ate:         value     { - -TODO-AD-DIAMETER- - -777 }
+--asn1ate: }
+
+
+-- End of the KXOVER extension definition for `AuthorizationData`.
+END

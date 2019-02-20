@@ -10,7 +10,7 @@ set (QUICKDER_INCDIR ${KXOVER_INCDIR}/quick-der)
 
 include_directories (${KXOVER_INCDIR})
 
-set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover)
+set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover kxover-autzdata kxover-priorkey-entropy)
 
 
 # add_custom_command (OUTPUT kxover-libdir-asn1
