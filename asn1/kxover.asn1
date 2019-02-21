@@ -62,8 +62,8 @@
 -- protect their traffic, there is no such prior security relation between
 -- two randomly connecting KDCs.  To establish trust, we use DANE and DNSSEC,
 -- where the declaration of the KDC in terms of SRV records in DNS is used to
--- locate the port and transport for the KDC, which is in turn used to lookup
--- TLSA records to provide validation information for certificates that are
+-- locate the host name for the KDC, with static prefix labels _88._tcp to find
+-- TLSA records that provide validation information for certificates that are
 -- authoritative for the realm.  Such a certificate must mention a host name
 -- of the KDC as well as a Subject Alternative Name for the Kerberos identity
 -- of the represented party.  When the client is not a KDC, then its KDC is
@@ -487,7 +487,9 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 --
 --   * The certificate will be validated under DANE and DNSSEC.  This may
 --     take any of its forms, like end certificate, intermediate or root,
---     as well as self-signed or as part of a certificate hierarchy.
+--     as well as self-signed or as part of a certificate hierarchy.  For
+--     use with KXOVER, the labels prefixed to the KDC host name to find
+--     the TLSA records is always _88._tcp.
 --
 --   * The realm(s) for which the certificate is to be used must hold an
 --     SRV record pointing to the KDC host name, protected by DNSSEC.
@@ -517,6 +519,19 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 -- certificate will be validated by TLS mechanisms, though not beyond the
 -- (customary) point of host name assurance for the KDC.
 
+-- KXOVER end points can be clients or KDCs, but they always refer to a
+-- KDC host name.  The DANE mechanism requires a port as well, but for
+-- KXOVER we fixate the lookup on the reserved port for Kerberos, namely
+-- TCP port 88.  The resulting prefix to the KDC host name is _88._tcp.
+-- regardless of the actual port used by the KDC.  The reasoning is that
+-- any other service on this port on a host appointed for KDC would be
+-- downright silly, so there is no risk of conflict; furthermore, the
+-- order of first starting TLS with a certificate, validated by DANE, and
+-- only then starting to exchange `KX-OFFER` messages, means that the
+-- port number cannot be derived.  When DANE was retrofitted to TLS, this
+-- facility was not added to TLS either.  So we have decided to stick to
+-- the formally standardised port 88 over TCP for the purposes of DANE.
+
 -- ### TLS validates Certificate Ownership
 
 -- To validate certificate ownership, the primary mechanism is DANE/DNSSEC.
@@ -541,19 +556,20 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 --     Optional with DNSname present, otherwise obliged is to
 --     (also) consider the commonName field in the certificate
 --     Subject, provided that it parses as a DNS name.
---     Given the KDC host name, a DANE lookup is made for the
---     port used by the other side.  **TODO:NEED_SRV_SO_REALM**
+--     Given the KDC host name, a DANE lookup is made based with
+--     _88._tcp prefix, in spite of the port used by the other side.
 
 --   * **Secondary Validation: LDAP.**
 --     This uses SRV records for LDAP, found under the KDC host name
 --     with the usual `_ldap._tcp` labels prefixed.  DNSSEC must be
 --     used to protect the server definitions.  Once connected, the
 --     LDAP operation STARTTLS is executed and the certificate used
---     is validated with DANE/DNSSEC.  The client identity is then
---     looked up with the `krb5PrincipalName` attribute set to the
---     peer identity **TODO:HOW?NEED_REALM_NAME_FROM_KXOVER**, and
---     the certificate must be present in one of the objects matching
---     that field.
+--     is looked up in the LDAP tree.  One or more client identities
+--     are then retrieved from the `krb5PrincipalName` and `krb5Realm`
+--     attributes in the LDAP objects that list the certificate.  To
+--     be valid, a last check is whether the `krb5PrincipalName` and
+--     `krb5Realm` values from LDAP combine as a `KRB5PrincipalName`
+--     in the certificate's list of Subject Alternative Names.
 
 --   * **Local Policies: Federations, Pinning, CRLs, OCSP.**
 --     These are extensions that may further constrain access to
@@ -628,9 +644,11 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 -- server.  It will use the SNI extension to decide which
 -- local certificate to use.  It cannot infer a realm name
 -- from the certificate yet, but it will validate the peer
--- through SRV records.  **TODO:ORDER_NEED_REALM**
--- Once a `KX-REQ` is received, it knows a realm, so a DNS name
--- and so SRV records.
+-- with the host name in the local certificate and _88._tcp
+-- as a fixed prefix for the TLSA records.  Once a `KX-REQ`
+-- is received, it knows a realm, so a DNS name and so SRV
+-- records that can be used to check the validity of the
+-- local host name.
 
 -- ### Realm and Certificate validate Client Identity
 
