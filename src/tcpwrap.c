@@ -216,7 +216,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 	}
 	/* Load the initial 4 byte word, with length or TCP flags */
 	uint8_t len_flags_buf [4] = { 0,0,0,0 };
-	if (wd->req_flags == NULL) {
+	if (wd->reqptr == NULL) {
 		ssize_t recvlen = recv (wd->socket, len_flags_buf, 4, 0);
 		if (recvlen == -1) {
 			if ((errno == EWOULDBLOCK) || (errno == EAGAIN)) {
@@ -251,8 +251,9 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 			}
 			/* Now stop TCP processing and delegate TLS */
 			ev_io_stop (loop, evt);
+			dercursor dernull = { .derptr = NULL, .derlen = 0 };
 			if (!starttls_handshake (wd->socket,
-						NULL, NULL, /* No names yet */
+						dernull, dernull, /* No names yet */
 						&wd->tlsdata,
 						cb_starttls_handshaken, wd));
 			if (wd->tlsdata == NULL) {

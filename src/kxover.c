@@ -16,6 +16,7 @@
 
 #include "kxover.h"
 #include "starttls.h"
+#include "kerberos.h"
 
 #include <unbound.h>
 
@@ -35,6 +36,13 @@ static bool kx_start_dnssec_kdc (struct kxover_data *kxd, dercursor realm_name);
 static void kx_start_client_kx_sending (struct kxover_data *kxd, bool _refresh_only);
 static bool _parse_service_principalname (int name_type, const DER_OVLY_rfc4120_PrincipalName *princname,
 			struct dercursor *out_label0, struct dercursor *out_label1);
+static void cb_kxs_either_realmscheck (void *cbdata, bool success);
+static bool kxoffer_unpack (dercursor msg, dercursor msg_type,
+			DER_OVLY_kxover_KX_OFFER *outvars);
+static bool kx_start_key_deriving (struct kxover_data *kxd);
+static void cb_kxover_timeout (EV_P_ ev_timer *evt, int _revents);
+static void _kxover_client_cleanup (struct kxover_data *kxd);
+static void cb_kxs_either_dnssec_kdc (void *cbdata, int err, struct ub_result *result);
 
 
 /* The maximum number of bytes in a DERific Kerberos message */
@@ -184,17 +192,18 @@ struct iterator {
  * failure.
  */
 struct kxover_data {
-	enum kxover_state progress;
-	int last_errno;
-	cb_kxover_result *cb;
-	void *cbdata;
 	struct dercursor crealm;
 	struct dercursor srealm;
+	cb_kxover_result cb;
+	void *cbdata;
+	enum kxover_state progress;
+	int last_errno;
 	struct dercursor kx_recv;
 	struct dercursor kx_send;
-	ovly_KX_REQ_MSG kx_req;
-	ovly_KX_REP_MSG kx_rep;
+	ovly_KX_OFFER kx_req;
+	ovly_KX_OFFER kx_rep;
 	int kxoffer_fd;
+	size_t kxoffer_recvlen;
 	char *kerberos_tls_hostname;
 	struct ub_result *ubres_txt;
 	struct ub_result *ubres_srv;
@@ -210,6 +219,7 @@ struct kxover_data {
 	struct dercursor kxname2 [2];
 	struct iterator iter_srv;
 	struct iterator iter_aaaa_a;
+	struct starttls_data *tlsdata;
 } kxover_t;
 
 
@@ -699,7 +709,7 @@ static void cb_kxs_client_starttls (EV_P_ ev_io *evt, int revents) {
 	struct dercursor client_kdc;
 	server_kdc.derptr = kxd->ubres_srv->data [kxd->iter_srv.cursor] + 6;
 	server_kdc.derlen = kxd->ubres_srv->len  [kxd->iter_srv.cursor] - 6;
-	client_kdc = kerberos_kdc_hostname (kxd->crealm);
+	client_kdc = kerberos_localrealm2hostname (kxd->crealm);
 	if (!der_isnonempty (&client_kdc)) {
 		kxd->last_errno = ENOENT;
 		goto bailout;
@@ -763,7 +773,7 @@ static bool kx_start_realmscheck (struct kxover_data *kxd) {
 			cb_kxs_either_realmscheck, kxd);
 	/* Both sides must be checked, otherwise cancel */
 	if (r_ok != l_ok) {
-		starttls_cancel (kxd->tlsdata);
+		starttls_handshake_cancel (kxd->tlsdata);
 		kxd->last_errno = EIDRM;
 		goto bailout;
 	}
@@ -811,7 +821,7 @@ static void cb_kxs_either_realmscheck (void *cbdata, bool success) {
 		kxd->progress = KXS_SERVER_DNSSEC_KDC;
 	} else if (kxd->progress == KXS_CLIENT_REALM2CHECK) {
 		/* Continue into sending KX-OFFER */
-		kx_start_client_kx_sending (kxd);
+		kx_start_client_kx_sending (kxd, false);
 		kxd->progress = KXS_CLIENT_KX_SENDING;
 	} else {
 		/* Fail with the message that mentions both acceptable states */
@@ -954,11 +964,12 @@ static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 		kxd->last_errno = EBADMSG;
 		goto bailout;
 	}
-	if (!kxoffer_unpack (kxd->kx_recv, der_int_19, kxd->kx_rep)) {
+	if (!kxoffer_unpack (kxd->kx_recv, dercrs_int_19, &kxd->kx_rep)) {
 		kxd->last_errno = errno;
 		goto bailout;
 	}
 	/* Analyse the data and compare kx_req and kx_rep */
+#if TODO_MODERNISE_STRUCTURE_VALIDATION
 	if (der_cmp (kxd->kx_req.nonce, kxd->kx_rep.nonce) != 0) {
 		/* Nonce in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
@@ -967,22 +978,29 @@ static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 		/* Request Time in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
-	if (der_cmp (kxd->kx_req.kxrealm, kxd->kx_rep.kxrealm) != 0) {
+#endif
+	if (der_cmp (kxd->kx_req.kx_name.realm, kxd->kx_rep.kx_name.realm) != 0) {
 		/* Realm in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
+	if (der_cmp (kxd->kx_req.kx_name.principalName.name_type, kxd->kx_rep.kx_name.principalName.name_type) != 0) {
+		/* name_type in KX-REQ and KX-REP did not match */
+		goto bailout_EPROTO;
+	}
+#if TODO_COMPARE_DERNODE_NOT_DERCURSOR
+	if (der_cmp (kxd->kx_req.kx_name.principalName.name_string, kxd->kx_rep.kx_name.principalName.name_string) != 0) {
+		/* name_string in KX-REQ and KX-REP did not match */
+		goto bailout_EPROTO;
+	}
+#endif
 	struct dercursor service_realm;
-	if (!_parse_service_principalname (2, kxd->kxname, NULL, &service_realm)) {
+	if (!_parse_service_principalname (2, &kxd->kx_req.kx_name.principalName, NULL, &service_realm)) {
 		kxd->last_errno = errno;
 		goto bailout;
 	}
 	//TODO// regexp: all-lowercase requirement
 	if (der_cmp (service_realm, kxd->kxname2[1]) != 0) {
 		/* Service hostname in KX-REQ and KX-REP did not match */
-		goto bailout_EPROTO;
-	}
-	//TODO// For now, in lieu of spec certainty, enforce kvno presence in KX-REP
-	if (!der_isnonempty (kxd->kx_rep.kvno)) {
 		goto bailout_EPROTO;
 	}
 	/* End this callback, and continue with key derivation */
@@ -1021,7 +1039,7 @@ static void _cb_kxover_unbound (EV_P_ ev_io *_evt, int _revents) {
  * needed to perform these computations.  After this call,
  * progress should be set to KXS_x_KEY_DERIVING.
  */
-static bool kx_start_key_deriving (kxover_data *kxd) {
+static bool kx_start_key_deriving (struct kxover_data *kxd) {
 	/* Determine label and salt to use */
 	static const struct dercursor label = {
 		.derptr = "EXPERIMENTAL-EXPORTER-INTERNETWIDE-KXOVER",
@@ -1040,13 +1058,15 @@ static bool kx_start_key_deriving (kxover_data *kxd) {
 	/* Ask the starttls.c module to derive a shared key */
 	if (!starttls_export_key (label, no_ctxval,
 			keylen, key,
-			cb_kxs_either_key_deriving, kxd)) {
+			kxd->tlsdata,
+			NULL /*TODO:CBFUN(void *kxd,bool success)*/, kxd)) {
 		kxd->last_errno = errno;
 		goto bailout;
 	}
-	return;
+	return true;
 bailout:
 	kxover_finish (kxd);
+	return false;
 }
 
 
@@ -1059,13 +1079,13 @@ bailout:
 static bool kxoffer_unpack (dercursor msg, dercursor msg_type,
 			ovly_KX_OFFER *outvars) {
 	/* First unpack the message surroundings of KX-*-MSG */
-	dercursor msg_ovly [3];  /* 5, msg-type, KX-OFFER */
+	struct dercursor msg_ovly [3];  /* 5, msg-type, KX-OFFER */
 	if (der_unpack (&msg, pack_msg_shallow, msg_ovly, 1) != 0) {
 		errno = EBADMSG;
 		goto bailout;
 	}
 	/* Verify the pvno and msg-type fields */
-	if (der_cmp (msg_ovly [0], der_int_5) != 0) {
+	if (der_cmp (msg_ovly [0], dercrs_int_5) != 0) {
 		errno = EPROTO;
 		goto bailout;
 	}
@@ -1076,7 +1096,7 @@ static bool kxoffer_unpack (dercursor msg, dercursor msg_type,
 	/* Zoom in on the contained KX-OFFER */
 	msg = msg_ovly [2];
 	/* Unpack the KX-OFFER into outvars */
-	if (der_unpack (&msg, pack_KX_OFFER, outvars, 1) != 0) {
+	if (der_unpack (&msg, pack_KX_OFFER, (dercursor *) outvars, 1) != 0) {
 	errno = EBADMSG;
 		goto bailout;
 	}
@@ -1105,30 +1125,30 @@ static bool _parse_service_principalname (int name_type, const pack_PrincipalNam
 			struct dercursor *out_label0, struct dercursor *out_label1) {
 	bool ok = true;
 	/* We simply ignore the name_type, as directed by RFC 4120 */
-	derptr der0 = princname.name_string;         /* copy */
+	struct dercursor der0 = * (dercursor *) &princname->name_string;         /* copy */
 int printf (const char *__restrict __format, ...);
 printf ("DEBUG: der0     # %d\tat %s:%d\n", der0.derlen, __FILE__, __LINE__);
-	ok = ok && (0 == der_enter (der0));
+	ok = ok && (0 == der_enter (&der0));
 printf ("DEBUG: der0     # %d\tat %s:%d\n", der0.derlen, __FILE__, __LINE__);
-	derptr der1 = der0;                 /* copy */
+	struct dercursor der1 = der0;                 /* copy */
 printf ("DEBUG: der0,1   # %d,%d\tat %s:%d\n", der0.derlen, der1.derlen, __FILE__, __LINE__);
-	ok = ok && (0 == der_skip  (der1));
+	ok = ok && (0 == der_skip  (&der1));
 printf ("DEBUG: der0,1   # %d,%d\tat %s:%d\n", der0.derlen, der1.derlen, __FILE__, __LINE__);
-	derptr der2 = der1;                 /* copy */
+	struct dercursor der2 = der1;                 /* copy */
 printf ("DEBUG: der0,1,2 # %d,%d,%d\tat %s:%d\n", der0.derlen, der1.derlen, der2.derlen, __FILE__, __LINE__);
-	ok = ok && (0 == der_skip  (der2));
+	ok = ok && (0 == der_skip  (&der2));
 printf ("DEBUG: der0,1,2 # %d,%d,%d\tat %s:%d\n", der0.derlen, der1.derlen, der2.derlen, __FILE__, __LINE__);
-	ok = ok && (0 == der_focus (der0));
+	ok = ok && (0 == der_focus (&der0));
 printf ("DEBUG: der0,1,2 # %d,%d,%d\tat %s:%d\n", der0.derlen, der1.derlen, der2.derlen, __FILE__, __LINE__);
-	ok = ok && (0 == der_focus (der1));
+	ok = ok && (0 == der_focus (&der1));
 printf ("DEBUG: der0,1,2 # %d,%d,%d\tat %s:%d\n", der0.derlen, der1.derlen, der2.derlen, __FILE__, __LINE__);
-	ok = ok &&  der_isnonempty (der0);
-	ok = ok &&  der_isnonempty (der1);
-	ok = ok && !der_isnonempty (der2);
+	ok = ok &&  der_isnonempty (&der0);
+	ok = ok &&  der_isnonempty (&der1);
+	ok = ok && !der_isnonempty (&der2);
 	if (!ok) {
 		goto bad_message;
 	}
-	bool is_krbtgt = (der_cmp (der0, der_kstr_krbtgt) == 0);
+	bool is_krbtgt = (der_cmp (der0, dercrs_kstr_krbtgt) == 0);
 	if (name_type == 2) {
 		if (!is_krbtgt) {
 			goto not_permitted;
@@ -1141,11 +1161,11 @@ printf ("DEBUG: der0,1,2 # %d,%d,%d\tat %s:%d\n", der0.derlen, der1.derlen, der2
 		goto not_permitted;
 	}
 	/* Success!  Deliver outputs and return cheerfully. */
-	if (out_label1 != NULL) {
-		*out_label1 = der0;
+	if (out_label0 != NULL) {
+		*out_label0 = der0;
 	}
-	if (out_label2 != NUL) {
-		*out_label2 = der1;
+	if (out_label1 != NULL) {
+		*out_label1 = der1;
 	}
 	return true;
 bad_message:
@@ -1164,16 +1184,16 @@ not_permitted:
  */
 static bool kx_start_dnssec_kdc (struct kxover_data *kxd, dercursor realm_name) {
 	/* Construct the server realm name with "_kerberos-tls._tcp." prefixed */
-	char *kerberos_tls_hostname = malloc (19 + realmname->derlen + 1);
+	char *kerberos_tls_hostname = malloc (19 + realm_name.derlen + 1);
 	if (kerberos_tls_hostname == NULL) {
 		/* Out of memory */
 		kxd->last_errno = ENOMEM;
 		goto bailout;
 	}
-	krb->kerberos_tls_hostname = kerberos_tls_hostname;
-	memcpy (kerberos_tls_hostname   , "_kerberos-tls._tcp.");
-	memcpy (kerberos_tls_hostname+19, realmname->derptr, realmname->derlen);
-	kerberos_tls_hostname [19+realmname->derlen] = '\0';
+	kxd->kerberos_tls_hostname = kerberos_tls_hostname;
+	memcpy (kerberos_tls_hostname   , "_kerberos-tls._tcp.", 19);
+	memcpy (kerberos_tls_hostname+19, realm_name.derptr, realm_name.derlen);
+	kerberos_tls_hostname [19+realm_name.derlen] = '\0';
 	/* Continue to look for the server realm's KDC address */
 	if (!ub_resolve_async (kxover_unbound_ctx,
 			kerberos_tls_hostname, DNS_SRV, DNS_INET,
@@ -1194,8 +1214,9 @@ bailout:
  * certificate-negotiated server name.
  */
 static void cb_kxs_either_dnssec_kdc (
-			struct kxover_data *cbdata,
+			void *cbdata,
 			int err, struct ub_result *result) {
+	struct kxover_data *kxd = cbdata;
 	/* Perform general sanity checks and administration */
 	static struct kx_ub_constraints proper = {
 		.qprefix          = "_kerberos-tls._tcp.",
@@ -1215,11 +1236,13 @@ static void cb_kxs_either_dnssec_kdc (
 		/* Signal the new state, even if we currently don't wait in it */
 		kxd->progress = KXS_SERVER_HOSTCHECK;
 		/* On a server, check the host name against the certificate */
-		iter_srv_reset (&kxd->iter_srv);
+		iter_reset (&kxd->iter_srv);
 		while (iter_srv_next (&kxd->iter_srv, kxd->ubres_srv)) {
+			struct dercursor hostname;
+			hostname.derptr = kxd->kerberos_tls_hostname;
+			hostname.derlen = strlen (hostname.derptr);
 			if (starttls_remote_hostname_check_certificate (
-					struct derptr hostname,
-					struct starttls_data *tlsdata)) {
+					hostname, kxd->tlsdata)) {
 				/* Found it.  Move on to _KEY_DERIVING. */
 				if (!kx_start_key_deriving (kxd)) {
 					kxd->last_errno = ENOSYS;
@@ -1236,7 +1259,7 @@ static void cb_kxs_either_dnssec_kdc (
 		goto bailout;
 	} else if (kxd->progress == KXS_CLIENT_DNSSEC_KDC) {
 		/* On a client, work towards a connected socket */
-		kxover_client_connect_attempt ();
+		kxover_client_connect_attempt (kxd);
 		return;
 	} else {
 		/* Trigger an error with an assertion that cannot succeed */
@@ -1253,8 +1276,9 @@ bailout:
  * This is a callback from Unbound, installed in kxover_client().
  */
 static void cb_kxs_client_dnssec_realm (
-			struct kxover_data *cbdata,
+			void *cbdata,
 			int err, struct ub_result *result) {
+	struct kxover_data *kxd = cbdata;
 	/* Perform general sanity checks and administration */
 	static struct kx_ub_constraints proper = {
 		.qprefix          = "_kerberos.",
@@ -1300,7 +1324,7 @@ bailout:
  *
  * Return true on succes, or false with errno set on failure.
  */
-bool kxover_init (ev_loop *loop, char *dnssec_rootkey_file) {
+bool kxover_init (EV_P_ char *dnssec_rootkey_file) {
 	assert (kxover_unbound_ctx == NULL);
 	kxover_unbound_ctx = ub_ctx_create ();
 	if (kxover_unbound_ctx == NULL) {
@@ -1320,7 +1344,7 @@ bool kxover_init (ev_loop *loop, char *dnssec_rootkey_file) {
 	/* Initialise the event loop, with Unbound service */
 	kxover_loop = loop;
 	ev_io_init (&kxover_unbound_watcher, _cb_kxover_unbound, fd, EV_READ | EV_ERROR);
-	ev_io_start (loop, &kxover_unbound_watcher);
+	ev_io_start (EV_A_ &kxover_unbound_watcher);
 	return true;
 teardown_unbound:
 	ub_ctx_delete (kxover_unbound_ctx);
@@ -1337,14 +1361,14 @@ teardown_unbound:
  * Possible return values are TCPKRB5_PASS, _KXOVER_REQ as
  * well as _ERROR.
  */
-tcpkrb5_t kxover_classify_kerberos_down (derptr krb) {
+tcpkrb5_t kxover_classify_kerberos_down (struct dercursor krb) {
 	uint8_t tag;
 	size_t intlen;
 	uint8_t hdrlen;
 	if (der_header (&krb, &tag, &intlen, &hdrlen) != 0) {
 		return TCPKRB5_ERROR;
 	}
-	if (hdrlen + intlen != krblen) {
+	if (hdrlen + intlen != krb.derlen) {
 		return TCPKRB5_ERROR;
 	}
 	switch (tag) {
@@ -1367,19 +1391,19 @@ tcpkrb5_t kxover_classify_kerberos_down (derptr krb) {
  * Possible return values are TCPKRB5_PASS, _NOTFOUND
  * and _KXOVER_REP as well as _ERROR.
  */
-tcpkrb5_t kxover_classify_kerberos_up (derptr krb) {
+tcpkrb5_t kxover_classify_kerberos_up (struct dercursor krb) {
 	uint8_t tag;
 	size_t intlen;
 	uint8_t hdrlen;
 	if (der_header (&krb, &tag, &intlen, &hdrlen) != 0) {
 		return TCPKRB5_ERROR;
 	}
-	if (hdrlen + intlen != krblen) {
+	if (hdrlen + intlen != krb.derlen) {
 		return TCPKRB5_ERROR;
 	}
 	switch (tag) {
 	case APPTAG_KRB_ERROR:
-		if (der_walk (krb, krberror2code) != 0) {
+		if (der_walk (&krb, krberror2code) != 0) {
 			return TCPKRB5_ERROR;
 		}
 		if (der_cmp (krb, dercrs_notfound) == 0) {
@@ -1428,10 +1452,10 @@ tcpkrb5_t kxover_classify_kerberos_up (derptr krb) {
  * for the duration of its processing, that data is
  * assumed to be stable until the callback.
  */
-struct kxover_data *kxover_server (cb_kxover_server cb, void *cbdata,
-			derptr kx_req_msg, int kxoffer_fd) {
-	assert (reqptr != NULL);
-	assert (reqlen > 10);
+struct kxover_data *kxover_server (cb_kxover_result cb, void *cbdata,
+			struct dercursor kx_req_msg, int kxoffer_fd) {
+	assert (kx_req_msg.derptr != NULL);
+	assert (kx_req_msg.derlen > 10);
 	assert (kxoffer_fd >= 0);
 	/* Allocate and initialise the kxover_data */
 	struct kxover_data *kxd;
@@ -1447,7 +1471,7 @@ struct kxover_data *kxover_server (cb_kxover_server cb, void *cbdata,
 	kxd->progress = KXS_SERVER_INITIALISED;
 	/* Take in the server message, and unpack its DER */
 	kxd->kx_recv = kx_req_msg;
-	if (!kxoffer_unpack (kxd, kx_req_msg, der_int_18)) {
+	if (!kxoffer_unpack (kx_req_msg, dercrs_int_18, &kxd->kx_req)) {
 		/* errno is set to EBADMSG in kxoffer_unpack() */
 		kxd->last_errno = errno;
 		goto bailout;
@@ -1519,8 +1543,8 @@ static void _kxover_server_cleanup (struct kxover_data *kxd) {
  * report the overall success or failure of the
  * KXOVER operation.
  */
-struct kxover_data *kxover_client (cb_kxover_server cb, void *cbdata,
-			derptr client_realm, derptr service_realm) {
+struct kxover_data *kxover_client (cb_kxover_result cb, void *cbdata,
+			struct dercursor client_realm, struct dercursor service_realm) {
 	/* Allocate and initialise the kxover_data */
 	struct kxover_data *kxd = NULL;
 	char *kerberos_REALM = NULL;
@@ -1534,7 +1558,7 @@ struct kxover_data *kxover_client (cb_kxover_server cb, void *cbdata,
 	kxd->srealm = service_realm;
 	kxd->cb = cb;
 	kxd->cbdata = cbdata;
-	ev_timer_init (&kxd->ev_timeout, kxover_timeout_fire, 60.0, 0.0);
+	ev_timer_init (&kxd->ev_timeout, cb_kxover_timeout, 60.0, 0.0);
 	kxd->progress = KXS_CLIENT_INITIALISED;
 	/* Initiate activity with a lookup of the realm with _kerberos TXT */
 	kerberos_REALM = malloc (10 + service_realm.derlen + 1);
@@ -1543,11 +1567,11 @@ struct kxover_data *kxover_client (cb_kxover_server cb, void *cbdata,
 		goto bailout;
 	}
 	memcpy (kerberos_REALM     , "_kerberos.", 10);
-	memcpy (kerberos_REALM + 10, client_realm.derptr, client_realm.derlen)
+	memcpy (kerberos_REALM + 10, client_realm.derptr, client_realm.derlen);
 	kerberos_REALM [10 + client_realm.derlen] = '\0';
-	kxd->kerberos_REALM = kerberos_REALM;
+	//TODO//UNUSED// kxd->kerberos_REALM = kerberos_REALM;
 	if (!ub_resolve_async (kxover_unbound_ctx,
-			kerberos_REALM, DNS_TXT, DNS_INET
+			kerberos_REALM, DNS_TXT, DNS_INET,
 			kxd, cb_kxs_client_dnssec_realm, &kxd->ubqid_txt)) {
 		errno = ENXIO;
 		goto bailout;
@@ -1557,7 +1581,7 @@ struct kxover_data *kxover_client (cb_kxover_server cb, void *cbdata,
 	return kxd;
 bailout:
 	/* Cleanup processing without callback */
-	_kxover_client_cleanup ();
+	_kxover_client_cleanup (kxd);
 	if (kxd != NULL) {
 		free (kxd);
 	}
@@ -1577,17 +1601,17 @@ static void _kxover_client_cleanup (struct kxover_data *kxd) {
 	case KXS_CLIENT_KEY_STORING:
 	case KXS_CLIENT_KEY_DERIVING:
 	case KXS_CLIENT_KX_RECEIVING:
-		if (kxd->rep_msg.derptr) {
-			free (kxd->rep_msg.derptr);
-			kxd->rep_msg.derptr = NULL;
+		if (kxd->kx_recv.derptr) {
+			free (kxd->kx_recv.derptr);
+			kxd->kx_recv.derptr = NULL;
 		}
-		kxd->rep_msg.derlen = 0;
+		kxd->kx_recv.derlen = 0;
 	case KXS_CLIENT_KX_SENDING:
-		if (kxd->req_msg.derptr) {
-			free (kxd->req_msg.derptr);
-			kxd->req_msg.derptr = NULL;
+		if (kxd->kx_send.derptr) {
+			free (kxd->kx_send.derptr);
+			kxd->kx_send.derptr = NULL;
 		}
-		kxd->req_msg.derlen = 0;
+		kxd->kx_send.derlen = 0;
 	case KXS_CLIENT_REALM2CHECK:
 	case KXS_CLIENT_REALMSCHECK:
 		;
@@ -1607,33 +1631,35 @@ static void _kxover_client_cleanup (struct kxover_data *kxd) {
 		if (kxd->ubres_aaaa != NULL) {
 			ub_resolve_free (kxd->ubres_aaaa);
 		} else {
-			ub_cancel (kxover_unbound_ctx, kxd->unqid_aaaa);
+			ub_cancel (kxover_unbound_ctx, kxd->ubqid_aaaa);
 		}
 		if (kxd->ubres_a != NULL) {
 			ub_resolve_free (kxd->ubres_a);
 		} else {
-			ub_cancel (kxover_unbound_ctx, kxd->unqid_a);
+			ub_cancel (kxover_unbound_ctx, kxd->ubqid_a);
 		}
 	case KXS_CLIENT_DNSSEC_KDC:
 		if (kxd->ubres_srv != NULL) {
 			ub_resolve_free (kxd->ubres_srv);
 		} else {
-			ub_cancel (kxover_unbound_ctx, kxd->unqid_srv);
+			ub_cancel (kxover_unbound_ctx, kxd->ubqid_srv);
 		}
 	case KXS_CLIENT_DNSSEC_REALM:
 		if (kxd->kerberos_tls_hostname != NULL) {
 			free (kxd->kerberos_tls_hostname);
 			kxd->kerberos_tls_hostname = NULL;
 		}
-		if (kxd->ubres_text != NULL) {
+		if (kxd->ubres_txt != NULL) {
 			ub_resolve_free (kxd->ubres_txt);
 		} else {
 			ub_cancel (kxover_unbound_ctx, kxd->ubqid_txt);
 		}
 	case KXS_CLIENT_INITIALISED:
-		if (kxd->kerberos_REALM != NULL) {
-			free (kxd->kerberos_REALM);
-			kxd->kerberos_REALM = NULL;
+		//TODO:UNUSED// if (kxd->kerberos_REALM != NULL) {
+		//TODO:UNUSED// 	free (kxd->kerberos_REALM);
+		//TODO:UNUSED// 	kxd->kerberos_REALM = NULL;
+		//TODO:UNUSED// }
+		;
 	default:
 		;
 	}
@@ -1657,7 +1683,7 @@ static void _kxover_client_cleanup (struct kxover_data *kxd) {
  * routine.
  */
 static void _kxover_cleanup (struct kxover_data *kxd) {
-	progress = kxd->progress;
+	enum kxover_state progress = kxd->progress;
 	if        ((progress > KXS_CLIENT_PRE ) &&
 	           (progress < KXS_CLIENT_POST)) {
 		_kxover_client_cleanup (kxd);
@@ -1733,16 +1759,17 @@ inline static void kxover_server_cancel (struct kxover_data *kxd) { kxover_cance
  * messages will simply return failure.
  */
 struct kxover_data *kxover_client_for_KRB_ERROR (
-			cb_kxover_server cb, void *cbdata,
-			derptr krbdata) {
+			cb_kxover_result cb, void *cbdata,
+			struct dercursor krbdata) {
+int printf (const char *__restrict __format, ...);
 	ovly_KRB_ERROR fields;
-	der_unpack (&krbdata, pack_KRB_ERROR, fields, 1);
-	if (der_cmp (fields.pvno), der_int_5) != 0) {
+	der_unpack (&krbdata, pack_KRB_ERROR, (struct dercursor *) &fields, 1);
+	if (der_cmp (fields.pvno, dercrs_int_5) != 0) {
 		errno = EPROTO;
 printf ("DEBUG: kvno != 5\n");
 		return NULL;
 	}
-	if (der_cmp (fields.msg_type, der_int_30) != 0) {
+	if (der_cmp (fields.msg_type, dercrs_int_30) != 0) {
 		errno = EPROTO;
 printf ("DEBUG: msg_type != 30\n");
 		return NULL;
@@ -1781,7 +1808,7 @@ void kxover_timeout (struct kxover_data *kxd, float timeout_seconds) {
 
 /* Fire the timeout and make it report ETIMEDOUT.
  */
-static void cb_kxover_timeout (EV_P_ ev_timer evt, int _revents) {
+static void cb_kxover_timeout (EV_P_ ev_timer *evt, int _revents) {
 	struct kxover_data *kxd =
 		(struct kxover_data *) (
 			((uint8_t *) evt) -

@@ -37,6 +37,17 @@
 #include "backend.h"
 
 
+
+/* The wrapdata structure holds the event listener and other
+ * descriptive information for the socket.
+ */
+struct wrapdata {
+	struct wrapdata *next;
+	int socket;
+	ev_io listener;
+};
+
+
 /* The structure of a single message being processed.
  * These are used as cbdata (or user data) towards the
  * backend, which will provide it along with callbacks.
@@ -56,21 +67,12 @@
  */
 struct udpmsg {
 	struct sockaddr_in6 client;
+	struct wrapdata *wrapdata;
 	uint8_t *reqptr;
 	uint32_t reqlen;
 	uint8_t *repptr;
 	uint32_t replen;
 	uint8_t sendctr;
-};
-
-
-/* The wrapdata structure holds the event listener and other
- * descriptive information for the socket.
- */
-struct wrapdata {
-	struct wrapdata *next;
-	int socket;
-	ev_io listener;
 };
 
 
@@ -123,8 +125,9 @@ static bool cb_read_response (struct backend *beh, void *cbdata) {
 		goto fail;
 	}
 	//TODO:IMPLEMENT// Match response against request
+	//
 	/* Actually send; UDP is lossy, so no checks made */
-	sendto (msg->socket, buf, buflen, 0,
+	sendto (msg->wrapdata->socket, buf, buflen, 0,
 				(struct sockaddr *) &msg->client, sizeof (msg->client));
 	free (msg);
 	return true;
@@ -162,6 +165,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 		/* Out of memory, drop the UDP message */
 		return;
 	}
+	msg->wrapdata = wd;
 	msg->reqptr = (uint8_t *) &msg[1];	/* Pointing beyond the structure */
 	msg->reqlen = recvlen;
 	memcpy (&msg->client, &sin6, sizeof (msg->client));

@@ -309,7 +309,7 @@ struct dercursor starttls_remote_hostname_fetch_certificate (struct starttls_dat
 bool starttls_remote_hostname_check_certificate (struct dercursor hostname,
 				struct starttls_data *tlsdata) {
 	/* Names longer than the TLS Pool can present will not match */
-	if (hostname.derlen >= member_size (starttls_t, remoteid)) {
+	if (hostname.derlen >= member_size (struct starttls_data, remoteid)) {
 		return false;
 	}
 	/* Compare the bytes and the length */

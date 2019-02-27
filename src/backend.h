@@ -39,6 +39,8 @@
 #include <endian.h>
 #include <ev.h>
 
+#include <quick-der/api.h>
+
 
 /* BACKEND_POOLSIZE limits overlapping backend requests.
  * This rate limits the load passed to the local KDC.

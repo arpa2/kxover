@@ -76,7 +76,7 @@ KXOVER DEFINITIONS EXPLICIT TAGS ::= BEGIN
 IMPORTS PrincipalName, Realm, Authenticator,
         KerberosTime, Int32, UInt32 FROM RFC4120
 
-        id-pkinit-san, KRB5PrincipalName FROM RFC4556
+        KRB5PrincipalName FROM RFC4556
 
         Certificate, AlgorithmIdentifier, SubjectPublicKeyInfo,
         AuthorityKeyIdentifier, SubjectAltName, OtherName FROM RFC5280;

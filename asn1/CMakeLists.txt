@@ -6,9 +6,8 @@ cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
 # set (KXOVER_LIBDIR ${CMAKE_BINARY_DIR})
 set (KXOVER_DOCDIR ${CMAKE_BINARY_DIR}/doc)
 set (KXOVER_INCDIR ${CMAKE_BINARY_DIR}/include)
+set (KXOVER_INCDIR ${CMAKE_BINARY_DIR}/include PARENT_SCOPE)
 set (QUICKDER_INCDIR ${KXOVER_INCDIR}/quick-der)
-
-include_directories (${KXOVER_INCDIR})
 
 set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover kxover-autzdata kxover-priorkey-entropy)
 
@@ -16,10 +15,10 @@ set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover kxover-autzdata kxover-pri
 # add_custom_command (OUTPUT kxover-libdir-asn1
 # 	COMMAND cmake -E make_directory ${KXOVER_LIBDIR}/asn1)
 
-add_custom_command (OUTPUT kxover-docdir
+add_custom_command (OUTPUT ${KXOVER_DOCDIR}
 	COMMAND cmake -E make_directory ${KXOVER_DOCDIR})
 
-add_custom_command (OUTPUT kxover-incdir-quickder
+add_custom_command (OUTPUT ${QUICKDER_INCDIR}
 	COMMAND cmake -E make_directory ${QUICKDER_INCDIR})
 
 #
@@ -42,12 +41,12 @@ foreach (SPEC ${SPECNAMES})
 
 	add_custom_command (OUTPUT ${KXOVER_DOCDIR}/${SPEC}.md
 		COMMAND asn1literate ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_DOCDIR}/${SPEC}.md
-		DEPENDS kxover-docdir)
+		DEPENDS ${KXOVER_DOCDIR})
 
 	add_custom_command (OUTPUT ${QUICKDER_INCDIR}/${SPEC}.h
 		COMMAND asn2quickder -l c -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1
 		WORKING_DIRECTORY ${QUICKDER_INCDIR}
-		DEPENDS kxover-incdir-quickder)
+		DEPENDS ${QUICKDER_INCDIR})
 
 	#DEPENDS# add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.py
 	#DEPENDS# 	COMMAND asn2quickder -l python -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1

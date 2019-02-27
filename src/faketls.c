@@ -59,7 +59,7 @@ bool starttls_init (EV_P) {
 typedef void (*starttls_cb_fd_t) (void *cbdata, int fd_new);
 bool starttls_handshake (int fd_old,
 			struct dercursor client_hostname, struct dercursor server_hostname,
-			starttls_t **tlsdata_outvar,
+			struct starttls_data **tlsdata_outvar,
 			starttls_cb_fd_t cb, void *cbdata) {
 	cb (cbdata, fd_old);
 	return true;
@@ -202,7 +202,7 @@ bool starttls_remote_realm_check_certificate (struct dercursor remoterealm,
  */
 bool starttls_export_key (struct dercursor label, struct dercursor opt_ctxval,
 			uint16_t size_random, uint8_t *out_random,
-			starttls_t *tlsdata,
+			struct starttls_data *tlsdata,
 			starttls_cb_test_t cb, void *cbdata) {
 	cb (cbdata, true);
 	return true;

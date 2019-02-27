@@ -21,6 +21,8 @@
 
 #include "backend.h"
 
+
+
 /* The administration of a current pool entry.
  *
  * The central idea is to allocate a unique UDP socket
@@ -69,10 +71,11 @@ static struct ev_loop *backend_loop;
 //TODO//DROP// static void _reader_handler (EV_P_ ev_io    *evt, int _revents);
 
 
-/* The KDC address as an IPv6 socket address.
+/* The KDC address as host name and IPv6 socket address.
  * Since we need access to the KDB too, we assume
  * localhost (over IPv6 of course) and port 88.
  */
+static char *kdc_hostname = "localhost";
 static struct sockaddr_in6 kdc_sockaddr = {
 	.sin6_family = AF_INET6,
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -303,5 +306,4 @@ bool backend_recv (struct backend *beh,
 		return false;
 	}
 }
-
 
