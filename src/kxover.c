@@ -139,30 +139,6 @@ static const derwalk pack_KRB_ERROR [] = { DER_PACK_rfc4120_KRB_ERROR, DER_PACK_
 typedef DER_OVLY_rfc4120_KRB_ERROR ovly_KRB_ERROR;
 
 
-/* Callback routines for reporting KXOVER success or failure
- * to the caller.  Success is reported with errno being zero.
- * The same form is used for the client and server modes of
- * operation.
- *
- * After this has returned, some cleanup takes place, and it
- * is no longer safe to reference the following:
- *  - the structure into which the cbdata was registered,
- *    even just to _cancel() an operation;
- * As a result, the callback must either process the data
- * immediately, or store it elsewhere.  As an exception to
- * this rule, the following will not be cleaned up:
- *  - the client_realm and service_realm.
- * For a client, this means it gets the realms that it
- * initially submitted (with corresponding borrow status).
- * For a server, this means that it needs to free() the
- * memory behind each realm's derptr.
- */
-typedef void (*cb_kxover_result) (void *cbdata,
-			int errno,
-			struct dercursor client_realm,
-			struct dercursor service_realm);
-
-
 /* Iterators can try a number of values in a sequence,
  * until one is found to be satisfactory.  There can even
  * be nested iterators.
@@ -709,7 +685,13 @@ static void cb_kxs_client_starttls (EV_P_ ev_io *evt, int revents) {
 	struct dercursor client_kdc;
 	server_kdc.derptr = kxd->ubres_srv->data [kxd->iter_srv.cursor] + 6;
 	server_kdc.derlen = kxd->ubres_srv->len  [kxd->iter_srv.cursor] - 6;
+#ifdef TODO_LINK_THIS_ONE
 	client_kdc = kerberos_localrealm2hostname (kxd->crealm);
+#else
+	// Fail to at least allow linking
+	client_kdc.derptr = NULL;
+	client_kdc.derlen = 0;
+#endif
 	if (!der_isnonempty (&client_kdc)) {
 		kxd->last_errno = ENOENT;
 		goto bailout;
@@ -854,8 +836,8 @@ bailout:
  * so we can activate immediately.
  * TODO: For now, _refresh_only will not be used for delay.
  */
-#ifdef TODO_0
 static void kx_start_client_kx_sending (struct kxover_data *kxd, bool _refresh_only) {
+#ifdef TODO_0
 	/* Create basic setup for the kx_req */
 	ovly_KX_REQ_MSG *msg = &kxd->kx_req;
 	msg->pvno = dercrs_int_5;
@@ -899,8 +881,8 @@ static void kx_start_client_kx_sending (struct kxover_data *kxd, bool _refresh_o
 	return;
 bailout:
 	kxover_finish (kxd);
-}
 #endif
+}
 
 
 /* Callback for incoming traffic from the server, to be stored

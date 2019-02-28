@@ -38,10 +38,11 @@ set (kxover_SRC
 	tcpwrap.c
 	${TLS_SOURCE}
 	kxover.c
+	main.c
 )
 
 add_executable (kxover ${kxover_SRC})
-target_link_libraries (kxover ev) # (... quick_der tlspool)
+target_link_libraries (kxover ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev) # (... tlspool)
 
 
 #

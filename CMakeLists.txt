@@ -25,13 +25,15 @@ option (DEBUG
 # Dependencies
 #
 
-# find_package (Quick-DER REQUIRED)
-#TODO:DOESNT:INSTALL# find_package (Perpetuum REQUIRED)
-#TODO:DOESNT:INSTALL# find_package (erlang-unbound REQUIRED)
+find_package (ARPA2CM QUIET NO_MODULE REQUIRED)
+set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ARPA2CM_MODULE_PATH})
 
-find_program (GNUMAKE
-	NAMES gmake make)
+find_package (Unbound REQUIRED)
+find_package (Quick-DER REQUIRED)
 
+# find_program (GNUMAKE NAMES gmake make)
+
+include_directories (Unbound_INCLUDE_DIRS Quick-DER_INCLUDE_DIRS)
 
 #
 # OPTIONS / BUILD SETTINGS
