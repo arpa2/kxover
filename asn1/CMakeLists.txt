@@ -1,4 +1,4 @@
-# Translate the required ASN.1 definitions to Erlang
+# Translate the required ASN.1 definitions to language modules for C and Python
 
 cmake_minimum_required (VERSION 3.1 FATAL_ERROR)
 
@@ -9,7 +9,7 @@ set (KXOVER_INCDIR ${CMAKE_BINARY_DIR}/include)
 set (KXOVER_INCDIR ${CMAKE_BINARY_DIR}/include PARENT_SCOPE)
 set (QUICKDER_INCDIR ${KXOVER_INCDIR}/quick-der)
 
-set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover kxover-autzdata kxover-priorkey-entropy)
+set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover kxover-priorkey-entropy)
 
 
 # add_custom_command (OUTPUT kxover-libdir-asn1

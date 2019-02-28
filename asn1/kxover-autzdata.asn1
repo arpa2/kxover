@@ -4,6 +4,10 @@
 -- > in AuthorizationData are taken care of by the remote peer, certainly
 -- > when this peer is a KDC.*
 
+-- **NOTE:** The [CAMMAC](https://tools.ietf.org/html/rfc7751) specification
+-- does this, probably better and certainly more generally accepted.  We
+-- will therefore may never choose to implement the specification below.
+
 -- The `KX-EXT-AUTZDATA` extension to the `KX-OFFER` message contains the
 -- list of `AuthorizationData` fields that the remote peer provides.  Since
 -- KXOVER defines a direct exchange with that peer when the negotiated keys
