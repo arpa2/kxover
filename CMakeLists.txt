@@ -56,6 +56,7 @@ get_version_from_git (KXOVER 0.0.0)
 
 add_subdirectory (asn1)
 add_subdirectory (src)
+add_subdirectory (test)
 
 #KLUDGE#
 # add_compile_options (-Dconst=)

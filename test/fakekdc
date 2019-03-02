@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+#
+# Fake a KDC by binding to UDP port 88 and responding with literal files.
+#
+# This is useful for testing purposes.
+#
+# The files contain the binary content of pairs of a request and response.
+# Instead of a request file, specify "-" to accept anything; instead of a
+# response file, specify "-" to not send any response.  An odd number of
+# files will mean that the last request is processed but no response will
+# be sent.
+#
+# The program times out after 10 seconds of waiting for a request.
+#
+# You can start this program from C with system("./fakekdc x y z &");
+#
+# From: Rick van Rein <rick@openfortress.nl>
+
+
+import sys
+import time
+
+import socket
+
+if len (sys.argv) < 3:
+    sys.stderr.write ('Usage: ' + sys.argv [0] + ' <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
+    sys.exit (1)
+
+try:
+    port = int (sys.argv [1])
+    if not 0 < port <= 65535:
+        raise Exception ('kul')
+except:
+    sys.stderr.write ('%s expected a port number, not: %r\n' % (sys.argv [0], sys.argv [1]))
+    sys.exit (1)
+
+sox = socket.socket (socket.AF_INET, socket.SOCK_DGRAM, 0)
+sox.setblocking (True)
+sox.settimeout (10.0)
+sox.bind ( ('localhost', port) )
+# sox.listen (5)
+
+sender = None
+for argi in sys.argv [2:]:
+    if argi == '-':
+        data = None
+    else:
+        data = open (argi, 'r').read ()
+    if sender is None:
+        sys.stdout.write ('Receiving for %r in %s\n' % (argi,sys.argv [0]))
+        try:
+            (req,sender) = sox.recvfrom (5000)
+        except socket.timeout:
+            sys.stderr.write ('Timed out in %s\n' % (sys.argv [0],))
+	    sox.close ()
+            sys.exit (1)
+        if sender is None:
+            sys.stderr.write ('Sender address unknown (internal error of test?)\n')
+            sox.close ()
+            sys.exit (1)
+        if data is not None and req != data:
+            sys.stderr.write ('Request data not as expected in %s\n' % (sys.argv [0],))
+            sox.close ()
+            sys.exit (1)
+    else:
+        sys.stdout.write ('Sending for %r in %s\n' % (argi,sys.argv [0]))
+        if data is not None:
+            sox.sendto (data,sender)
+        sender = None
+
+sox.close ()
+sys.exit (0)
+
+
