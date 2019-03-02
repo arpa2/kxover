@@ -7,12 +7,23 @@
 # run as threads and are usually called with a set of arguments, in
 # the style of argv[1:].
 #
+# Specify commands and arguments on the pypeline command line; "--"
+# separates the various commands.  They are started in turn, and
+# each must output "--\n" after it has finished completion (and is
+# ready for interaction).  Furthermore, there may be port numbers,
+# allocated dynamically when they are specified as "TCP:<key>" or
+# "UDP:<key>" or "SCTP:<key>" where the "<key>" is a string to
+# identify the same port (which may be empty).  A fresh port is then
+# allocated from the ephemeral space, and its number is passed to
+# the subprocesses as a commandline argument in that position.
+#
 # From: Rick van Rein <rick@openfortress.nl>
 
 
 import sys
 import time
 
+import socket
 import threading
 import subprocess 
 # import optparse
@@ -25,9 +36,27 @@ if not '--' in sys.argv or sys.argv [1] == '--' or sys.argv [-1] == '--':
 
 prox = [ [] ]
 
+soxtypes = {
+    'TCP:':  (socket.AF_INET, socket.SOCK_STREAM,    0),
+    'UDP:':  (socket.AF_INET, socket.SOCK_DGRAM,     0),
+    'SCTP:': (socket.AF_INET, socket.SOCK_SEQPACKET, 0),
+}
+
+myip = socket.gethostbyname (socket.gethostname ())
+port_alloc = { }
+
 for argi in sys.argv [1:]:
+    proto = argi [:1+argi.find (':')]
     if argi == '--':
         prox.append ( [] )
+    elif soxtypes.has_key (proto):
+        if not port_alloc.has_key (argi):
+            sox = socket.socket ( *soxtypes [proto] )
+            sox.bind ( (myip, 0) )
+            port = str (sox.getsockname () [1])
+            sox.close ()
+            port_alloc [argi] = port
+        prox [-1].append (port_alloc [argi])
     else:
         prox [-1].append (argi)
 

@@ -22,9 +22,9 @@ set (test_pype ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}:${
 
 add_test (NAME t_pypeline
 	COMMAND ${test_pype}
-		./fakekdc   8888 bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
+		./fakekdc   UDP:KDC bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	--
-		./udpclient 8888 bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
+		./udpclient UDP:KDC bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 # add_test (NAME t_udpwrap
