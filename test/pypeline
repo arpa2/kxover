@@ -13,6 +13,7 @@
 import sys
 import time
 
+import threading
 import subprocess 
 # import optparse
 
@@ -22,30 +23,58 @@ if not '--' in sys.argv or sys.argv [1] == '--' or sys.argv [-1] == '--':
     sys.exit (1)
 
 
-procs = [ [] ]
+prox = [ [] ]
 
 for argi in sys.argv [1:]:
     if argi == '--':
-        procs.append ( [] )
+        prox.append ( [] )
     else:
-        procs [-1].append (argi)
+        prox [-1].append (argi)
 
-procobj = []
-for argvi in procs:
-    print 'Starting', argvi
-    procobj.append (subprocess.Popen (argvi,
-                stdin=None,
-                stdout=sys.stdout,
-                stderr=sys.stderr,
-                universal_newlines=True))
-    print 'Started ', argvi
+class SyncedProcess (threading.Thread):
+
+    def __init__ (self, argv):
+        threading.Thread.__init__ (self)
+        self.proc = subprocess.Popen (
+                        argv,
+                        stdin=None,
+                        stdout=subprocess.PIPE,
+                        stderr=sys.stderr,
+                        universal_newlines=True)
+        self.sofar = ''
+        self.name = argv [0].split ('/') [-1]
+        self.copyloop ('--\n')
+
+    def copyloop (self, terminator):
+        nextln = None
+        while nextln != terminator:
+            nextln = self.proc.stdout.readline ()
+            if nextln != terminator:
+                sys.stdout.write ('%s: %s' % (self.name, nextln))
+            self.sofar += nextln
+
+    def run (self):
+        self.copyloop ('')
+
+    def final_result (self):
+        self.join ()
+        self.proc.wait ()
+        return self.proc.returncode
+
+syncprox = []
+for proc in prox:
+    sys.stdout.write ('pypeline: initial: %r\n' % (proc,))
+    newsyncer = SyncedProcess (proc)
+    syncprox.append (newsyncer)
+    sys.stdout.write ('pypeline: freerun: %r\n' % (proc,))
+    newsyncer.start ()
 
 exitval = 0
-for poi in range (len (procobj)):
-    po = procobj [poi]
-    po.wait ()
-    if po.returncode != 0:
-        sys.stderr.write ('Exit code %d from process %r\n' % (po.returncode, procs [poi]))
+for (sync,proc) in zip (syncprox,prox):
+    result = sync.final_result ()
+    sys.stdout.write ('pypeline: results: %r --> %r\n' % (proc, result))
+    if result != 0:
+        sys.stderr.write ('Exit code %d from process %r\n' % (result, proc))
         exitval = 1
 sys.exit (exitval)
 

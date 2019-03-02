@@ -37,8 +37,12 @@ except:
 sox = socket.socket (socket.AF_INET, socket.SOCK_DGRAM, 0)
 sox.setblocking (True)
 sox.settimeout (10.0)
-sox.bind ( ('localhost', port) )
-# sox.listen (5)
+myip = socket.gethostbyname (socket.gethostname ())
+sox.bind ( (myip, port) )
+print 'on %r' % (sox.getsockname (),)
+#NOT SUPPORTED# sox.listen (5)
+print '--'
+sys.stdout.flush ()
 
 sender = None
 for argi in sys.argv [2:]:
@@ -47,11 +51,11 @@ for argi in sys.argv [2:]:
     else:
         data = open (argi, 'r').read ()
     if sender is None:
-        sys.stdout.write ('Receiving for %r in %s\n' % (argi,sys.argv [0]))
+        sys.stdout.write ('Receiving for %r\n' % (argi,))
         try:
-            (req,sender) = sox.recvfrom (5000)
+            (req,sender) = sox.recvfrom (1500)
         except socket.timeout:
-            sys.stderr.write ('Timed out in %s\n' % (sys.argv [0],))
+            sys.stderr.write ('Timed out\n')
 	    sox.close ()
             sys.exit (1)
         if sender is None:
@@ -59,11 +63,11 @@ for argi in sys.argv [2:]:
             sox.close ()
             sys.exit (1)
         if data is not None and req != data:
-            sys.stderr.write ('Request data not as expected in %s\n' % (sys.argv [0],))
+            sys.stderr.write ('Request data not as expected\n')
             sox.close ()
             sys.exit (1)
     else:
-        sys.stdout.write ('Sending for %r in %s\n' % (argi,sys.argv [0]))
+        sys.stdout.write ('Sending for %r\n' % (argi,))
         if data is not None:
             sox.sendto (data,sender)
         sender = None
