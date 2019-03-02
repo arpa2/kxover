@@ -66,7 +66,7 @@
  *
  * Return true on success, or false with errno set on failure.
  */
-bool udpwrap_init (struct ev_loop *loop, char *addr, uint16_t port);
+bool udpwrap_init (struct ev_loop *loop, struct sockaddr *ear);
 
 
 #endif /* KXOVER_UDPWRAP_H */

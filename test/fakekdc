@@ -22,30 +22,30 @@ import time
 
 import socket
 
-if len (sys.argv) < 3:
-    sys.stderr.write ('Usage: ' + sys.argv [0] + ' <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
+if len (sys.argv) < 4:
+    sys.stderr.write ('Usage: ' + sys.argv [0] + ' <ip> <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
     sys.exit (1)
 
+myip = sys.argv [1]
 try:
-    port = int (sys.argv [1])
+    port = int (sys.argv [2])
     if not 0 < port <= 65535:
         raise Exception ('kul')
 except:
-    sys.stderr.write ('%s expected a port number, not: %r\n' % (sys.argv [0], sys.argv [1]))
+    sys.stderr.write ('%s expected a port number, not: %r\n' % (sys.argv [0], sys.argv [2]))
     sys.exit (1)
 
 sox = socket.socket (socket.AF_INET, socket.SOCK_DGRAM, 0)
 sox.setblocking (True)
 sox.settimeout (10.0)
-myip = socket.gethostbyname (socket.gethostname ())
 sox.bind ( (myip, port) )
-print 'on %r' % (sox.getsockname (),)
+print 'listening at %r' % (sox.getsockname (),)
 #NOT SUPPORTED# sox.listen (5)
 print '--'
 sys.stdout.flush ()
 
 sender = None
-for argi in sys.argv [2:]:
+for argi in sys.argv [3:]:
     if argi == '-':
         data = None
     else:

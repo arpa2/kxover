@@ -36,7 +36,6 @@
 #include <errno.h>
 #include <unistd.h>
 
-#include <endian.h>
 #include <ev.h>
 
 #include <quick-der/api.h>
@@ -73,9 +72,13 @@ typedef bool (*backend_callback) (struct backend *beh, void *cbdata);
  * response from the same backend.  These functions are
  * considered global and constant.
  *
+ * The address and port are for the backend KDC, reachable
+ * over UDP.  The address is assumed to be IPv6 formatted,
+ * but that includes IPv4 prefixed with two colons.
+ *
  * Return true on success, false on failure with errno set.
  */
-bool backend_init (struct ev_loop *loop);
+bool backend_init (struct ev_loop *loop, struct sockaddr *kdc);
 
 
 /* Start a backend process for one request/response interaction.

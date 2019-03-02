@@ -20,6 +20,7 @@
 
 
 #include "backend.h"
+#include "socket.h"
 
 
 
@@ -69,22 +70,6 @@ static struct backend **_pool_end = &_pool;
 static struct ev_loop *backend_loop;
 //TODO//DROP// static void _writer_handler (EV_P_ ev_timer *evt, int _revents);
 //TODO//DROP// static void _reader_handler (EV_P_ ev_io    *evt, int _revents);
-
-
-/* The KDC address as host name and IPv6 socket address.
- * Since we need access to the KDB too, we assume
- * localhost (over IPv6 of course) and port 88.
- */
-static char *kdc_hostname = "localhost";
-static struct sockaddr_in6 kdc_sockaddr = {
-	.sin6_family = AF_INET6,
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	.sin6_port = 0x5800,	/* port 88 (little endian) */
-#else
-	.sin6_port = 0x0058,	/* port 88 (big endian) */
-#endif
-	.sin6_addr = { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 }
-};
 
 
 /* Process a writing event and/or a repeating timeout.
@@ -157,9 +142,13 @@ static void _reader_handler (EV_P_ ev_io *evt, int _revents) {
  * response from the same backend.  These functions are
  * considered global and constant.
  *
+ * The address and port are for the backend KDC, reachable
+ * over UDP.  The address is assumed to be IPv6 formatted,
+ * but that includes IPv4 prefixed with two colons.
+ *
  * Return true on success, false on failure with errno set.
  */
-bool backend_init (struct ev_loop *loop) {
+bool backend_init (struct ev_loop *loop, struct sockaddr *kdc) {
 	struct backend *pool = calloc (BACKEND_POOLSIZE, sizeof(struct backend));
 	if (pool == NULL) {
 		errno = ENOMEM;
@@ -168,13 +157,8 @@ bool backend_init (struct ev_loop *loop) {
 	backend_loop = loop;
 	int i;
 	for (i=0; i<BACKEND_POOLSIZE; i++) {
-		int sox = socket (AF_INET, SOCK_DGRAM, 0);
-		if (sox < 0) {
-			break;
-		}
-		if (connect (sox, (struct sockaddr *) &kdc_sockaddr,
-					sizeof(kdc_sockaddr)) != 0) {
-			close (sox);
+		int sox = -1;
+		if (!socket_client (kdc, SOCK_DGRAM, &sox)) {
 			break;
 		}
 		pool [i].socket = sox;

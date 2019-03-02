@@ -35,7 +35,7 @@
 
 #include "udpwrap.h"
 #include "backend.h"
-
+#include "socket.h"
 
 
 /* The wrapdata structure holds the event listener and other
@@ -188,33 +188,10 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
  *
  * Return true on success, or false with errno set on failure.
  */
-bool udpwrap_init (struct ev_loop *loop, char *addr, uint16_t port) {
+bool udpwrap_init (struct ev_loop *loop, struct sockaddr *ear) {
 	int sox = -1;
 	struct wrapdata *wd = NULL;
-	struct sockaddr_in6 sin6;
-	switch (inet_pton (AF_INET6, addr, &sin6)) {
-	case 1:
-		break;
-	case 0:
-		/* Invalid address did not set errno */
-		errno = EINVAL;
-		return false;
-	default:
-		return false;
-	}
-	sin6.sin6_port = htons (port);
-	sox = socket (AF_INET6, SOCK_DGRAM, 0);
-	if (sox < 0) {
-		goto fail;
-	}
-	int soxflags = fcntl (sox, F_GETFL, 0);
-	if (fcntl (sox, F_SETFL, soxflags | O_NONBLOCK) != 0) {
-		goto fail;
-	}
-	if (bind (sox, (struct sockaddr *) &sin6, sizeof (sin6)) != 0) {
-		goto fail;
-	}
-	if (listen (sox, 10) != 0) {
+	if (!socket_server (ear, SOCK_DGRAM, &sox)) {
 		goto fail;
 	}
 	wd = calloc (1, sizeof (struct wrapdata));
