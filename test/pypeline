@@ -26,6 +26,7 @@ import sys
 import time
 
 import socket
+import signal
 import threading
 import subprocess 
 # import optparse
@@ -37,13 +38,15 @@ if not '--' in sys.argv or sys.argv [1] == '--' or sys.argv [-1] == '--':
 
 
 prox = [ [] ]
-zigz = [ ]
+zigz = [ [] ]
 
 soxtypes = {
     'TCP:':  (socket.AF_INET, socket.SOCK_STREAM,    0),
     'UDP:':  (socket.AF_INET, socket.SOCK_DGRAM,     0),
     'SCTP:': (socket.AF_INET, socket.SOCK_SEQPACKET, 0),
 }
+
+sigtypes = signal.SIGHUP
 
 myip = socket.gethostbyname (socket.gethostname ())
 port_alloc = { }
@@ -52,6 +55,15 @@ for argi in sys.argv [1:]:
     proto = argi [:1+argi.find (':')]
     if argi == '--':
         prox.append ( [] )
+        zigz.append ( [] )
+    elif proto == 'SIG:':
+        signame = argi [:3] + argi [4:]
+        signum = getattr (signal, signame, None)
+        if type (signum) != int:
+            sys.stderr.write ('No signal named %s is known' % (signame,))
+            sys.exit (1)
+        zigz [-1].append ( (signame,signum) )
+        prox [-1].append (str (signum))
     elif proto == 'IP:':
         prox [-1].append (myip)
     elif soxtypes.has_key (proto):
@@ -67,9 +79,10 @@ for argi in sys.argv [1:]:
 
 class SyncedProcess (threading.Thread):
 
-    def __init__ (self, argv):
+    def __init__ (self, argv, signals=[]):
         threading.Thread.__init__ (self)
         self.error = None
+        self.signals = signals
         self.proc = subprocess.Popen (
                         argv,
                         stdin=None,
@@ -97,19 +110,50 @@ class SyncedProcess (threading.Thread):
     def run (self):
         self.copyloop ('')
 
+    def could_signal (self):
+        return self.signals != []
+
+    def send_signals (self):
+        if self.proc.returncode is not None:
+            return
+        for (signame,signum) in self.signals:
+            sys.stdout.write ('%s: Sending signal %s\n' % (self.name, signame))
+            self.proc.send_signal (signum)
+
+    def initial_result (self):
+        # Result code or None
+        self.join (0.0)
+        if not self.isAlive ():
+            return None
+        self.proc.poll ()
+        return self.proc.returncode
+
+
     def final_result (self):
         self.join ()
-        self.proc.wait ()
+        if self.proc.returncode is None:
+            self.proc.wait ()
         return self.error or self.proc.returncode
 
 syncprox = []
-for proc in prox:
+for (proc,zig) in zip (prox,zigz):
     sys.stdout.write ('pypeline: initial: %r\n' % (proc,))
-    newsyncer = SyncedProcess (proc)
+    newsyncer = SyncedProcess (proc,signals=zig)
     syncprox.append (newsyncer)
     sys.stdout.write ('pypeline: freerun: %r\n' % (proc,))
     newsyncer.start ()
 
+# End Game #1.  Wait for SyncedProcesses that cannot be signaled to stop
+for sync in syncprox:
+    if not sync.could_signal ():
+        result = sync.final_result ()
+
+# End Game #2.  Signal all remaining SyncedProcesses that they may stop
+for sync in syncprox:
+    if sync.could_signal ():
+        sync.send_signals ()
+
+# End Game #3.  Wait until all SyncedProcesses have stopped and conclude.
 exitval = 0
 for (sync,proc) in zip (syncprox,prox):
     result = sync.final_result ()

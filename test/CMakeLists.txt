@@ -51,7 +51,7 @@ add_test (NAME t_pypeline COMMAND ${py_setenv} ${pypeline}
 add_test (NAME t_udpwrap COMMAND ${py_setenv} ${pypeline}
 	${fakekdc} IP:KDC UDP:KDC bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	--
-	${udpwrap_test} IP:FRONT UDP:FRONT IP:KDC UDP:KDC
+	${udpwrap_test} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
 	--
 	${udpclient} IP:FRONT UDP:FRONT bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -59,7 +59,7 @@ add_test (NAME t_udpwrap COMMAND ${py_setenv} ${pypeline}
 add_test (NAME t_tcpwrap COMMAND ${py_setenv} ${pypeline}
 	${fakekdc} IP:KDC UDP:KDC bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	--
-	${tcpwrap_test} IP:FRONT UDP:FRONT IP:KDC UDP:KDC
+	${tcpwrap_test} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
 	--
 	${tcpclient} IP:FRONT UDP:FRONT bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -69,7 +69,7 @@ if (FAKE_TLS)
 add_test (NAME t_tlswrap_fake COMMAND ${py_setenv} ${pypeline}
 	${fakekdc} IP:KDC UDP:KDC bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	--
-	${tcpwrap_test} IP:FRONT UDP:FRONT IP:KDC UDP:KDC
+	${tcpwrap_test} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
 	--
 	${faketlsclient} IP:FRONT UDP:FRONT bin/krb5-as-req1.der bin/krb5-as-rep1.der bin/krb5-as-req2.der bin/krb5-as-rep2.der
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

@@ -36,7 +36,12 @@ void cb_second (EV_P_ ev_timer *evt, int revents) {
 
 void cb_exit_0 (EV_P_ ev_timer *evt, int revents) {
 	printf ("Shutdown after 10 seconds of presence\n");
-	exit (0);
+	ev_break (EV_A_ EVBREAK_ALL);
+}
+
+void cb_please_stop (EV_P_ ev_signal *evt, int revents) {
+	printf ("Stop as requested per signal\n");
+	ev_break (EV_A_ EVBREAK_ALL);
 }
 
 #if 0
@@ -51,8 +56,8 @@ void cb_stdin_reading (struct ev_loop *loop, ev_io *evt, int _revents) {
 int main (int argc, char *argv []) {
 
 	// Process the commandline arguments
-	if (argc != 5) {
-		fprintf (stderr, "Usage: %s <tcpwrap-ip> <tcpwrap-port> <kdc-ip> <kdc-port>\n", argv [0]);
+	if (argc != 6) {
+		fprintf (stderr, "Usage: %s <tcpwrap-ip> <tcpwrap-port> <kdc-ip> <kdc-port> <signal>\n", argv [0]);
 		exit (1);
 	}
 
@@ -67,6 +72,8 @@ int main (int argc, char *argv []) {
 		perror ("KDC address/port failed to parse");
 		exit (1);
 	}
+
+	int stop_signal = atoi (argv [5]);
 
 	// Have a straightforward event loop (from libev)
 	struct ev_loop *loop = EV_DEFAULT;
@@ -119,6 +126,11 @@ int main (int argc, char *argv []) {
 	ev_io_init (&inkey, cb_stdin_reading, 0, EV_READ);
 	ev_io_start (loop, &inkey);
 #endif
+
+	// Register a stop signal handler
+	ev_signal stop_event;
+	ev_signal_init (&stop_event, cb_please_stop, stop_signal);
+	ev_signal_start (loop, &stop_event);
 
 	// Run the event loop
 	ev_run (loop, 0);
