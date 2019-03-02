@@ -20,6 +20,10 @@ option (DEBUG
         "Produce verbose about Petri net processing"
         OFF)
 
+option (FAKE_TLS
+	"Bypass TLS for now; use plain TCP and claim OK on any tests"
+	OFF)
+
 
 #
 # Dependencies

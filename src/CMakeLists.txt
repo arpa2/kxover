@@ -11,11 +11,6 @@ add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE})
 include_directories (${KXOVER_INCDIR})
 
 
-option (FAKE_TLS
-	"Bypass TLS for now; use plain TCP and claim OK on any tests"
-	OFF)
-
-
 #
 # Source Files and Compiler Instructions
 #

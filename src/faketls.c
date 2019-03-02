@@ -15,7 +15,7 @@
 
 
 /* Empty data structure */
-struct starttls_data { };
+static struct starttls_data { } faketls_data;
 
 
 	
@@ -61,6 +61,7 @@ bool starttls_handshake (int fd_old,
 			struct dercursor client_hostname, struct dercursor server_hostname,
 			struct starttls_data **tlsdata_outvar,
 			starttls_cb_fd_t cb, void *cbdata) {
+	*tlsdata_outvar = &faketls_data;
 	cb (cbdata, fd_old);
 	return true;
 }

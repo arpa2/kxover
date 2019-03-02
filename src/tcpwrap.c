@@ -102,7 +102,7 @@ static void cb_starttls_handshaken (void *cbdata, int fd_new) {
 	/* Flag willingness to take on KXOVER */
 	wd->progress |= PROGRESS_TLS;
 	/* Switch back to TCP processing, but now on fd_new */
-	ev_io_set (&wd->listener, fd_new, EV_READ | EV_ERROR);
+	ev_io_set (&wd->listener, fd_new, EV_READ /* TODO:FORBIDDEN: | EV_ERROR */);
 	ev_io_start (EV_DEFAULT, &wd->listener);
 	/* Done, finish */
 	return;
@@ -240,12 +240,13 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 			}
 		} else if (len_flags == 0x80000001) {
 			/* Make sure that we are not nesting TLS inside TLS */
-			if ((len_flags & 0x00000001) == 0x00000001) {
+			if ((wd->progress & 0x00000001) == 0x00000001) {
 				/* Profusely refuse to confuse or diffuse the obtuse */
 				goto disconnect;
 			}
 			/* STARTTLS flag -- acknowledge to the client */
-			if (send (wd->socket, len_flags_buf, 4, 0) != 4) {
+			uint8_t starttls_ok [4] = { 0x00, 0x00, 0x00, 0x00 };
+			if (send (wd->socket, starttls_ok, 4, 0) != 4) {
 				/* Failed send to reliable channel, exit */
 				goto disconnect;
 			}

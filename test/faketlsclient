@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 #
-# Fake a client by connecting to a given TCP port on localhost and
-# sending literal files, expecting other literal files in return.
+# Fake a TLS client by connecting to a given TCP port on localhost and
+# sending literal files, expecting other literal files in return.  But
+# before doing anything else, make a STARTTLS handshake.  This is still
+# fake TLS, so nothing but this handshake will happen.
 #
 # This is useful for testing purposes.
 #
@@ -45,6 +47,13 @@ sox.connect (peer)
 print 'sending to %r' % (peer,)
 print '--'
 sys.stdout.flush ()
+
+tls_flags = struct.pack ('>I', 0x80000001)
+sox.send (tls_flags)
+tls_adopt = sox.recv (4)
+assert (len (tls_adopt) == 4)
+tls_adopt = struct.unpack ('>I', tls_adopt) [0]
+assert (tls_adopt == 0x00000000)
 
 sending = True
 for argi in sys.argv [3:]:
