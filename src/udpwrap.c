@@ -66,7 +66,7 @@ struct wrapdata {
  * benefit of a few, this choice is under discussion.
  */
 struct udpmsg {
-	struct sockaddr_in6 client;
+	struct sockaddr client;
 	struct wrapdata *wrapdata;
 	uint8_t *reqptr;
 	uint32_t reqlen;
@@ -151,11 +151,11 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 				offsetof (struct wrapdata, listener));
 	/* Load the data and client address into temporary buffers */
 	uint8_t buf [1500+1];
-	struct sockaddr_in6 sin6;
-	socklen_t sin6len = sizeof (sin6);
+	struct sockaddr sa;
+	socklen_t salen = sizeof (sa);
 	ssize_t recvlen = recvfrom (wd->socket, buf, 1500+1, 0,
-				(struct sockaddr *) &sin6, &sin6len);
-	if ((sin6len != sizeof (sin6)) || (recvlen <= 0) || (recvlen > 1500)) {
+				(struct sockaddr *) &sa, &salen);
+	if ((salen != sockaddrlen (&sa)) || (recvlen <= 0) || (recvlen > 1500)) {
 		/* Funny size, drop the UDP message */
 		return;
 	}
@@ -168,7 +168,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 	msg->wrapdata = wd;
 	msg->reqptr = (uint8_t *) &msg[1];	/* Pointing beyond the structure */
 	msg->reqlen = recvlen;
-	memcpy (&msg->client, &sin6, sizeof (msg->client));
+	memcpy (&msg->client, &sa, sizeof (msg->client));
 	memcpy (msg->reqptr, buf, recvlen);
 	/* Request a backend construct to proxy the UDP message */
 	if (backend_start (msg, cb_write_request, cb_read_response) == NULL) {

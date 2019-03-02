@@ -61,6 +61,7 @@ bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa) {
 			/* errno is ERANGE */
 			return false;
 		}
+		portnr = (uint16_t) p;
 	}
 	//
 	// IPv6 address parsing
