@@ -32,7 +32,7 @@
 #include "tcpwrap.h"
 #include "backend.h"
 #include "starttls.h"
-
+#include "socket.h"
 
 
 /* The acceptdata structure holds anything needed to
@@ -60,7 +60,7 @@ struct wrapdata {
 	int socket;
 	int sendctr;
 	ev_io listener;
-	struct sockaddr_in6 client;
+	struct sockaddr client;
 	uint32_t flags;
 	uint32_t progress;
 	uint8_t *reqptr;
@@ -162,18 +162,23 @@ static bool cb_read_response (struct backend *beh, void *cbdata) {
 	struct wrapdata *wd = cbdata;
 	assert (beh != NULL);
 	assert (wd  != NULL);
-	uint8_t buf [1500+1];
+	uint8_t buf [4+1500+1];
 	uint32_t buflen = 1500+1;
-	if (!backend_recv (beh, buf, &buflen)) {
+	free (wd->reqptr);
+	wd->reqptr = NULL;
+	if (!backend_recv (beh, buf+4, &buflen)) {
 		goto retry;
 	}
 	if ((buflen < 1) || (buflen > 1500)) {
 		goto disconnect;
 	}
+	* (uint32_t *) buf = htonl (buflen);
 	//TODO:IMPLEMENT// Match response against request
 	/* Actually send; TCP is reliable, but clients check */
-	send (wd->socket, buf, buflen, 0);
-	goto disconnect;
+	send (wd->socket, buf, 4+buflen, 0);
+nextmsg:
+	ev_io_start (tcpwrap_loop, &wd->listener);
+	return true;
 disconnect:
 	close (wd->socket);
 	if (wd->tlsdata != NULL) {
@@ -183,11 +188,6 @@ disconnect:
 	return true;
 retry:
 	return false;
-/*TODO*FUTURE*OPTION*
- * nextmsg:
- * 	ev_io_start (loop, wd->listener);
- * 	return true;
- */
 }
 
 
@@ -339,12 +339,12 @@ static void _acceptor_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 	/* Try to accept the new connection, and determine the client address */
 	socklen_t wdlen = sizeof (wd->client);
 	wd->socket = accept (ad->socket, (struct sockaddr *) &wd->client, &wdlen);
-	if ((wd->socket < 0) || (wdlen != sizeof (wd->client))) {
+	if ((wd->socket < 0) || (wdlen != sockaddrlen (&wd->client))) {
 		/* No work to be done, client may have retracted */
 		goto fail;
 	}
 	/* Start event handling for the wrapdata structure, ERROR for close */
-	ev_io_init (&wd->listener, _listener_handler, wd->socket, EV_READ | EV_ERROR);
+	ev_io_init (&wd->listener, _listener_handler, wd->socket, EV_READ /* NOT_ALLOWED: | EV_ERROR */);
 	ev_io_start (loop, &wd->listener);
 	/* Enlist the new wrapdata structure */
 	ad->next = tcpacceptors;
@@ -383,33 +383,10 @@ bool tcpwrap_init (struct ev_loop *loop) {
  *
  * Return true on success, or false with errno set on failure.
  */
-bool tcpwrap_service (char *addr, uint16_t port) {
+bool tcpwrap_service (struct sockaddr *ear) {
 	int sox = -1;
 	struct wrapdata *wd = NULL;
-	struct sockaddr_in6 sin6;
-	switch (inet_pton (AF_INET6, addr, &sin6)) {
-	case 1:
-		break;
-	case 0:
-		/* Invalid address did not set errno */
-		errno = EINVAL;
-		return false;
-	default:
-		return false;
-	}
-	sin6.sin6_port = htons (port);
-	sox = socket (AF_INET6, SOCK_STREAM, 0);
-	if (sox < 0) {
-		goto fail;
-	}
-	int soxflags = fcntl (sox, F_GETFL, 0);
-	if (fcntl (sox, F_SETFL, soxflags | O_NONBLOCK) != 0) {
-		goto fail;
-	}
-	if (bind (sox, (struct sockaddr *) &sin6, sizeof (sin6)) != 0) {
-		goto fail;
-	}
-	if (listen (sox, 10) != 0) {
+	if (!socket_server (ear, SOCK_STREAM, &sox)) {
 		goto fail;
 	}
 	struct acceptdata *ad = calloc (1, sizeof (struct acceptdata));

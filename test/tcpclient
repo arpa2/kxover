@@ -1,0 +1,82 @@
+#!/usr/bin/env python
+#
+# Fake a client by connecting to a given TCP port on localhost and
+# sending literal files, expecting other literal files in return.
+#
+# This is useful for testing purposes.
+#
+# The files contain the binary content of pairs of a request and response.
+# Instead of a request file, specify "-" to skip sending; instead of a
+# response file, specify "-" to accept any response.  An odd number of
+# files will mean that the last request is sent but no response will
+# be expected.
+#
+# The program times out after 10 seconds of waiting for a request.
+#
+# You can start this program from C with system("./fakekdc x y z &");
+#
+# From: Rick van Rein <rick@openfortress.nl>
+
+
+import sys
+import time
+import struct
+
+import socket
+
+if len (sys.argv) < 4:
+    sys.stderr.write ('Usage: ' + sys.argv [0] + ' <ip> <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
+    sys.exit (1)
+
+myip = sys.argv [1]
+try:
+    port = int (sys.argv [2])
+    if not 0 < port <= 65535:
+        raise Exception ('kul')
+except:
+    sys.stderr.write ('%s expected a port number, not: %r\n' % (sys.argv [0], sys.argv [2]))
+    sys.exit (1)
+
+sox = socket.socket (socket.AF_INET, socket.SOCK_STREAM, 0)
+sox.setblocking (True)
+sox.settimeout (10.0)
+peer = (myip, port)
+sox.connect (peer)
+print 'sending to %r' % (peer,)
+print '--'
+sys.stdout.flush ()
+
+sending = True
+for argi in sys.argv [3:]:
+    if argi == '-':
+        data = None
+    else:
+        data = open (argi, 'r').read ()
+    if not sending:
+        sys.stdout.write ('Receiving for %r\n' % (argi,))
+        try:
+            reqlen0 = reqlen = sox.recv (4)
+            assert (len (reqlen) == 4)
+            reqlen = struct.unpack ('>I', reqlen) [0]
+            req = sox.recv (reqlen)
+            sys.stdout.write ('RECEIVED %d OUT OF %d or 0x%02x%02x%02x%02x\n' % (len (req), reqlen, ord (reqlen0 [0]), ord (reqlen0 [1]), ord (reqlen0 [2]), ord (reqlen0 [3])))
+            assert (len (req) == reqlen)
+        except socket.timeout:
+            sys.stderr.write ('Timed out\n')
+            sox.close ()
+            sys.exit (1)
+        if data is not None and req != data:
+            sys.stderr.write ('Request data not as expected\n')
+            sox.close ()
+            sys.exit (1)
+    else:
+        sys.stdout.write ('Sending for %r\n' % (argi,))
+        if data is not None:
+            datalen = struct.pack ('>I', len (data))
+            sox.send (datalen)
+            sox.send (data)
+    sending = not sending
+
+sox.close ()
+sys.exit (0)
+

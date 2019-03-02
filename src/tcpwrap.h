@@ -78,7 +78,7 @@ bool tcpwrap_init (struct ev_loop *loop);
  *
  * Return true on success, or false with errno set on failure.
  */
-bool tcpwrap_service (char *addr, uint16_t port);
+bool tcpwrap_service (struct sockaddr *ear);
 
 
 #endif /* KXOVER_TCPWRAP_H */
