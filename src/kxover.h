@@ -88,7 +88,7 @@ typedef enum tcpkrb5 {
  * memory behind each realm's derptr.
  */
 typedef void (*cb_kxover_result) (void *cbdata,
-			int errno,
+			int result_errno,
 			struct dercursor client_realm,
 			struct dercursor service_realm);
 
