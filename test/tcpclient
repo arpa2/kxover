@@ -3,6 +3,11 @@
 # Fake a client by connecting to a given TCP port on localhost and
 # sending literal files, expecting other literal files in return.
 #
+# Fake a TLS client by connecting to a given TCP port on localhost and
+# sending literal files, expecting other literal files in return.  But
+# before doing anything else, make a STARTTLS handshake.  This is still
+# fake TLS, so nothing but this handshake will happen.
+#
 # This is useful for testing purposes.
 #
 # The files contain the binary content of pairs of a request and response.
@@ -17,24 +22,30 @@
 #
 # From: Rick van Rein <rick@openfortress.nl>
 
-
 import sys
 import time
 import struct
 
 import socket
 
-if len (sys.argv) < 4:
+import optparse
+
+parser = optparse.OptionParser ()
+parser.add_option ('--fake-tls', dest='fake_tls', action='store_true', default=False,
+            help='Start TCP interaction with a TLS handshake but skip the actual TLS handshake')
+(options,args) = parser.parse_args ()
+
+if len (args) < 3:
     sys.stderr.write ('Usage: ' + sys.argv [0] + ' <ip> <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
     sys.exit (1)
 
-myip = sys.argv [1]
+myip = args [0]
 try:
-    port = int (sys.argv [2])
+    port = int (args [1])
     if not 0 < port <= 65535:
         raise Exception ('kul')
 except:
-    sys.stderr.write ('%s expected a port number, not: %r\n' % (sys.argv [0], sys.argv [2]))
+    sys.stderr.write ('%s expected a port number, not: %r\n' % (sys.argv [0], args [1]))
     sys.exit (1)
 
 sox = socket.socket (socket.AF_INET, socket.SOCK_STREAM, 0)
@@ -46,8 +57,16 @@ print 'sending to %r' % (peer,)
 print '--'
 sys.stdout.flush ()
 
+if options.fake_tls:
+    tls_flags = struct.pack ('>I', 0x80000001)
+    sox.send (tls_flags)
+    tls_adopt = sox.recv (4)
+    assert (len (tls_adopt) == 4)
+    tls_adopt = struct.unpack ('>I', tls_adopt) [0]
+    assert (tls_adopt == 0x00000000)
+
 sending = True
-for argi in sys.argv [3:]:
+for argi in args [2:]:
     if argi == '-':
         data = None
     else:

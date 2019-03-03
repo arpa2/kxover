@@ -22,6 +22,7 @@
 # From: Rick van Rein <rick@openfortress.nl>
 
 
+import os
 import sys
 import time
 
@@ -29,6 +30,7 @@ import socket
 import signal
 import threading
 import subprocess 
+import tempfile
 # import optparse
 
 
@@ -37,6 +39,11 @@ if not '--' in sys.argv or sys.argv [1] == '--' or sys.argv [-1] == '--':
     sys.exit (1)
 
 
+# The prox and zigs lists collect the arguments in [0] and any
+# new command is inserted in front, to assure handling from the
+# last program on the commandline to the earlier ones.  This is
+# the order in which programs are started.
+#
 prox = [ [] ]
 zigz = [ [] ]
 
@@ -48,24 +55,30 @@ soxtypes = {
 
 sigtypes = signal.SIGHUP
 
+tmpdir = None
+
 myip = socket.gethostbyname (socket.gethostname ())
 port_alloc = { }
 
 for argi in sys.argv [1:]:
     proto = argi [:1+argi.find (':')]
     if argi == '--':
-        prox.append ( [] )
-        zigz.append ( [] )
+        prox.insert ( 0,[] )
+        zigz.insert ( 0,[] )
+    elif proto == 'FILE:':
+        if tmpdir is None:
+            tmpdir = tempfile.mkdtemp ()
+        prox [0].append (tmpdir + os.sep + argi [5:] + '.pypefile')
     elif proto == 'SIG:':
         signame = argi [:3] + argi [4:]
         signum = getattr (signal, signame, None)
         if type (signum) != int:
             sys.stderr.write ('No signal named %s is known' % (signame,))
             sys.exit (1)
-        zigz [-1].append ( (signame,signum) )
-        prox [-1].append (str (signum))
+        zigz [0].append ( (signame,signum) )
+        prox [0].append (str (signum))
     elif proto == 'IP:':
-        prox [-1].append (myip)
+        prox [0].append (myip)
     elif soxtypes.has_key (proto):
         if not port_alloc.has_key (argi):
             sox = socket.socket ( *soxtypes [proto] )
@@ -73,14 +86,14 @@ for argi in sys.argv [1:]:
             port = str (sox.getsockname () [1])
             sox.close ()
             port_alloc [argi] = port
-        prox [-1].append (port_alloc [argi])
+        prox [0].append (port_alloc [argi])
     else:
-        prox [-1].append (argi)
+        prox [0].append (argi)
 
 class SyncedProcess (threading.Thread):
 
-    def __init__ (self, argv, signals=[]):
-        threading.Thread.__init__ (self)
+    def __init__ (self, argv, name=None, signals=[]):
+        threading.Thread.__init__ (self, name=(name or argv [0]))
         self.error = None
         self.signals = signals
         self.proc = subprocess.Popen (
@@ -89,10 +102,6 @@ class SyncedProcess (threading.Thread):
                         stdout=subprocess.PIPE,
                         universal_newlines=True)
         self.sofar = ''
-        if 'python' in argv [0]:
-            self.name = argv [1].split ('/') [-1]
-        else:
-            self.name = argv [0].split ('/') [-1]
         self.copyloop ('--\n')
 
     def copyloop (self, terminator):
@@ -117,7 +126,6 @@ class SyncedProcess (threading.Thread):
         if self.proc.returncode is not None:
             return
         for (signame,signum) in self.signals:
-            sys.stdout.write ('%s: Sending signal %s\n' % (self.name, signame))
             self.proc.send_signal (signum)
 
     def initial_result (self):
@@ -137,29 +145,58 @@ class SyncedProcess (threading.Thread):
 
 syncprox = []
 for (proc,zig) in zip (prox,zigz):
-    sys.stdout.write ('pypeline: initial: %r\n' % (proc,))
-    newsyncer = SyncedProcess (proc,signals=zig)
+    if 'python' in proc [0]:
+        name = proc [1].split ('/') [-1].split ('\\') [-1]
+    else:
+        name = proc [0].split ('/') [-1].split ('\\') [-1]
+    sys.stdout.write ('pypeline: initial: %s\n' % (name,))
+    newsyncer = SyncedProcess (proc, name=name, signals=zig)
     syncprox.append (newsyncer)
-    sys.stdout.write ('pypeline: freerun: %r\n' % (proc,))
+    sys.stdout.write ('pypeline: freerun: %s\n' % (name,))
     newsyncer.start ()
 
-# End Game #1.  Wait for SyncedProcesses that cannot be signaled to stop
+#
+# We enter the end game.  This consists of three phasis, during which
+# the programs are graceffully terminated.  There is no overall timer,
+# as each individual program is supposed to have a timeout or respond
+# to a termination signal.
+#
+# The first pass waits until all programs without a registered signal
+# have ended their actions.  The second phase signals to the other
+# programs (when they are still running) in an attempt to end them.
+# The third phase finally waits until all programs which were signaled
+# have also terminated.  This allows daemon-style programs to run as
+# long as required, but terminate as soon the time-dependent work is
+# complete.
+#
+# Actions are still made in the reverse order of appearance on the
+# command line, but any order would work just as well.  The magic
+# is in the ordering in phases, not the ordering on the command line.
+#
+
+sys.stdout.write ('pypeline: End Game #1.  Await self-terminating programs.\n')
 for sync in syncprox:
     if not sync.could_signal ():
         result = sync.final_result ()
 
-# End Game #2.  Signal all remaining SyncedProcesses that they may stop
+sys.stdout.write ('pypeline: End Game #2.  Terminate programs that registered a signal.\n')
 for sync in syncprox:
     if sync.could_signal ():
         sync.send_signals ()
 
-# End Game #3.  Wait until all SyncedProcesses have stopped and conclude.
+sys.stdout.write ('pypeline: End Game #3.  Wait until signal-registering programs have ended.\n')
 exitval = 0
 for (sync,proc) in zip (syncprox,prox):
     result = sync.final_result ()
-    sys.stdout.write ('pypeline: results: %r --> %r\n' % (proc, result))
+    sys.stdout.write ('pypeline: results: %s\n' % (sync.getName (),))
     if result != 0:
-        sys.stderr.write ('Exit code %d from process %r\n' % (result, proc))
+        sys.stderr.write ('Failure exit code %d from %s\n' % (result, sync.getName ()))
         exitval = 1
+
+if tmpdir is not None:
+    for fn in os.listdir (tmpdir):
+        os.remove (tmpdir + os.sep + tmpfn)
+    os.rmdir (tmpdir)
+
 sys.exit (exitval)
 
