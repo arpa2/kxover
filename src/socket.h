@@ -25,6 +25,12 @@
 socklen_t sockaddrlen (const struct sockaddr *sa);
 
 
+/* Store a raw address from a given family in a socket address,
+ * together with a port that may be set to 0 as a catch-all.
+ */
+bool socket_address (sa_family_t af, uint8_t *addr, uint16_t portnr, struct sockaddr *sa);
+
+
 /* Parse an address and port, and store them in a sockaddr of
  * type AF_INET or AF_INET6.  The space provided is large enough
  * to hold either, as it is defined as a union.

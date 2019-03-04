@@ -16,19 +16,25 @@
 #include <signal.h>
 #include <errno.h>
 
-#include "backend.h"
 #include "socket.h"
 #include "kxover.h"
+#include "starttls.h"
 
 #include <ev.h>
 
 #include <quick-der/api.h>
 
 
+// Have a straightforward event loop (from libev)
+struct ev_loop *loop;
+int sys_exit = 0;
+
+
 
 void cb_timeout_10s (EV_P_ ev_timer *evt, int revents) {
 	printf ("Timeout after 10 seconds of patience\n");
-	exit (1);
+	sys_exit = 1;
+	ev_break (EV_A_ EVBREAK_ALL);
 }
 
 #if 0
@@ -44,7 +50,9 @@ void cb_kxover_done (void *cbdata, int result_errno,
 printf ("cb_kxover_done() called with errno == %d (%s)\n", result_errno, strerror (result_errno));
 	if (result_errno != 0) {
 		fprintf (stderr, "KXOVER client failed: %s", strerror (result_errno));
-		exit (1);
+		sys_exit = 1;
+		ev_break (EV_A_ EVBREAK_ALL);
+		return;
 	}
 printf ("cb_kxover_done() returns\n");
 }
@@ -53,8 +61,8 @@ printf ("cb_kxover_done() returns\n");
 int main (int argc, char *argv []) {
 
 	// Process the commandline arguments
-	if (argc != 7) {
-		fprintf (stderr, "Usage: %s <client-realm> <service-realm> <kdc-ip> <kdc-port> <dnssec-rootkey-file> <etc-hosts-file>\n", argv [0]);
+	if (argc != 5) {
+		fprintf (stderr, "Usage: %s <client-realm> <service-realm> <dnssec-rootkey-file> <etc-hosts-file>\n", argv [0]);
 		exit (1);
 	}
 
@@ -66,29 +74,20 @@ int main (int argc, char *argv []) {
 	srealm.derlen = strlen (argv [2]);
 
 #if 0
-	struct sockaddr sa_wrap;
+	struct sockaddr_storage sa_wrap;
 	if (!socket_parse (argv [1-TAKEN], argv [2-TAKEN], &sa_wrap)) {
 		perror ("TCP wrapper address/port failed to parse");
 		exit (1);
 	}
 #endif
 
-	struct sockaddr sa_kdc;
-	if (!socket_parse (argv [3], argv [4], &sa_kdc)) {
-		perror ("KDC address/port failed to parse");
-		exit (1);
-	}
-
 #if 0
 	int stop_signal = atoi (argv [5-TAKEN]);
 #endif
 
-	char *dnssec_rootkey_file = argv [5];
+	char *dnssec_rootkey_file = argv [3];
 
-	char *etc_hosts_file = argv [6];
-
-	// Have a straightforward event loop (from libev)
-	struct ev_loop *loop = EV_DEFAULT;
+	char *etc_hosts_file = argv [4];
 
 	// Initialise the network sockets and accompanying event structures
 #if 0
@@ -99,12 +98,11 @@ int main (int argc, char *argv []) {
 	printf ("Listening for UDP wrappables on ('%s', %s)\n", argv [1-TAKEN], argv [2-TAKEN]);
 #endif
 
-printf ("backup_init()...\n");
-	if (!backend_init (loop, &sa_kdc)) {
-		perror ("KDC backend failed to initialise");
-		exit (1);
-	}
-	printf ("Listening for KDC answers from ('%s', %s)\n", argv [3], argv [4]);
+	// Use the default loop, plain and simple
+	loop = EV_DEFAULT;
+
+printf ("starttls_init () -> faketls_init ()...\n");
+	starttls_init (loop);
 
 printf ("kxover_init ()...\n");
 	kxover_init (EV_A_ dnssec_rootkey_file, etc_hosts_file);
@@ -132,13 +130,19 @@ printf ("kxover_client() starts now\n");
 	client_handle = kxover_client (cb_kxover_done, "cbdata", crealm, srealm);
 	if (!client_handle) {
 		perror ("Failed to start kxover_client");
-		exit (1);
+		sys_exit = 1;
 	}
 
 	// Run the event loop
-	ev_run (EV_A_ 0);
+	if (sys_exit == 0) {
+		ev_run (EV_A_ 0);
+	}
 
-	exit (0);
+printf ("kxover_fini ()...\n");
+	kxover_fini ();
+
+printf ("exit (%d)\n", sys_exit);
+	exit (sys_exit);
 
 }
 

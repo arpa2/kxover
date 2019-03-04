@@ -31,6 +31,7 @@ set (kxover_SRC
 	tcpwrap.c
 	${TLS_SOURCE}
 	kxover.c
+	kerberos.c
 	socket.c
 	main.c
 )

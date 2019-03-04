@@ -34,7 +34,7 @@ add_executable (test_kxclient
 	${CMAKE_SOURCE_DIR}/src/kxover.c
 	${CMAKE_SOURCE_DIR}/src/socket.c
 	${CMAKE_SOURCE_DIR}/src/faketls.c
-	${CMAKE_SOURCE_DIR}/src/backend.c)
+	${CMAKE_SOURCE_DIR}/src/kerberos.c)
 
 message (target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev))
 target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
@@ -44,7 +44,8 @@ target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES}
 # TEST REGISTRATION
 #
 
-set (py_setenv ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}:${CMAKE_CURRENT_BINARY_DIR}:${_ppath})
+set (valgrind       valgrind --log-file=${CMAKE_BINARY_DIR}/valgrind.log)
+set (py_setenv             ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}:${CMAKE_CURRENT_BINARY_DIR}:${_ppath})
 set (pypeline       python ${CMAKE_CURRENT_SOURCE_DIR}/pypeline)
 set (fakekdc_udp    python ${CMAKE_CURRENT_SOURCE_DIR}/fakekdc_udp)
 set (fakekdc_tcp    python ${CMAKE_CURRENT_SOURCE_DIR}/fakekdc_tcp)
@@ -101,12 +102,15 @@ add_test (NAME t_127_0_0_1 COMMAND ${py_setenv} ${pypeline}
 	${fakekdc_udp} 127.0.0.1 77 ${krb_as_flow}
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
+# A trick to avoid the need for a fakekdc_tcp is to go through test_tcpwrap :-)
 add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
+	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	--
+	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 SIG:HUP
+	--
+	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
+	--
 	${demo_hosts} FILE:HOSTS localhost.demo.arpa2.org IP:KDC
-	--
-	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG IP:KDC UDP:KDC ${dnssec_root_key} FILE:HOSTS
-	--
-	${fakekdc_tcp} --tcp IP:KDC 77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 

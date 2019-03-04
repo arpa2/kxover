@@ -1,11 +1,19 @@
 #!/usr/bin/env grep ^-
 # Leading characters are - for TODO, + for DONE, X for WONTFIX
 
-+ check cleanup: SIGPIPE error -13, caused by Unbound cleanup / assumed free() before ub_cancel()
++ check cleanup: SIGPIPE error -13, caused by Unbound cleanup and improper ev_loop end
 + add dnskey-path to parameters of test/simple-client
 + introduce $<SHELL_PATH> for bin/* and possibly more
 + iterators drop //TODO:OLD//
 + rewrite host names from Unbound SRV: <len>text<len>text without trailing <0>
-- do not drop out with EADDRNOTAVAIL 99 when IPv6 is not available (or...?)
-- consider using socket.c in the kxover_client code: ub2sockaddr and socket/connect
-- build localhost.demo.arpa2.org A override option into simple-client test
++ do not drop out with EADDRNOTAVAIL 99 when IPv6 is not available (or...?)
++ consider using socket.c in the kxover_client code: ub2sockaddr and socket/connect
++ build localhost.demo.arpa2.org A override option into simple-client test
+- pypeline should try to detect early termination of programs in arbitrary order
+
++ Have a KXOVER protocol client (in test mode)
+- Have a KXOVER protocol server (in test mode)
+- Actually exchange KX-OFFER messages -- and validate them
+- Implement key agreement and storage as Kerberos crossover keys
+- Protect the exchange with real TLS
+

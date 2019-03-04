@@ -36,7 +36,7 @@ parser.add_option ('--fake-tls', dest='fake_tls', action='store_true', default=F
 (options,args) = parser.parse_args ()
 
 if len (args) < 3:
-    sys.stderr.write ('Usage: ' + sys.argv [0] + ' <ip> <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
+    sys.stderr.write ('Usage: ' + sys.argv [0] + ' [--fake-tls] <ip> <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
     sys.exit (1)
 
 myip = args [0]
@@ -80,7 +80,7 @@ for argi in args [2:]:
             req = sox.recv (reqlen)
             assert (len (req) == reqlen)
         except socket.timeout:
-            sys.stderr.write ('Timed out\n')
+            sys.stderr.write ('Timed out in %s\n' % (sys.argv [0],))
             sox.close ()
             sys.exit (1)
         if data is not None and req != data:

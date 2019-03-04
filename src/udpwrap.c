@@ -66,7 +66,7 @@ struct wrapdata {
  * benefit of a few, this choice is under discussion.
  */
 struct udpmsg {
-	struct sockaddr client;
+	struct sockaddr_storage client;
 	struct wrapdata *wrapdata;
 	uint8_t *reqptr;
 	uint32_t reqlen;
@@ -151,11 +151,12 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 				offsetof (struct wrapdata, listener));
 	/* Load the data and client address into temporary buffers */
 	uint8_t buf [1500+1];
-	struct sockaddr sa;
+	struct sockaddr_storage sa;
+	memset (&sa, 0, sizeof (sa));
 	socklen_t salen = sizeof (sa);
 	ssize_t recvlen = recvfrom (wd->socket, buf, 1500+1, 0,
 				(struct sockaddr *) &sa, &salen);
-	if ((salen != sockaddrlen (&sa)) || (recvlen <= 0) || (recvlen > 1500)) {
+	if ((salen != sockaddrlen ((struct sockaddr *) &sa)) || (recvlen <= 0) || (recvlen > 1500)) {
 		/* Funny size, drop the UDP message */
 		return;
 	}

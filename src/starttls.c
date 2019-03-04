@@ -260,6 +260,7 @@ void starttls_handshake_cancel (struct starttls_data *tlsdata) {
  * and returned true.
  */
 void starttls_close (struct starttls_data *tlsdata) {
+	//TODO// Possibly cleanup pending work, needed once non-blocking
 	free (tlsdata);
 }
 

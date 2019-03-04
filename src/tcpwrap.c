@@ -60,7 +60,7 @@ struct wrapdata {
 	int socket;
 	int sendctr;
 	ev_io listener;
-	struct sockaddr client;
+	struct sockaddr_storage client;
 	uint32_t flags;
 	uint32_t progress;
 	uint8_t *reqptr;
@@ -91,6 +91,9 @@ static struct acceptdata *tcpacceptors = NULL;
 struct ev_loop *tcpwrap_loop = NULL;
 
 
+static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents);
+
+
 static void cb_starttls_handshaken (void *cbdata, int fd_new) {
 	struct wrapdata *wd = cbdata;
 	/* Forget the old socket, regardless of the new one */
@@ -103,7 +106,7 @@ static void cb_starttls_handshaken (void *cbdata, int fd_new) {
 	wd->progress |= PROGRESS_TLS;
 	/* Switch back to TCP processing, but now on fd_new */
 	ev_io_set (&wd->listener, fd_new, EV_READ /* TODO:FORBIDDEN: | EV_ERROR */);
-	ev_io_start (EV_DEFAULT, &wd->listener);
+	ev_io_start (tcpwrap_loop, &wd->listener);
 	/* Done, finish */
 	return;
 disconnect:
@@ -340,7 +343,7 @@ static void _acceptor_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
 	/* Try to accept the new connection, and determine the client address */
 	socklen_t wdlen = sizeof (wd->client);
 	wd->socket = accept (ad->socket, (struct sockaddr *) &wd->client, &wdlen);
-	if ((wd->socket < 0) || (wdlen != sockaddrlen (&wd->client))) {
+	if ((wd->socket < 0) || (wdlen != sockaddrlen ((struct sockaddr *) &wd->client))) {
 		/* No work to be done, client may have retracted */
 		goto fail;
 	}

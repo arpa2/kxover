@@ -145,11 +145,15 @@ class SyncedProcess (threading.Thread):
 
 syncprox = []
 for (proc,zig) in zip (prox,zigz):
-    if 'python' in proc [0] or 'valgrind' in proc [0]:
-        name = proc [1].split ('/') [-1].split ('\\') [-1]
-    else:
-        name = proc [0].split ('/') [-1].split ('\\') [-1]
-    sys.stdout.write ('pypeline: initial: %s\n' % (name,))
+    pni = 0
+    if 'python' in proc [0]:
+        pni = 1
+    elif 'valgrind' in proc [0]:
+        pni = 1
+        while proc [pni] != '--' and proc [pni] [:1] == '-':
+            pni += 1
+    name = proc [pni].split ('/') [-1].split ('\\') [-1]
+    sys.stdout.write ('pypeline: initial: %s == %r\n' % (name,proc))
     newsyncer = SyncedProcess (proc, name=name, signals=zig)
     syncprox.append (newsyncer)
     sys.stdout.write ('pypeline: freerun: %s\n' % (name,))

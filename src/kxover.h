@@ -104,6 +104,12 @@ typedef void (*cb_kxover_result) (void *cbdata,
 bool kxover_init (EV_P_ char *dnssec_rootkey_file, char *opt_etc_hosts_file);
 
 
+/* Clean up resources used by kxover.  All running processes must have
+ * ended before this is called.
+ */
+void kxover_fini (void);
+
+
 /* Having classified a frame from upstream as Kerberos,
  * interpret the read Kerberos data and see if it should be
  * handled as KXOVER, or passed to the downstream.

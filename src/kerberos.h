@@ -8,6 +8,8 @@
 #define KXOVER_KERBEROS_H
 
 
+#include <quick-der/api.h>
+
 
 /* Lookup the local KDC hostname for a given realm.
  *

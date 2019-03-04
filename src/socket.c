@@ -33,6 +33,30 @@ socklen_t sockaddrlen (const struct sockaddr *sa) {
 }
 
 
+/* Store a raw address from a given family in a socket address,
+ * together with a port that may be set to 0 as a catch-all.
+ */
+bool socket_address (sa_family_t af, uint8_t *addr, uint16_t portnr, struct sockaddr *sa) {
+	sa->sa_family = af;
+	memset (sa, 0, sockaddrlen (sa));
+	sa->sa_family = af;
+	switch (af) {
+	case AF_INET6:
+		memcpy (&((struct sockaddr_in6 *) sa)->sin6_addr, addr, 16);
+		((struct sockaddr_in6 *) sa)->sin6_port = htons (portnr);
+		return true;
+	case AF_INET:
+		memcpy (&((struct sockaddr_in  *) sa)->sin_addr,  addr,  4);
+		((struct sockaddr_in  *) sa)->sin_port  = htons (portnr);
+		return true;
+	default:
+		break;
+	}
+	errno = EINVAL;
+	return false;
+}
+
+
 /* Parse an address and port, and store them in a sockaddr of
  * type AF_INET or AF_INET6.  The space provided is large enough
  * to hold either, as it is defined as a union.
@@ -65,33 +89,27 @@ bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa) {
 	}
 	//
 	// IPv6 address parsing
-	struct af_ofs { int af; int aofs; int pofs; };
-	static const struct af_ofs aofs [3] = {
-		{ AF_INET6, offsetof (struct sockaddr_in6, sin6_addr),
-		            offsetof (struct sockaddr_in6, sin6_port) },
-		{ AF_INET,  offsetof (struct sockaddr_in,  sin_addr ),
-		            offsetof (struct sockaddr_in,  sin_port ) },
-	        { -1, -1, -1 }
-	};
-	const struct af_ofs *aofsp = &aofs [0];
-	for (aofsp = &aofs [0]; aofsp->aofs != -1; aofsp++) {
-		memset (out_sa, 0, sizeof (struct sockaddr));
-		switch (inet_pton (aofsp->af, addr, (((uint8_t *) out_sa) + aofsp->aofs))) {
-		case 1:
-			out_sa->sa_family = aofsp->af;
-			* (uint16_t *) (((uint8_t *) out_sa)
-					+ aofsp->pofs) = htons (portnr);
-			return true;
-		case 0:
-			/* Invalid address did not set errno */
-			errno = EINVAL;
-			continue;
-		default:
-			continue;
-		}
+	uint8_t raw_addr [16];
+	switch (inet_pton (AF_INET6, addr, raw_addr)) {
+	case 1:
+		return socket_address (AF_INET6, raw_addr, portnr, out_sa);
+	case 0:
+		break;
+	default:
+		break;
 	}
 	//
-	// Report the last error; this is usually EINVAL
+	// IPv4 address parsing
+	switch (inet_pton (AF_INET,  addr, raw_addr)) {
+	case 1:
+		return socket_address (AF_INET,  raw_addr, portnr, out_sa);
+	case 0:
+		break;
+	default:
+		break;
+	}
+	//
+	// Report EINVAL as an error condition
 	errno = EINVAL;
 	return false;
 }
