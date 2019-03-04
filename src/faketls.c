@@ -12,10 +12,87 @@
 
 #include "starttls.h"
 
+#include <ev.h>
 
 
-/* Empty data structure */
-static struct starttls_data { } faketls_data;
+/* Even fakes need to manage and stick to their word...  */
+
+typedef struct {
+	ev_idle ev_test;
+	starttls_cb_test_t test_cb;
+	void *test_cbdata;
+	bool test_result;
+} faketls_test;
+
+typedef struct starttls_data {
+	ev_timer fd_timer;
+	starttls_cb_fd_t fd_cb;
+	void *fd_cbdata;
+	int fd_new;
+	faketls_test test_localrealm;
+	faketls_test test_remoterealm;
+	faketls_test test_exportkey;
+} faketls_data;
+
+
+/* A local copy of the event loop */
+static struct ev_loop *faketls_loop;
+
+
+/* Stop a timed callback with a file descriptor.
+ */
+static void _teardown_fd_cb (faketls_data *ftd) {
+	ev_timer_stop (faketls_loop, &ftd->fd_timer);
+}
+
+/* Invoke a timed callback with a file descriptor.
+ */
+static void _fire_fd_cb (EV_P_ ev_timer *tim, int revents) {
+	faketls_data *ftd =
+		(faketls_data *) (
+			((uint8_t *) tim) -
+				offsetof (faketls_data, fd_timer));
+	_teardown_fd_cb (ftd);
+	ftd->fd_cb (ftd->fd_cbdata, ftd->fd_new);
+}
+
+/* Setup a timed callback with a file descriptor.
+ */
+static void _setup_fd_cb (faketls_data *ftd, int fd_new, starttls_cb_fd_t fd_cb, void *fd_cbdata) {
+	ftd->fd_cb     = fd_cb;
+	ftd->fd_cbdata = fd_cbdata;
+	ftd->fd_new    = fd_new;
+	ev_timer_init (&ftd->fd_timer, _fire_fd_cb, 0.250, 0.0);
+	ev_timer_start (faketls_loop, &ftd->fd_timer);
+}
+
+
+/* Stop an idle callback with a test result.
+ */
+static void _teardown_test_cb (faketls_test *ftt) {
+	ev_idle_stop (faketls_loop, &ftt->ev_test);
+}
+
+/* Invoke an idle callback with a test result.
+ */
+static void _fire_test_cb (EV_P_ ev_idle *idl, int revents) {
+	faketls_test *ftt =
+		(faketls_test *) (
+			((uint8_t *) idl) -
+				offsetof (faketls_test, ev_test));
+	_teardown_test_cb (ftt);
+	ftt->test_cb (ftt->test_cbdata, ftt->test_result);
+}
+
+/* Setup an idle callback with an ok value.
+ */
+static void _setup_test_cb (faketls_test *ftt, bool test_result, starttls_cb_test_t test_cb, void *test_cbdata) {
+	ftt->test_cb     = test_cb;
+	ftt->test_cbdata = test_cbdata;
+	ftt->test_result = test_result;
+	ev_idle_init (&ftt->ev_test, _fire_test_cb);
+	ev_idle_start (EV_A_ &ftt->ev_test);
+}
 
 
 	
@@ -25,6 +102,7 @@ static struct starttls_data { } faketls_data;
  * Return true on success, or false with errno set on failure.
  */
 bool starttls_init (EV_P) {
+	faketls_loop = loop;
 	return true;
 }
 
@@ -61,8 +139,13 @@ bool starttls_handshake (int fd_old,
 			struct dercursor client_hostname, struct dercursor server_hostname,
 			struct starttls_data **tlsdata_outvar,
 			starttls_cb_fd_t cb, void *cbdata) {
-	*tlsdata_outvar = &faketls_data;
-	cb (cbdata, fd_old);
+	faketls_data *tlsdata = calloc (1, sizeof (faketls_data));
+	if (tlsdata == 0) {
+		errno = ENOMEM;
+		return false;
+	}
+	*tlsdata_outvar = tlsdata;
+	_setup_fd_cb (tlsdata, fd_old, cb, cbdata);
 	return true;
 }
 
@@ -75,7 +158,7 @@ bool starttls_handshake (int fd_old,
  * This function should never fail.
  */
 void starttls_handshake_cancel (struct starttls_data *tlsdata) {
-	;
+	_teardown_fd_cb (tlsdata);
 }
 
 
@@ -83,7 +166,11 @@ void starttls_handshake_cancel (struct starttls_data *tlsdata) {
  * and returned true.
  */
 void starttls_close (struct starttls_data *tlsdata) {
-	;
+	_teardown_fd_cb (tlsdata);
+	_teardown_test_cb (&tlsdata->test_localrealm);
+	_teardown_test_cb (&tlsdata->test_remoterealm);
+	_teardown_test_cb (&tlsdata->test_exportkey);
+	free (tlsdata);
 }
 
 
@@ -159,7 +246,7 @@ typedef void (*starttls_cb_test_t) (void *cbdata, bool ok);
 bool starttls_local_realm_check_certificate (struct dercursor localrealm,
 			struct starttls_data *tlsdata,
 			starttls_cb_test_t cb, void *cbdata) {
-	cb (cbdata, true);
+	_setup_test_cb (&tlsdata->test_localrealm, true, cb, cbdata);
 	return true;
 }
 
@@ -184,7 +271,7 @@ bool starttls_local_realm_check_certificate (struct dercursor localrealm,
 bool starttls_remote_realm_check_certificate (struct dercursor remoterealm,
 			struct starttls_data *tlsdata,
 			starttls_cb_test_t cb, void *cbdata) {
-	cb (cbdata, true);
+	_setup_test_cb (&tlsdata->test_remoterealm, true, cb, cbdata);
 	return true;
 }
 
@@ -205,7 +292,7 @@ bool starttls_export_key (struct dercursor label, struct dercursor opt_ctxval,
 			uint16_t size_random, uint8_t *out_random,
 			struct starttls_data *tlsdata,
 			starttls_cb_test_t cb, void *cbdata) {
-	cb (cbdata, true);
+	_setup_test_cb (&tlsdata->test_exportkey, true, cb, cbdata);
 	return true;
 }
 

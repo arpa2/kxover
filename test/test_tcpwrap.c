@@ -15,6 +15,7 @@
 
 #include "tcpwrap.h"
 #include "backend.h"
+#include "starttls.h"
 #include "socket.h"
 
 #include <ev.h>
@@ -61,14 +62,14 @@ int main (int argc, char *argv []) {
 		exit (1);
 	}
 
-	struct sockaddr sa_wrap;
-	if (!socket_parse (argv [1], argv [2], &sa_wrap)) {
+	struct sockaddr_storage sa_wrap;
+	if (!socket_parse (argv [1], argv [2], (struct sockaddr *) &sa_wrap)) {
 		perror ("TCP wrapper address/port failed to parse");
 		exit (1);
 	}
 
-	struct sockaddr sa_kdc;
-	if (!socket_parse (argv [3], argv [4], &sa_kdc)) {
+	struct sockaddr_storage sa_kdc;
+	if (!socket_parse (argv [3], argv [4], (struct sockaddr *) &sa_kdc)) {
 		perror ("KDC address/port failed to parse");
 		exit (1);
 	}
@@ -83,17 +84,22 @@ int main (int argc, char *argv []) {
 		perror ("TCP wrapper failed to initialise");
 		exit (1);
 	}
-	if (!tcpwrap_service (&sa_wrap)) {
+	if (!tcpwrap_service ((struct sockaddr *) &sa_wrap)) {
 		perror ("TCP wrapper failed to service port");
 		exit (1);
 	}
 	printf ("Listening for TCP wrappables on ('%s', %s)\n", argv [1], argv [2]);
 
-	if (!backend_init (EV_A_ &sa_kdc)) {
+	if (!backend_init (EV_A_ (struct sockaddr *) &sa_kdc)) {
 		perror ("KDC backend failed to initialise");
 		exit (1);
 	}
 	printf ("Listening for KDC answers from ('%s', %s)\n", argv [3], argv [4]);
+
+	if (!starttls_init (loop)) {
+		perror ("Failed to start TLS module");
+		exit (1);
+	}
 
 	// Inform pypeline that we are ready for action
 	printf ("--\n");

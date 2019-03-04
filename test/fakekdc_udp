@@ -22,8 +22,6 @@ import time
 
 import socket
 
-import optparse
-
 
 if len (sys.argv) < 4:
     sys.stderr.write ('Usage: ' + sys.argv [0] + ' <ip> <port> req1.bin rep1.bin req2.bin rep2.bin...\n')
@@ -57,8 +55,9 @@ for argi in sys.argv [3:]:
         sys.stdout.write ('Receiving for %r\n' % (argi,))
         try:
             (req,sender) = sox.recvfrom (1500)
+            print 'Received', len (req), 'bytes from', sender
         except socket.timeout:
-            sys.stderr.write ('Timed out\n')
+            sys.stderr.write ('Timed out in %s\n' % (sys.argv [0],))
 	    sox.close ()
             sys.exit (1)
         if sender is None:

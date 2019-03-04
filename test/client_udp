@@ -55,7 +55,7 @@ for argi in sys.argv [3:]:
         try:
             (req,actpeer) = sox.recvfrom (1500)
         except socket.timeout:
-            sys.stderr.write ('Timed out\n')
+            sys.stderr.write ('Timed out in %s\n' % (sys.argv [0],))
             sox.close ()
             sys.exit (1)
         if actpeer != peer:
