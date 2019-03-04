@@ -1,6 +1,6 @@
-/* test the udpwrap module :-
+/* test the tcpwrap module :-
  *
- * Send a few packages to the backend via udpwrap.c, see them responded
+ * Send a few packages to the backend via tcpwrap.c, see them responded
  * by fakekdc, and check the result.
  *
  * From: Rick van Rein <rick@openfortress.nl>
@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <signal.h>
 
-#include "udpwrap.h"
+#include "tcpwrap.h"
 #include "backend.h"
 #include "socket.h"
 
@@ -34,7 +34,7 @@ void cb_second (EV_P_ ev_timer *evt, int revents) {
 }
 #endif
 
-void cb_exit_0 (EV_P_ ev_timer *evt, int revents) {
+void cb_timeout_10s (EV_P_ ev_timer *evt, int revents) {
 	printf ("Shutdown after 10 seconds of presence\n");
 	ev_break (EV_A_ EVBREAK_ALL);
 }
@@ -45,7 +45,7 @@ void cb_please_stop (EV_P_ ev_signal *evt, int revents) {
 }
 
 #if 0
-void cb_stdin_reading (struct ev_loop *loop, ev_io *evt, int _revents) {
+void cb_stdin_reading (EV_P_ ev_io *evt, int _revents) {
 	char inning [1000];
 	size_t inned = read (0, inning, sizeof (inning));
 	printf ("cb_stdin_reading() got %d keys: %.*s\n", inned, inned, inning);
@@ -57,13 +57,13 @@ int main (int argc, char *argv []) {
 
 	// Process the commandline arguments
 	if (argc != 6) {
-		fprintf (stderr, "Usage: %s <udpwrap-ip> <udpwrap-port> <kdc-ip> <kdc-port> <stop-signal>\n", argv [0]);
+		fprintf (stderr, "Usage: %s <tcpwrap-ip> <tcpwrap-port> <kdc-ip> <kdc-port> <signal>\n", argv [0]);
 		exit (1);
 	}
 
 	struct sockaddr sa_wrap;
 	if (!socket_parse (argv [1], argv [2], &sa_wrap)) {
-		perror ("UDP wrapper address/port failed to parse");
+		perror ("TCP wrapper address/port failed to parse");
 		exit (1);
 	}
 
@@ -79,13 +79,17 @@ int main (int argc, char *argv []) {
 	struct ev_loop *loop = EV_DEFAULT;
 
 	// Initialise the network sockets and accompanying event structures
-	if (!udpwrap_init (loop, &sa_wrap)) {
-		perror ("UDP wrapper failed to initialise");
+	if (!tcpwrap_init (loop)) {
+		perror ("TCP wrapper failed to initialise");
 		exit (1);
 	}
-	printf ("Listening for UDP wrappables on ('%s', %s)\n", argv [1], argv [2]);
+	if (!tcpwrap_service (&sa_wrap)) {
+		perror ("TCP wrapper failed to service port");
+		exit (1);
+	}
+	printf ("Listening for TCP wrappables on ('%s', %s)\n", argv [1], argv [2]);
 
-	if (!backend_init (loop, &sa_kdc)) {
+	if (!backend_init (EV_A_ &sa_kdc)) {
 		perror ("KDC backend failed to initialise");
 		exit (1);
 	}
@@ -104,32 +108,32 @@ int main (int argc, char *argv []) {
 	alarm (10);
 #endif
 
-	// Setup a shuftdown timer that expires after 10s
+	// Setup a shutdown timer that expires after 10s
 	ev_timer shutdown_timer;
-	ev_timer_init (&shutdown_timer, cb_exit_0, 10., 0.);
-	ev_timer_start (loop, &shutdown_timer);
+	ev_timer_init (&shutdown_timer, cb_timeout_10s, 10., 0.);
+	ev_timer_start (EV_A_ &shutdown_timer);
 
 #if 0
 	// Setup a repeating timer based on the event loop
 	ev_timer tim;
 	ev_timer_init (&tim, cb_second, 1., 1.);
-	ev_timer_start (loop, &tim);
+	ev_timer_start (EV_A_ &tim);
 #endif
 
 #if 0
 	// Test setup, see if something happens on stdin
 	ev_io inkey;
 	ev_io_init (&inkey, cb_stdin_reading, 0, EV_READ);
-	ev_io_start (loop, &inkey);
+	ev_io_start (EV_A_ &inkey);
 #endif
 
 	// Register a stop signal handler
 	ev_signal stop_event;
 	ev_signal_init (&stop_event, cb_please_stop, stop_signal);
-	ev_signal_start (loop, &stop_event);
+	ev_signal_start (EV_A_ &stop_event);
 
 	// Run the event loop
-	ev_run (loop, 0);
+	ev_run (EV_A_ 0);
 
 	exit (0);
 

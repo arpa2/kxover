@@ -20,6 +20,10 @@ option (DEBUG
         "Produce verbose about Petri net processing"
         OFF)
 
+if (DEBUG)
+	add_compile_options (-DDEBUG)
+endif()
+
 option (FAKE_TLS
 	"Bypass TLS for now; use plain TCP and claim OK on any tests"
 	OFF)
@@ -59,6 +63,8 @@ get_version_from_git (KXOVER 0.0.0)
 #
 
 add_subdirectory (asn1)
+include_directories (${KXOVER_INCDIR})
+
 add_subdirectory (src)
 add_subdirectory (test)
 

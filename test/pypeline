@@ -145,7 +145,7 @@ class SyncedProcess (threading.Thread):
 
 syncprox = []
 for (proc,zig) in zip (prox,zigz):
-    if 'python' in proc [0]:
+    if 'python' in proc [0] or 'valgrind' in proc [0]:
         name = proc [1].split ('/') [-1].split ('\\') [-1]
     else:
         name = proc [0].split ('/') [-1].split ('\\') [-1]
@@ -188,13 +188,14 @@ sys.stdout.write ('pypeline: End Game #3.  Wait until signal-registering program
 exitval = 0
 for (sync,proc) in zip (syncprox,prox):
     result = sync.final_result ()
-    sys.stdout.write ('pypeline: results: %s\n' % (sync.getName (),))
-    if result != 0:
-        sys.stderr.write ('Failure exit code %d from %s\n' % (result, sync.getName ()))
+    if result == 0:
+        sys.stdout.write ('pypeline: success: %s\n' % (sync.getName (),))
+    else:
+        sys.stdout.write ('pypeline: failure: %s -> exit (%d)\n' % (sync.getName (), result))
         exitval = 1
 
 if tmpdir is not None:
-    for fn in os.listdir (tmpdir):
+    for tmpfn in os.listdir (tmpdir):
         os.remove (tmpdir + os.sep + tmpfn)
     os.rmdir (tmpdir)
 

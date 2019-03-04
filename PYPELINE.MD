@@ -27,9 +27,10 @@ Every program passes through three interactions with the pypeline:
     collects the `exit` state and requires that it is 0.  Any
     other value is considered a failure.
 
-  * **Results** is the collection of the exit value.  When the
-    marker `--` was not found before the program ended, the result
-    is an error, even if there was none sent by the early
+  * **Results** is the collection of the exit value, reported as
+    either `success` or `failure`.  When the marker `--` was not
+    found before the program ended, the result is marked as an
+    an error, even if exit code 0 was supplied during this early
     termination.  After the end marker, the exit value should be
     0 to ensure a correct overall test result.
 

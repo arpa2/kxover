@@ -15,11 +15,13 @@ set (SPECNAMES rfc3280 rfc4120 rfc4556 rfc5280 kxover kxover-priorkey-entropy)
 # add_custom_command (OUTPUT kxover-libdir-asn1
 # 	COMMAND cmake -E make_directory ${KXOVER_LIBDIR}/asn1)
 
-add_custom_command (OUTPUT ${KXOVER_DOCDIR}
-	COMMAND cmake -E make_directory ${KXOVER_DOCDIR})
+add_custom_command (OUTPUT              ${KXOVER_DOCDIR}.touchbase
+	COMMAND cmake -E make_directory ${KXOVER_DOCDIR}
+	COMMAND cmake -E touch          ${KXOVER_DOCDIR}.touchbase)
 
-add_custom_command (OUTPUT ${QUICKDER_INCDIR}
-	COMMAND cmake -E make_directory ${QUICKDER_INCDIR})
+add_custom_command (OUTPUT              ${QUICKDER_INCDIR}.touchbase
+	COMMAND cmake -E make_directory ${QUICKDER_INCDIR}
+	COMMAND cmake -E touch          ${QUICKDER_INCDIR}.touchbase)
 
 #
 # Targets deriving Erlang code from the Petri Nets perpetuum/*.pnml
@@ -41,12 +43,12 @@ foreach (SPEC ${SPECNAMES})
 
 	add_custom_command (OUTPUT ${KXOVER_DOCDIR}/${SPEC}.md
 		COMMAND asn1literate ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1 ${KXOVER_DOCDIR}/${SPEC}.md
-		DEPENDS ${KXOVER_DOCDIR})
+		DEPENDS ${KXOVER_DOCDIR}.touchbase)
 
 	add_custom_command (OUTPUT ${QUICKDER_INCDIR}/${SPEC}.h
 		COMMAND asn2quickder -l c -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1
 		WORKING_DIRECTORY ${QUICKDER_INCDIR}
-		DEPENDS ${QUICKDER_INCDIR})
+		DEPENDS ${QUICKDER_INCDIR}.touchbase)
 
 	#DEPENDS# add_custom_command (OUTPUT ${KXOVER_LIBDIR}/asn1/${SPEC}.py
 	#DEPENDS# 	COMMAND asn2quickder -l python -I ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${SPEC}.asn1

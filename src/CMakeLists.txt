@@ -8,8 +8,6 @@ set (BACKEND_POOLSIZE 512 CACHE STRING
 )
 add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE})
 
-include_directories (${KXOVER_INCDIR})
-
 
 #
 # Source Files and Compiler Instructions

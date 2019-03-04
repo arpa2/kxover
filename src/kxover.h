@@ -93,63 +93,15 @@ typedef void (*cb_kxover_result) (void *cbdata,
 			struct dercursor service_realm);
 
 
-/* The states that a KXOVER action can be in; this includes
- * being a client or a server, whose states are completely
- * separate, until they reach their final state in which
- * only success/error reporting and cleanup remains.
- */
-enum kxover_state {
-	//
-	// States for both KX Client and KX Server
-	KXS_UNDEFINED = 0,	/* Birth, but not live state */
-	KXS_FINISHED,		/* Finished, see last_errno for ok/ko */
-	KXS_CALLBACK,		/* Currently processing the callback */
-	KXS_CLEANUP,		/* Cleaning up, or ready for doing so */
-	//
-	//
-	// KX Client states (includes setup of TCP and STARTTLS)
-	KXS_CLIENT_PRE,		/* Code before any client state */
-	KXS_CLIENT_INITIALISED,	/* Client has been initialised */
-	KXS_CLIENT_DNSSEC_REALM,/* In DNSSEC query _kerberos TXT */
-	KXS_CLIENT_DNSSEC_KDC,	/* In DNSSEC query _kerberos-tls._tcp SRV */
-	KXS_CLIENT_DNS_AAAA_A,	/* Iterate SRV, find AAAA/A records */
-	KXS_CLIENT_CONNECTING,	/* Iterate AAAA/A, connect to KXOVER server */
-	KXS_CLIENT_STARTTLS,	/* Sent STARTTLS to KXOVER server, await reply */
-	KXS_CLIENT_HANDSHAKE,	/* Asked STARTTLS module to shake hands */
-	KXS_CLIENT_REALMSCHECK,	/* Checking both realms against TLS certs */
-	KXS_CLIENT_REALM2CHECK,	/* Checking 2nd  realm  against TLS certs */
-	KXS_CLIENT_KX_SENDING,	/* Sending KX-OFFER to KXOVER server */
-	KXS_CLIENT_KX_RECEIVING,/* Received KX-OFFER from KXOVER server */
-	// KXS_CLIENT_KX_CHECKS,	/* Checking if the KX-OFFERs match */
-	KXS_CLIENT_KEY_DERIVING,/* Key derivation in progress (uses TLS) */
-	KXS_CLIENT_KEY_STORING,	/* Key construction and storage for the KDC */
-				/* ...then on to KXS_SUCCESS */
-	KXS_CLIENT_POST,	/* Code after any client state */
-	//
-	// KX Server states (already has TCP and STARTTLS)
-	KXS_SERVER_PRE,		/* Code before any server state */
-	KXS_SERVER_INITIALISED,	/* Server has been initialised */
-	KXS_SERVER_KX_RECEIVING,/* Received KX-OFFER from KXOVER client */
-	KXS_SERVER_REALMSCHECK,	/* Checking both realms against TLS certs */
-	KXS_SERVER_REALM2CHECK,	/* Checking 2nd  realm  against TLS certs */
-	KXS_SERVER_DNSSEC_KDC,	/* In DNSSEC query _kerberos-tls._tcp SRV */
-	KXS_SERVER_HOSTCHECK,	/* Iterate SRV, compare to TLS client host */
-	KXS_SERVER_KEY_DERIVING,/* Key derivation in progress (uses TLS) */
-	KXS_SERVER_KEY_STORING,	/* Key construction and storage for the KDC */
-	KXS_SERVER_KX_SENDING,	/* Sending KX-OFFER back to KXOVER client */
-				/* ...then on to KXS_SUCCESS */
-	KXS_SERVER_POST,	/* Code after any server state */
-};
-
-
 /* Initialise the kxover.c module, setting the event loop it
  * should use.
  *
- * (If we decide to set a fixed KDC hostname, this is where.)
+ * When opt_etc_hosts_file is not NULL, it is configured as
+ * Unbound's source of ip/host mappings to report unsecurely.
  *
  * Return true on succes, or false with errno set on failure.
  */
-bool kxover_init (EV_P_ char *dnssec_rootkey_file);
+bool kxover_init (EV_P_ char *dnssec_rootkey_file, char *opt_etc_hosts_file);
 
 
 /* Having classified a frame from upstream as Kerberos,

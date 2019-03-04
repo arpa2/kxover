@@ -1,0 +1,48 @@
+#!/usr/bin/env python
+#
+# Write a replacement "/etc/hosts" that lists any IPv4
+# address desired for localhost.demo.arpa2.org.
+#
+# Write out '--' once done, so pypeline can see it's done.
+#
+# From: Rick van Rein <rick@openfortress.nl>
+
+
+import sys
+import stat
+
+
+if len (sys.argv) != 4:
+	sys.stderr.write ('Usage: <hosts-file> <demo-name> <demo-IP>\n')
+	sys.exit (1)
+
+hosts_file = sys.argv [1]
+demo_name  = sys.argv [2]
+demo_ip    = sys.argv [3]
+
+hosts = {
+	'127.0.0.1': ['localhost'],
+	'::1': ['localhost']
+}
+
+if not hosts.has_key (demo_ip):
+	hosts [demo_ip] = []
+
+hosts [demo_ip].insert (0, demo_name)
+
+try:
+    open (hosts_file, 'r')
+    sys.stderr.write ('File %s already exists -- refusing to overwrite it\n' % (hosts_file,))
+    sys.exit (1)
+except IOError:
+    pass
+
+hf = open (hosts_file, 'w')
+for (ip,names) in hosts.items ():
+	hf.write (ip + '\t' + ' '.join (names) + '\n')
+hf.close ()
+
+print ('Alternative /etc/hosts in %s are:\n%r\n' % (hosts_file,hosts))
+print ('--')
+
+sys.exit (0)
