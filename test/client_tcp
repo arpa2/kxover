@@ -61,9 +61,9 @@ if options.fake_tls:
     tls_flags = struct.pack ('>I', 0x80000001)
     sox.send (tls_flags)
     tls_adopt = sox.recv (4)
-    assert (len (tls_adopt) == 4)
+    assert len (tls_adopt) == 4, 'Got not 4 but %d bytes for tls_adopt' % (len (tls_adopt),)
     tls_adopt = struct.unpack ('>I', tls_adopt) [0]
-    assert (tls_adopt == 0x00000000)
+    assert tls_adopt == 0x00000000, 'Got 0x%08x instead of 0x00000000 as tls_adopt' % (tls_adopt,)
 
 sending = True
 for argi in args [2:]:
@@ -75,10 +75,10 @@ for argi in args [2:]:
         sys.stdout.write ('Receiving for %r\n' % (argi,))
         try:
             reqlen0 = reqlen = sox.recv (4)
-            assert (len (reqlen) == 4)
+            assert len (reqlen) == 4, 'Got not 4 but %d bytes for reqlen' % (len (reqlen),)
             reqlen = struct.unpack ('>I', reqlen) [0]
             req = sox.recv (reqlen)
-            assert (len (req) == reqlen)
+            assert len (req) == reqlen, 'Got not %d but %d bytes for req' % (len (req), reqlen)
         except socket.timeout:
             sys.stderr.write ('Timed out in %s\n' % (sys.argv [0],))
             sox.close ()

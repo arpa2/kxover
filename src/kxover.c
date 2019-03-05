@@ -1512,18 +1512,23 @@ tcpkrb5_t kxover_classify_kerberos_down (struct dercursor krb) {
 	uint8_t tag;
 	size_t intlen;
 	uint8_t hdrlen;
-	if (der_header (&krb, &tag, &intlen, &hdrlen) != 0) {
+	struct dercursor krb2 = krb;
+	if (der_header (&krb2, &tag, &intlen, &hdrlen) != 0) {
 		return TCPKRB5_ERROR;
 	}
 	if (hdrlen + intlen != krb.derlen) {
+printf ("DEBUG: Outside DER length is incorrect\n");
 		return TCPKRB5_ERROR;
 	}
 	switch (tag) {
 	case APPTAG_KXOVER_REQ:
+printf ("DEBUG: Recognised APPTAG_KXOVER_REQ\n");
 		return TCPKRB5_KXOVER_REQ;
 	case APPTAG_KXOVER_REP:
+printf ("DEBUG: Recognised APPTAG_KXOVER_REP\n");
 		return TCPKRB5_ERROR;
 	case APPTAG_KRB_ERROR:
+printf ("DEBUG: Recognised APPTAG_KRB_ERROR\n");
 	default:
 		return TCPKRB5_PASS;
 	}

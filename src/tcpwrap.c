@@ -31,6 +31,7 @@
 
 #include "tcpwrap.h"
 #include "backend.h"
+#include "kxover.h"
 #include "starttls.h"
 #include "socket.h"
 
@@ -70,6 +71,7 @@ struct wrapdata {
 	uint32_t replen;
 	uint32_t repofs;
 	struct starttls_data *tlsdata;
+	struct kxover_data *kxover;
 };
 #define PROGRESS_TLS             0x00000001
 #define PROGRESS_CLIENT_HOSTNAME 0x00000002
@@ -194,6 +196,49 @@ retry:
 }
 
 
+/* Callback function from the KXOVER server, indicating success
+ * or failure.  Note that the wrapdata->reqptr holds data that is
+ * referenced internally by the kxover_server() until it triggers
+ * the callback.  Within the callback, the only data that may
+ * point into the wrapdata->kxdata are the client_realm and the
+ * service_realm provided to the callback.  We do not clean up
+ * the kxover administration data, but stop referencing it here,
+ * because it will be cleaned up after this call completes.
+ */
+static void tcpwrap_cb_kxover_done (void *cbdata,
+			int result_errno,
+			struct dercursor client_realm,
+			struct dercursor service_realm) {
+	struct wrapdata *wd = cbdata;
+if ((service_realm.derptr != NULL) && (client_realm.derptr != NULL))
+printf ("DEBUG: tcpwrap_cb_kxover_done() called for krbtgt/%.*s@%.*s\n",
+service_realm.derptr, service_realm.derlen,
+client_realm.derptr, client_realm.derlen);
+	if (result_errno != 0) {
+		//TODO// Report failure to even setup the kxover_server
+		perror ("Failed to start kxover_server");
+		goto disconnect;
+	}
+	/* We kept wd->reqptr for the realm strings, but can clean now */
+	if (wd->reqptr != NULL) {
+		free (wd->reqptr);
+		wd->reqptr = NULL;
+	}
+	/* We simply forget; the KXOVER server cleans up after itself */
+	wd->kxover = NULL;
+	//TODO// Continue TLS connection on success
+disconnect:
+	close (wd->socket);
+	if (wd->tlsdata != NULL) {
+		starttls_close (wd->tlsdata);
+	}
+	if (wd->reqptr != NULL) {
+		free (wd->reqptr);
+	}
+	free (wd);
+}
+
+
 /* Callback function for reading from a socket, and forwarding
  * of the Kerberos message to the backend KDC.
  *
@@ -301,9 +346,45 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 	wd->reqofs += recvlen;
 	if (wd->reqofs < wd->reqlen) {
 		/* Not yet done, continue in future calls */
+		return;
+	}
+	/* Stop interrupts from the upstream for now */
+	ev_io_stop (loop, evt);
+	/* Sidetrack (away from backend) for KXOVER traffic */
+	struct dercursor msg;
+	msg.derptr = wd->reqptr;
+	msg.derlen = wd->reqlen;
+	switch (kxover_classify_kerberos_down (msg)) {
+	case TCPKRB5_PASS:
+		/* Literally pass Kerberos data (u2d2u) */
+printf ("DEBUG: Received a message to pass literally\n");
+		break;
+	case TCPKRB5_KXOVER_REQ:
+		/* Sidetrack: Handle as KXOVER request (u2d).
+		 * The wd->reqptr serves as backend store until the callback
+		 * And even within the callback, the realms are supported by it!
+		 */
+printf ("DEBUG: Recognised a KXOVER request\n");
+		if ((wd->progress & PROGRESS_TLS) != PROGRESS_TLS) {
+			fprintf (stderr, "Attempt to run KXOVER without TLS layer\n");
+			goto disconnect;
+		}
+		wd->kxover = kxover_server (tcpwrap_cb_kxover_done, wd, msg, wd->socket);
+		if (wd->kxover == NULL) {
+			/* Report through the callback, but without realms */
+			struct dercursor dernull = { .derptr = NULL, .derlen = 0 };
+			tcpwrap_cb_kxover_done (wd, errno, dernull, dernull);
+			goto disconnect;
+		}
+printf ("DEBUG: Side-tracked to a KXOVER server\n");
+		return;
+	case TCPKRB5_ERROR:
+	default:
+printf ("DEBUG: Received an unknown or undesired result\n");
+		/* Unknown or undesired result */
+		goto disconnect;
 	}
 	/* Delegate to a backend construct to proxy as UDP with resends */
-	ev_io_stop (loop, evt);
 	if (backend_start (wd, cb_write_request, cb_read_response) == NULL) {
 		/* Backend failure, drop the TCP message */
 		goto disconnect;
@@ -316,6 +397,9 @@ disconnect_stopped:
 	close (wd->socket);
 	if (wd->tlsdata != NULL) {
 		starttls_close (wd->tlsdata);
+	}
+	if (wd->reqptr != NULL) {
+		free (wd->reqptr);
 	}
 	free (wd);
 	return;

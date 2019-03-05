@@ -1,8 +1,8 @@
-/* test_kxclient -- Run a client for a client and service realm.
+/* test_kxserver -- Run a server for a given service realm.
  *
- * This is a simple wrapper around the kxover_client() call
+ * This is a simple wrapper around the kxover_server() call
  * that creates the infrastructure needed and then calls the
- * function.
+ * function for client connections.
  *
  * From: Rick van Rein <rick@openfortress.nl>
  */
@@ -50,7 +50,7 @@ void cb_kxover_done (void *cbdata, int result_errno,
 printf ("cb_kxover_done() called with errno == %d (%s)\n", result_errno, strerror (result_errno));
 	fprintf (stderr, "KXOVER finished for krbtgt/%.*s@%.*s\n", service_realm.derlen, service_realm.derptr, client_realm.derlen, client_realm.derptr);
 	if (result_errno != 0) {
-		fprintf (stderr, "KXOVER client failed: %d (%s)\n", result_errno, strerror (result_errno));
+		fprintf (stderr, "KXOVER server failed: %d (%s)\n", result_errno, strerror (result_errno));
 		sys_exit = 1;
 		ev_break (EV_A_ EVBREAK_ALL);
 		return;
@@ -62,17 +62,14 @@ printf ("cb_kxover_done() returns\n");
 int main (int argc, char *argv []) {
 
 	// Process the commandline arguments
-	if (argc != 5) {
-		fprintf (stderr, "Usage: %s <client-realm> <service-realm> <dnssec-rootkey-file> <etc-hosts-file>\n", argv [0]);
+	if (argc != 4) {
+		fprintf (stderr, "Usage: %s <service-realm> <dnssec-rootkey-file> <etc-hosts-file>\n", argv [0]);
 		exit (1);
 	}
 
-	dercursor crealm;
-	crealm.derptr =         argv [1] ;
-	crealm.derlen = strlen (argv [1]);
 	dercursor srealm;
-	srealm.derptr =         argv [2] ;
-	srealm.derlen = strlen (argv [2]);
+	srealm.derptr =         argv [1] ;
+	srealm.derlen = strlen (argv [1]);
 
 #if 0
 	struct sockaddr_storage sa_wrap;
@@ -86,9 +83,9 @@ int main (int argc, char *argv []) {
 	int stop_signal = atoi (argv [5-TAKEN]);
 #endif
 
-	char *dnssec_rootkey_file = argv [3];
+	char *dnssec_rootkey_file = argv [2];
 
-	char *etc_hosts_file = argv [4];
+	char *etc_hosts_file = argv [3];
 
 	// Initialise the network sockets and accompanying event structures
 #if 0
@@ -125,12 +122,15 @@ printf ("pypeline detachment...\n");
 	ev_signal_start (EV_A_ &stop_event);
 #endif
 
-	// Start the KXOVER client
-	struct kxover_data *client_handle;
-printf ("kxover_client() starts now\n");
-	client_handle = kxover_client (cb_kxover_done, "cbdata", crealm, srealm);
-	if (!client_handle) {
-		perror ("Failed to start kxover_client");
+	// Run the KXOVER server
+	fprintf (stderr, "TODO: This program is incomplete; we can also call from tcpwrap.c\n");
+	exit (1);
+	struct kxover_data *server_handle;
+	struct dercursor reqmsg = { .derptr = NULL, .derlen = 0 };
+	int sox = -1;
+	server_handle = kxover_server (cb_kxover_done, "cbdata", reqmsg, sox);
+	if (!server_handle) {
+		perror ("Failed to start kxover_server");
 		sys_exit = 1;
 	}
 
