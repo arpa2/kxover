@@ -9,7 +9,8 @@
 + do not drop out with EADDRNOTAVAIL 99 when IPv6 is not available (or...?)
 + consider using socket.c in the kxover_client code: ub2sockaddr and socket/connect
 + build localhost.demo.arpa2.org A override option into simple-client test
-- pypeline should try to detect early termination of programs in arbitrary order
++ pypeline should try to detect early termination of programs in arbitrary order
+- pypeline should support tests to fail with (a set of) acceptable exit codes
 
 + Have a KXOVER protocol client (in test mode)
 - Have a KXOVER protocol server (in test mode)

@@ -24,15 +24,16 @@ Every program passes through three interactions with the pypeline:
 
   * **FreeRun** is the phase during which the program does its
     work and runs until completion.  At the end, the pypeline
-    collects the `exit` state and requires that it is 0.  Any
-    other value is considered a failure.
+    collects the `exit` state and requires that they have a
+    desired exit value.  Any other situation is considered a
+    failure.
 
   * **Results** is the collection of the exit value, reported as
     either `success` or `failure`.  When the marker `--` was not
     found before the program ended, the result is marked as an
-    an error, even if exit code 0 was supplied during this early
-    termination.  After the end marker, the exit value should be
-    0 to ensure a correct overall test result.
+    an error, even if a desired exit code was supplied during
+    this early termination.  After the end marker, a desired exit
+    value will be required for a correct overall test result.
 
 
 ## Starting Programs
@@ -52,6 +53,15 @@ It is the free running phase during which programs can run in
 parallel with others.  Some may still be initialised, of course;
 the programs do not wait after sending the `--` marker that
 indicates its switch from initial to free running phase.
+
+By default, a program is expected to produce exit value 0 on
+success, or anything else when an error occurs.  But to support
+explicitly desired failures, it is possible to provide one or
+more exit values before the command.  This would take the form
+of the desired numeric values separated by a comma; if just
+one numeric value is desired, this is just that value.  Note
+that this means that command names cannot look like a number
+or a list of numbers; we have no escape for that.
 
 
 ## Stopping Programs
@@ -164,5 +174,5 @@ There are no temporary files because there are no
 after all the programs have finished.
 
 Now the complete return value is constructed; any error
-exits with value 1 but all ok exits with value 0.
+exits with value 1 but all ok exits.
 

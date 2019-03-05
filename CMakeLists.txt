@@ -17,7 +17,7 @@ macro_ensure_out_of_source_build("Do not build KXOVER in the source directory.")
 set (CMAKE_MACOSX_RPATH 0)
 
 option (DEBUG
-        "Produce verbose about Petri net processing"
+	"Switch on output and flags that aid developpers in debugging"
         OFF)
 
 if (DEBUG)

@@ -114,4 +114,3 @@ add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 
-

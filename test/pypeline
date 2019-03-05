@@ -25,6 +25,7 @@
 import os
 import sys
 import time
+import re
 
 import socket
 import signal
@@ -46,6 +47,7 @@ if not '--' in sys.argv or sys.argv [1] == '--' or sys.argv [-1] == '--':
 #
 prox = [ [] ]
 zigz = [ [] ]
+exok = [ None ]
 
 soxtypes = {
     'TCP:':  (socket.AF_INET, socket.SOCK_STREAM,    0),
@@ -60,11 +62,20 @@ tmpdir = None
 myip = socket.gethostbyname (socket.gethostname ())
 port_alloc = { }
 
+intlist_re = re.compile ('^[0-9]+(,[0-9]+)*$')
+
 for argi in sys.argv [1:]:
     proto = argi [:1+argi.find (':')]
+    if exok [0] is None:
+        if intlist_re.match (argi):
+            exok [0] = set (map (lambda intstr: int (intstr), argi.split (',')))
+            continue
+        else:
+            exok [0] = set ([0])
     if argi == '--':
         prox.insert ( 0,[] )
         zigz.insert ( 0,[] )
+        exok.insert ( 0,None )
     elif proto == 'FILE:':
         if tmpdir is None:
             tmpdir = tempfile.mkdtemp ()
@@ -90,12 +101,17 @@ for argi in sys.argv [1:]:
     else:
         prox [0].append (argi)
 
+
+phase1_mutex = threading.Condition ()
+phase1_threads = set ()
+
 class SyncedProcess (threading.Thread):
 
-    def __init__ (self, argv, name=None, signals=[]):
+    def __init__ (self, argv, name=None, signals=[], ok_exit=set ([0])):
         threading.Thread.__init__ (self, name=(name or argv [0]))
         self.error = None
         self.signals = signals
+        self.ok_exit = ok_exit
         self.proc = subprocess.Popen (
                         argv,
                         stdin=None,
@@ -103,6 +119,11 @@ class SyncedProcess (threading.Thread):
                         universal_newlines=True)
         self.sofar = ''
         self.copyloop ('--\n')
+        self.phase1locker = len (signals) == 0
+        if self.phase1locker:
+            phase1_mutex.acquire ()
+            phase1_threads.add (self)
+            phase1_mutex.release ()
 
     def copyloop (self, terminator):
         nextln = None
@@ -118,6 +139,11 @@ class SyncedProcess (threading.Thread):
 
     def run (self):
         self.copyloop ('')
+        if self.phase1locker:
+            phase1_mutex.acquire ()
+            phase1_threads.remove (self)
+            phase1_mutex.notify ()
+            phase1_mutex.release ()
 
     def could_signal (self):
         return self.signals != []
@@ -136,15 +162,18 @@ class SyncedProcess (threading.Thread):
         self.proc.poll ()
         return self.proc.returncode
 
-
     def final_result (self):
         self.join ()
         if self.proc.returncode is None:
             self.proc.wait ()
         return self.error or self.proc.returncode
 
+    def final_judgement (self):
+        exitval = self.final_result ()
+        return (exitval, exitval in self.ok_exit)
+
 syncprox = []
-for (proc,zig) in zip (prox,zigz):
+for (proc,zig,excitement) in zip (prox,zigz,exok):
     pni = 0
     if 'python' in proc [0]:
         pni = 1
@@ -154,7 +183,7 @@ for (proc,zig) in zip (prox,zigz):
             pni += 1
     name = proc [pni].split ('/') [-1].split ('\\') [-1]
     sys.stdout.write ('pypeline: initial: %s == %r\n' % (name,proc))
-    newsyncer = SyncedProcess (proc, name=name, signals=zig)
+    newsyncer = SyncedProcess (proc, name=name, signals=zig, ok_exit=excitement)
     syncprox.append (newsyncer)
     sys.stdout.write ('pypeline: freerun: %s\n' % (name,))
     newsyncer.start ()
@@ -179,23 +208,27 @@ for (proc,zig) in zip (prox,zigz):
 #
 
 sys.stdout.write ('pypeline: End Game #1.  Await self-terminating programs.\n')
-for sync in syncprox:
-    if not sync.could_signal ():
-        result = sync.final_result ()
+phase1_mutex.acquire ()
+while len (phase1_threads) > 0:
+    active = phase1_threads.copy ()
+    phase1_mutex.wait ()
+    for sync in active:
+        if sync not in phase1_threads:
+            sys.stdout.write ('pypeline: stopped: %s\n' % (sync.name,))
+phase1_mutex.release ()
 
-sys.stdout.write ('pypeline: End Game #2.  Terminate programs that registered a signal.\n')
+sys.stdout.write ('pypeline: End Game #2.  Sending registered termination signals.\n')
 for sync in syncprox:
-    if sync.could_signal ():
-        sync.send_signals ()
+    sync.send_signals ()
 
 sys.stdout.write ('pypeline: End Game #3.  Wait until signal-registering programs have ended.\n')
 exitval = 0
 for (sync,proc) in zip (syncprox,prox):
-    result = sync.final_result ()
-    if result == 0:
-        sys.stdout.write ('pypeline: success: %s\n' % (sync.getName (),))
+    (result,result_ok) = sync.final_judgement ()
+    if result_ok:
+        sys.stdout.write ('pypeline: success: %s -> exit (%d)\n' % (sync.name, result))
     else:
-        sys.stdout.write ('pypeline: failure: %s -> exit (%d)\n' % (sync.getName (), result))
+        sys.stdout.write ('pypeline: failure: %s -> exit (%d)\n' % (sync.name, result))
         exitval = 1
 
 if tmpdir is not None:
