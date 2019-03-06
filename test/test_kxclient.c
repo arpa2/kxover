@@ -19,6 +19,7 @@
 #include "socket.h"
 #include "kxover.h"
 #include "starttls.h"
+#include "kerberos.h"
 
 #include <ev.h>
 
@@ -102,6 +103,12 @@ int main (int argc, char *argv []) {
 	// Use the default loop, plain and simple
 	loop = EV_DEFAULT;
 
+	// Initialise the Kerberos module
+printf ("kerberos_init ()...\n");
+	if (!kerberos_init ()) {
+		perror ("Kerberos initialisation failed");
+	}
+
 printf ("starttls_init () -> faketls_init ()...\n");
 	starttls_init (loop);
 
@@ -141,6 +148,10 @@ printf ("kxover_client() starts now\n");
 
 printf ("kxover_fini ()...\n");
 	kxover_fini ();
+
+	// Shut down the Kerberos module
+printf ("kerberos_fini ()...\n");
+	kerberos_fini ();
 
 printf ("exit (%d)\n", sys_exit);
 	exit (sys_exit);

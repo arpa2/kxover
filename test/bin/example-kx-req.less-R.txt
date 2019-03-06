@@ -1,0 +1,59 @@
+[1m[APPLICATION 18][0m: [38;5;2mtag 0x72[0m [38;5;5m###267[0m [38;5;6m@0[0m [38;5;12m^0[0m, [2mApplication[0m, [2mConstructed[0m
+  [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m###263[0m [38;5;6m@4[0m [38;5;12m^1[0m, [2mUniversal[0m, [2mConstructed[0m
+    [1m[0][0m: [38;5;2mtag 0xa0[0m [38;5;5m#3[0m [38;5;6m@8[0m [38;5;12m^2[0m, [2mContextual[0m, [2mConstructed[0m
+      [1mINTEGER[0m: [38;5;2mtag 0x02[0m [38;5;5m#1[0m [38;5;6m@10[0m [38;5;12m^3[0m, [2mUniversal[0m, [2mPrimitive[0m
+         05 == [1m5[0m
+    [1m[1][0m: [38;5;2mtag 0xa1[0m [38;5;5m#3[0m [38;5;6m@13[0m [38;5;12m^2[0m, [2mContextual[0m, [2mConstructed[0m
+      [1mINTEGER[0m: [38;5;2mtag 0x02[0m [38;5;5m#1[0m [38;5;6m@15[0m [38;5;12m^3[0m, [2mUniversal[0m, [2mPrimitive[0m
+         12 == [1m18[0m
+    [1m[2][0m: [38;5;2mtag 0xa2[0m [38;5;5m##250[0m [38;5;6m@18[0m [38;5;12m^2[0m, [2mContextual[0m, [2mConstructed[0m
+      [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m##247[0m [38;5;6m@21[0m [38;5;12m^3[0m, [2mUniversal[0m, [2mConstructed[0m
+        [1m[0][0m: [38;5;2mtag 0xa0[0m [38;5;5m#17[0m [38;5;6m@24[0m [38;5;12m^4[0m, [2mContextual[0m, [2mConstructed[0m
+          [1mGeneralizedTime[0m: [38;5;2mtag 0x18[0m [38;5;5m#15[0m [38;5;6m@26[0m [38;5;12m^5[0m, [2mUniversal[0m, [2mPrimitive[0m
+             32 30 31 39 30 33 30 36 31 32 31 36 33 30 5a == "[1m20190306121630Z[0m"
+        [1m[1][0m: [38;5;2mtag 0xa1[0m [38;5;5m#34[0m [38;5;6m@43[0m [38;5;12m^4[0m, [2mContextual[0m, [2mConstructed[0m
+          [1mOCTETSTRING[0m: [38;5;2mtag 0x04[0m [38;5;5m#32[0m [38;5;6m@45[0m [38;5;12m^5[0m, [2mUniversal[0m, [2mPrimitive[0m
+             05 d4 37 31 b8 8a f6 e8 3f c5 e5 43 ba 0e 4f 3d 72 98 34 24 0b 93 69 a1 c2 92 5e a7 64 ee 07 3c == "[1m..71....?..C..O=r.4$..i...^.d..<[0m"
+        [1m[2][0m: [38;5;2mtag 0xa2[0m [38;5;5m#73[0m [38;5;6m@79[0m [38;5;12m^4[0m, [2mContextual[0m, [2mConstructed[0m
+          [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#71[0m [38;5;6m@81[0m [38;5;12m^5[0m, [2mUniversal[0m, [2mConstructed[0m
+            [1m[0][0m: [38;5;2mtag 0xa0[0m [38;5;5m#22[0m [38;5;6m@83[0m [38;5;12m^6[0m, [2mContextual[0m, [2mConstructed[0m
+              [1mGeneralString[0m: [38;5;2mtag 0x1b[0m [38;5;5m#20[0m [38;5;6m@85[0m [38;5;12m^7[0m, [2mUniversal[0m, [2mPrimitive[0m
+                 50 49 58 49 45 2e 44 45 4d 4f 2e 41 52 50 41 32 2e 4f 52 47 == "[1mPIXIE.DEMO.ARPA2.ORG[0m"
+            [1m[1][0m: [38;5;2mtag 0xa1[0m [38;5;5m#45[0m [38;5;6m@107[0m [38;5;12m^6[0m, [2mContextual[0m, [2mConstructed[0m
+              [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#43[0m [38;5;6m@109[0m [38;5;12m^7[0m, [2mUniversal[0m, [2mConstructed[0m
+                [1m[0][0m: [38;5;2mtag 0xa0[0m [38;5;5m#3[0m [38;5;6m@111[0m [38;5;12m^8[0m, [2mContextual[0m, [2mConstructed[0m
+                  [1mINTEGER[0m: [38;5;2mtag 0x02[0m [38;5;5m#1[0m [38;5;6m@113[0m [38;5;12m^9[0m, [2mUniversal[0m, [2mPrimitive[0m
+                     02 == [1m2[0m
+                [1m[1][0m: [38;5;2mtag 0xa1[0m [38;5;5m#36[0m [38;5;6m@116[0m [38;5;12m^8[0m, [2mContextual[0m, [2mConstructed[0m
+                  [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#34[0m [38;5;6m@118[0m [38;5;12m^9[0m, [2mUniversal[0m, [2mConstructed[0m
+                    [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#32[0m [38;5;6m@120[0m [38;5;12m^10[0m, [2mUniversal[0m, [2mConstructed[0m
+                      [1mGeneralString[0m: [38;5;2mtag 0x1b[0m [38;5;5m#6[0m [38;5;6m@122[0m [38;5;12m^11[0m, [2mUniversal[0m, [2mPrimitive[0m
+                         6b 72 62 74 67 74 == "[1mkrbtgt[0m"
+                      [1mGeneralString[0m: [38;5;2mtag 0x1b[0m [38;5;5m#22[0m [38;5;6m@130[0m [38;5;12m^11[0m, [2mUniversal[0m, [2mPrimitive[0m
+                         55 4e 49 43 4f 52 4e 2e 44 45 4d 4f 2e 41 52 50 41 32 2e 4f 52 47 == "[1mUNICORN.DEMO.ARPA2.ORG[0m"
+        [1m[3][0m: [38;5;2mtag 0xa3[0m [38;5;5m#4[0m [38;5;6m@154[0m [38;5;12m^4[0m, [2mContextual[0m, [2mConstructed[0m
+          [1mINTEGER[0m: [38;5;2mtag 0x02[0m [38;5;5m#2[0m [38;5;6m@156[0m [38;5;12m^5[0m, [2mUniversal[0m, [2mPrimitive[0m
+             0b ec == [1m3052[0m
+        [1m[5][0m: [38;5;2mtag 0xa5[0m [38;5;5m#17[0m [38;5;6m@160[0m [38;5;12m^4[0m, [2mContextual[0m, [2mConstructed[0m
+          [1mGeneralizedTime[0m: [38;5;2mtag 0x18[0m [38;5;5m#15[0m [38;5;6m@162[0m [38;5;12m^5[0m, [2mUniversal[0m, [2mPrimitive[0m
+             32 30 31 39 30 33 30 36 31 32 31 36 33 30 5a == "[1m20190306121630Z[0m"
+        [1m[6][0m: [38;5;2mtag 0xa6[0m [38;5;5m#17[0m [38;5;6m@179[0m [38;5;12m^4[0m, [2mContextual[0m, [2mConstructed[0m
+          [1mGeneralizedTime[0m: [38;5;2mtag 0x18[0m [38;5;5m#15[0m [38;5;6m@181[0m [38;5;12m^5[0m, [2mUniversal[0m, [2mPrimitive[0m
+             32 30 31 39 30 36 31 34 31 32 31 36 33 30 5a == "[1m20190614121630Z[0m"
+        [1m[8][0m: [38;5;2mtag 0xa8[0m [38;5;5m#71[0m [38;5;6m@198[0m [38;5;12m^4[0m, [2mContextual[0m, [2mConstructed[0m
+          [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#69[0m [38;5;6m@200[0m [38;5;12m^5[0m, [2mUniversal[0m, [2mConstructed[0m
+            [1m[0][0m: [38;5;2mtag 0xa0[0m [38;5;5m#22[0m [38;5;6m@202[0m [38;5;12m^6[0m, [2mContextual[0m, [2mConstructed[0m
+              [1mGeneralString[0m: [38;5;2mtag 0x1b[0m [38;5;5m#20[0m [38;5;6m@204[0m [38;5;12m^7[0m, [2mUniversal[0m, [2mPrimitive[0m
+                 50 49 58 49 45 2e 44 45 4d 4f 2e 41 52 50 41 32 2e 4f 52 47 == "[1mPIXIE.DEMO.ARPA2.ORG[0m"
+            [1m[1][0m: [38;5;2mtag 0xa1[0m [38;5;5m#43[0m [38;5;6m@226[0m [38;5;12m^6[0m, [2mContextual[0m, [2mConstructed[0m
+              [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#41[0m [38;5;6m@228[0m [38;5;12m^7[0m, [2mUniversal[0m, [2mConstructed[0m
+                [1m[0][0m: [38;5;2mtag 0xa0[0m [38;5;5m#3[0m [38;5;6m@230[0m [38;5;12m^8[0m, [2mContextual[0m, [2mConstructed[0m
+                  [1mINTEGER[0m: [38;5;2mtag 0x02[0m [38;5;5m#1[0m [38;5;6m@232[0m [38;5;12m^9[0m, [2mUniversal[0m, [2mPrimitive[0m
+                     02 == [1m2[0m
+                [1m[1][0m: [38;5;2mtag 0xa1[0m [38;5;5m#34[0m [38;5;6m@235[0m [38;5;12m^8[0m, [2mContextual[0m, [2mConstructed[0m
+                  [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#32[0m [38;5;6m@237[0m [38;5;12m^9[0m, [2mUniversal[0m, [2mConstructed[0m
+                    [1mSEQUENCE (OF)[0m: [38;5;2mtag 0x30[0m [38;5;5m#30[0m [38;5;6m@239[0m [38;5;12m^10[0m, [2mUniversal[0m, [2mConstructed[0m
+                      [1mGeneralString[0m: [38;5;2mtag 0x1b[0m [38;5;5m#6[0m [38;5;6m@241[0m [38;5;12m^11[0m, [2mUniversal[0m, [2mPrimitive[0m
+                         6b 72 62 74 67 74 == "[1mkrbtgt[0m"
+                      [1mGeneralString[0m: [38;5;2mtag 0x1b[0m [38;5;5m#20[0m [38;5;6m@249[0m [38;5;12m^11[0m, [2mUniversal[0m, [2mPrimitive[0m
+                         50 49 58 49 45 2e 44 45 4d 4f 2e 41 52 50 41 32 2e 4f 52 47 == "[1mPIXIE.DEMO.ARPA2.ORG[0m"

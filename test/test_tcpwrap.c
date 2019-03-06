@@ -16,6 +16,7 @@
 #include "tcpwrap.h"
 #include "backend.h"
 #include "starttls.h"
+#include "kerberos.h"
 #include "socket.h"
 
 #include <ev.h>
@@ -79,6 +80,11 @@ int main (int argc, char *argv []) {
 	// Have a straightforward event loop (from libev)
 	struct ev_loop *loop = EV_DEFAULT;
 
+	// Initialise the Kerberos module
+	if (!kerberos_init ()) {
+		perror ("Kerberos initialisation failed");
+	}
+
 	// Initialise the network sockets and accompanying event structures
 	if (!tcpwrap_init (loop)) {
 		perror ("TCP wrapper failed to initialise");
@@ -140,6 +146,9 @@ int main (int argc, char *argv []) {
 
 	// Run the event loop
 	ev_run (EV_A_ 0);
+
+	// Shut down the Kerberos module
+	kerberos_fini ();
 
 	exit (0);
 

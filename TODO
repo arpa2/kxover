@@ -10,7 +10,8 @@
 + consider using socket.c in the kxover_client code: ub2sockaddr and socket/connect
 + build localhost.demo.arpa2.org A override option into simple-client test
 + pypeline should try to detect early termination of programs in arbitrary order
-- pypeline should support tests to fail with (a set of) acceptable exit codes
++ pypeline should support tests to fail with (a set of) acceptable exit codes
+- kvno in a KX-OFFER should follow the date/policy and available keys
 
 + Have a KXOVER protocol client (in test mode)
 - Have a KXOVER protocol server (in test mode)

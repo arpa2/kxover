@@ -7,48 +7,57 @@ enable_testing ()
 # BUILD TEST PROGRAMS
 #
 
-include_directories (${CMAKE_SOURCE_DIR}/src)
+set (SRC ${CMAKE_SOURCE_DIR}/src)
+
+include_directories (${SRC})
 
 add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE} ${Kerberos5_DEFINITIONS})
 
 
+add_executable (krb5-entropy
+	krb5-entropy.c
+	${SRC}/mitkrb5.c)
+
+target_link_libraries (krb5-entropy ${Kerberos5_LIBRARIES})
+
+
 add_executable (test_udpwrap
 	test_udpwrap.c
-	${CMAKE_SOURCE_DIR}/src/socket.c
-	${CMAKE_SOURCE_DIR}/src/backend.c
-	${CMAKE_SOURCE_DIR}/src/udpwrap.c)
+	${SRC}/socket.c
+	${SRC}/backend.c
+	${SRC}/udpwrap.c)
 
 target_link_libraries (test_udpwrap ev)
 
 
 add_executable (test_tcpwrap
 	test_tcpwrap.c
-	${CMAKE_SOURCE_DIR}/src/socket.c
-	${CMAKE_SOURCE_DIR}/src/faketls.c
-	${CMAKE_SOURCE_DIR}/src/kxover.c
-	${CMAKE_SOURCE_DIR}/src/backend.c
-	${CMAKE_SOURCE_DIR}/src/tcpwrap.c
-	${CMAKE_SOURCE_DIR}/src/mitkrb5.c)
+	${SRC}/socket.c
+	${SRC}/faketls.c
+	${SRC}/kxover.c
+	${SRC}/backend.c
+	${SRC}/tcpwrap.c
+	${SRC}/mitkrb5.c)
 
 target_link_libraries (test_tcpwrap ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
 
 
 add_executable (test_kxclient
 	test_kxclient.c
-	${CMAKE_SOURCE_DIR}/src/kxover.c
-	${CMAKE_SOURCE_DIR}/src/socket.c
-	${CMAKE_SOURCE_DIR}/src/faketls.c
-	${CMAKE_SOURCE_DIR}/src/mitkrb5.c)
+	${SRC}/kxover.c
+	${SRC}/socket.c
+	${SRC}/faketls.c
+	${SRC}/mitkrb5.c)
 
 target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
 
 
 add_executable (test_kxserver
 	test_kxserver.c
-	${CMAKE_SOURCE_DIR}/src/kxover.c
-	${CMAKE_SOURCE_DIR}/src/socket.c
-	${CMAKE_SOURCE_DIR}/src/faketls.c
-	${CMAKE_SOURCE_DIR}/src/mitkrb5.c)
+	${SRC}/kxover.c
+	${SRC}/socket.c
+	${SRC}/faketls.c
+	${SRC}/mitkrb5.c)
 
 target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
 
@@ -74,6 +83,8 @@ set (test_kxserver         ${CMAKE_CURRENT_BINARY_DIR}/test_kxserver)
 set (test_bin ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set (dnssec_root_key $<SHELL_PATH:${test_bin}/dnssec-root-key>)
 set (krb_as_flow $<SHELL_PATH:${test_bin}/krb5-as-req1.der> $<SHELL_PATH:${test_bin}/krb5-as-rep1.der> $<SHELL_PATH:${test_bin}/krb5-as-req2.der> $<SHELL_PATH:${test_bin}/krb5-as-rep2.der>)
+
+add_test (NAME t_entropy COMMAND krb5-entropy)
 
 add_test (NAME t_pypeline COMMAND ${py_setenv} ${pypeline}
 	${client_udp} IP:KDC UDP:KDC ${krb_as_flow}
@@ -142,7 +153,7 @@ endif ()
 
 # Combining t_kxclient and t_kxserver into one, t_kxover
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
-	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
 	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 SIG:HUP
 	--

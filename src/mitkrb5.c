@@ -119,7 +119,11 @@ bool kerberos_prng (uint8_t *outptr, uint16_t outlen) {
 	//DUNNO// data.magic = ...;
 	data.length = outlen;
 	data.data = outptr;
-	if (krb5_c_random_make_octets (krb5_ctx, &data) != 0) {
+	krb5_error_code kerrno = krb5_c_random_make_octets (krb5_ctx, &data);
+	if (kerrno != 0) {
+		const char *kerrstr = krb5_get_error_message (krb5_ctx, kerrno);
+		printf ("ERROR: %s\n", kerrstr);
+		krb5_free_error_message (krb5_ctx, kerrstr);
 		errno = ENOSYS;
 		return false;
 	}
@@ -215,7 +219,7 @@ bool kerberos_init (void) {
 }
 
 
-/* CLeanup what was allocated for the Kerberos environment.
+/* Cleanup what was allocated for the Kerberos environment.
  */
 bool kerberos_fini (void) {
 	krb5_free_context (krb5_ctx);
