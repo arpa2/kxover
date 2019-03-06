@@ -23,6 +23,8 @@
 #include "kerberos.h"
 #include "socket.h"
 
+#include <time.h>
+
 #include <unbound.h>
 
 #include <quick-der/api.h>
@@ -48,6 +50,7 @@ static bool kx_start_key_deriving (struct kxover_data *kxd);
 static void cb_kxover_timeout (EV_P_ ev_timer *evt, int _revents);
 static void _kxover_client_cleanup (struct kxover_data *kxd);
 static void cb_kxs_either_dnssec_kdc (void *cbdata, int err, struct ub_result *result);
+static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents);
 
 
 /* The states that a KXOVER action can be in; this includes
@@ -230,8 +233,8 @@ struct kxover_data {
 	int last_errno;
 	struct dercursor kx_recv;
 	struct dercursor kx_send;
-	ovly_KX_OFFER kx_req;
-	ovly_KX_OFFER kx_rep;
+	ovly_KX_REQ_MSG kx_req_msg;
+	ovly_KX_REP_MSG kx_rep_msg;
 	int kxoffer_fd;
 	size_t kxoffer_recvlen;
 	char *kerberos_kdc_query;
@@ -251,7 +254,23 @@ struct kxover_data {
 	struct iterator iter_srv;
 	struct iterator iter_aaaa_a;
 	struct starttls_data *tlsdata;
+	time_t kx_request_time;
+	time_t kx_from;
+	time_t kx_till;
+	kerberos_time_t kxreqtime;
+	kerberos_time_t kxfrom;
+	kerberos_time_t kxtill;
+	der_buf_uint32_t req_kvnobuf;
+	// der_buf_uint32_t rep_kvnobuf;
 } kxover_t;
+
+#define kx_req kx_req_msg.offer
+#define kx_rep kx_rep_msg.offer
+
+
+/* Kerberos configuration for KXOVER>
+ */
+static const struct kerberos_config *kxover_config;
 
 
 /* Reset an iterator.  This may be done initially or when
@@ -955,38 +974,89 @@ bailout:
  * TODO: For now, _refresh_only will not be used for delay.
  */
 static void kx_start_client_kx_sending (struct kxover_data *kxd, bool _refresh_only) {
-#ifdef TODO_0
-	/* Create basic setup for the kx_req */
-	ovly_KX_REQ_MSG *msg = &kxd->kx_req;
-	msg->pvno = dercrs_int_5;
-	msg->msg_type = dercrs_int_18;
-	/* Fill in the ticket PrincipalName and Realm */
-	kxd->kxname2[0] = dercrs_kstr_krbtgt;
-	kxd->kxname2[1] = kxd->crealm;
-	msg->offer.kxrealm = kxd->srealm;
-	/* Set the enctypes to the ones allowed locally */
-	//TODO// enctypes-der-from-kerberos
-	//TODO// set from to "now"
-	//TODO// set till to "now" + configured #days
-	/* Fill the salt with random bytes */
+	//
+	// First look at the wall clock...
+	time_t now;
+	now = time (NULL);
+	if (now == (time_t) -1) {
+		/* errno is set to EOVERFLOW */
+		goto bailout;
+	}
+	//
+	// Create basic setup for the kx_req_msg
+	kxd->kx_req_msg.pvno = dercrs_int_5;
+	kxd->kx_req_msg.msg_type = dercrs_int_18;
+	//
+	// Set kxd->kx_req.request_time to "now"
+	kxd->kx_request_time = now;
+	if (!kerberos_time_set (now, kxd->kxreqtime)) {
+		goto bailout;
+	}
+	kxd->kx_req.request_time.derptr = kxd->kxreqtime;
+	kxd->kx_req.request_time.derlen = KERBEROS_TIME_STRLEN;
+	//
+	// Fill the salt with random bytes
 	if (!kerberos_prng (kxd->salt, sizeof (kxd->salt))) {
 		kxd->last_errno = errno;
 		goto bailout;
 	}
-	msg->salt.derptr = &kxd->salt[0];
-	msg->salt.derlen = sizeof (kxd->salt);
-	/* Map the fields in kx_req to a DER message kx_send */
-	der_prepack (&kxd->kxname2[0], 2, &msg->kxname, &kxd->kx_req.TODO);
-	size_t   reqlen = der_pack (pack_KX_REQ_MSG, msg, NULL);
+	kxd->kx_req.salt.derptr = &kxd->salt[0];
+	kxd->kx_req.salt.derlen = sizeof (kxd->salt);
+	//
+	// Fill in kx_name with the ticket PrincipalName and Realm
+	kxd->kxname2[0] = dercrs_kstr_krbtgt;
+	kxd->kxname2[1] = kxd->crealm;
+	kxd->kx_req.kx_name.realm = kxd->srealm;
+	der_prepack (&kxd->kxname2[0], 2, (derarray *) &kxd->kx_req.kx_name.principalName);
+	//
+	//TODO//FILL// kxd->kx_req.kvno -- for now, MMDDS with S==0
+	uint32_t kvno = 03052;
+	kxd->kx_req.kvno = der_put_uint32 (kxd->req_kvnobuf, kvno);
+	//
+	// Set the enctypes to the ones allowed locally
+	//TODO//FILL// kxd->kx_req.etypes
+	//
+	// Set kxd->kx_req.from to "now", sharing space with kxd->kxreqtime
+	kxd->kx_from = now;
+	if (!kerberos_time_set (now, kxd->kxfrom)) {
+		goto bailout;
+	}
+	kxd->kx_req.from.derptr = kxd->kxfrom;
+	kxd->kx_req.from.derlen = KERBEROS_TIME_STRLEN;
+	//
+	// Set kxd->kx_req.till to "now" + configured #days
+	time_t then = now + kxover_config->crossover_lifedays * 24 * 3600;
+	if (then < now) {
+		errno = EOVERFLOW;
+		goto bailout;
+	}
+	kxd->kx_till = then;
+	if (!kerberos_time_set (then, kxd->kxtill)) {
+		goto bailout;
+	}
+	kxd->kx_req.till.derptr = kxd->kxreqtime;
+	kxd->kx_req.till.derlen = KERBEROS_TIME_STRLEN;
+	//
+	//TODO//FILL// kxd->kx_req.max_uses (OPTIONAL)
+	//
+	// Set kxd->kx_req.my_name to krbtgt/CLIENT.REALM@CLIENT.REALM
+	kxd->kx_req.kx_name.realm = kxd->crealm;
+	der_prepack (&kxd->kxname2[0], 2, (derarray *) &kxd->kx_req.kx_name.principalName);
+	//
+	//TODO//FILL// kxd->kx_req.extensions (PREPACK, IF ANY)
+	//
+	// Map the fields in kx_req to a DER message kx_send
+	size_t   reqlen = der_pack (pack_KX_REQ_MSG, (dercursor *) &kxd->kx_req, NULL);
 	uint8_t *reqptr = malloc (kxd->kx_send.derlen);
 	if (reqptr == NULL) {
 		errno = ENOMEM;
 		goto bailout;
 	}
-	der_pack (pack_KX_REQ_MSG, msg, reqptr + reqlen);
+	der_pack (pack_KX_REQ_MSG, (dercursor *) &kxd->kx_req, reqptr + reqlen);
 	kxd->kx_send.derlen = reqlen;
 	kxd->kx_send.derptr = reqptr;
-	/* Now send the kx_send message over kxoffer_fd */
+	//
+	// Now send the kx_send message over kxoffer_fd
 	if (send (kxd->kxoffer_fd, reqptr, reqlen, 0) != reqlen) {
 		/* Close the socket and let event handler signal it */
 		/* Note: We could send with callbacks, if need be */
@@ -994,16 +1064,15 @@ static void kx_start_client_kx_sending (struct kxover_data *kxd, bool _refresh_o
 		kxd->kxoffer_fd = -1;
 		return;
 	}
-	/* Register the next callback function to collect the response */
-	ev_io_init (evt, cb_kxs_client_kx_receiving, fd, EV_READ /* TODO:FORBIDDEN; | EV_ERROR */);
-	ev_io_start (kxover_loop, evt);
+	//
+	// Register the next callback function to collect the response
+	ev_io_init (&kxd->ev_kxcnx, cb_kxs_client_kx_receiving, kxd->kxoffer_fd, EV_READ /* TODO:FORBIDDEN; | EV_ERROR */);
+	ev_io_start (kxover_loop, &kxd->ev_kxcnx);
 	return;
 bailout:
+printf ("DEBUG: kx_start_client_kx_sending() bails out\n");
+	kxd->last_errno = errno;
 	kxover_finish (kxd);
-#else
-printf ("DEBUG: cb_kxs_either_realmscheck() IS A DEAD END, THERE IS NO KX SENDING CODE YET\n");
-kxover_finish (kxd);
-#endif
 }
 
 
@@ -1021,7 +1090,7 @@ static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 		kxd->last_errno = EIO;
 		goto bailout;
 	}
-	/* Initially collect and analyse the initial 5 bytes */
+	/* First collect and interpret the 4 length bytes */
 	if (kxd->kx_recv.derptr == NULL) {
 		uint8_t buf4 [4];
 		uint8_t tag;
@@ -1073,16 +1142,10 @@ static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 		goto bailout;
 	}
 	/* Analyse the data and compare kx_req and kx_rep */
-#if TODO_MODERNISE_STRUCTURE_VALIDATION
-	if (der_cmp (kxd->kx_req.nonce, kxd->kx_rep.nonce) != 0) {
-		/* Nonce in KX-REQ and KX-REP did not match */
-		goto bailout_EPROTO;
-	}
-	if (der_cmp (kxd->kx_req.from, kxd->kx_rep.from) != 0) {
+	if (der_cmp (kxd->kx_req.request_time, kxd->kx_rep.request_time) != 0) {
 		/* Request Time in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
-#endif
 	if (der_cmp (kxd->kx_req.kx_name.realm, kxd->kx_rep.kx_name.realm) != 0) {
 		/* Realm in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
@@ -1091,12 +1154,11 @@ static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 		/* name_type in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
-#if TODO_COMPARE_DERNODE_NOT_DERCURSOR
-	if (der_cmp (kxd->kx_req.kx_name.principalName.name_string, kxd->kx_rep.kx_name.principalName.name_string) != 0) {
-		/* name_string in KX-REQ and KX-REP did not match */
+	if (der_cmp (*(dercursor *) &kxd->kx_req.kx_name.principalName.name_string,
+	             *(dercursor *) &kxd->kx_rep.kx_name.principalName.name_string) != 0) {
+		/* name_string (SEQUENCE OF, so we get them all in one go) in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
-#endif
 	struct dercursor service_realm;
 	if (!_parse_service_principalname (2, &kxd->kx_req.kx_name.principalName, NULL, &service_realm)) {
 printf ("cb_kxs_client_kx_receiving() found invalid PrincipalName, last_errno := %d (%s)\n", errno, strerror (errno));
@@ -1479,6 +1541,8 @@ bool kxover_init (EV_P_ char *dnssec_rootkey_file, char *opt_etc_hosts_file) {
 		errno = ECONNREFUSED;
 		goto teardown_unbound;
 	}
+	/* Retrieve the Kerberos configuration */
+	kxover_config = kerberos_config ();
 	/* Initialise the event loop, with Unbound service */
 	kxover_loop = loop;
 	ev_io_init (&kxover_unbound_watcher, _cb_kxover_unbound, fd, EV_READ /* TODO:FORBIDDEN | EV_ERROR*/);

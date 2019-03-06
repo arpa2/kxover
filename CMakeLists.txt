@@ -14,6 +14,10 @@ include (MacroCreateConfigFiles)
 
 macro_ensure_out_of_source_build("Do not build KXOVER in the source directory.")
 
+#
+# OPTIONS / BUILD SETTINGS
+#
+
 set (CMAKE_MACOSX_RPATH 0)
 
 option (DEBUG
@@ -39,16 +43,15 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ARPA2CM_MODULE_PATH})
 find_package (Unbound REQUIRED)
 find_package (Quick-DER REQUIRED)
 
+# Constrain the acceptable KERBEROS system names
+# to those that are supported in our source code
+# set_property (CACHE Kerberos5_SYSTEM PROPERTY STRINGS mitkrb5 heimdal ad shishi)
+find_package (MIT-krb5 REQUIRED)
+set_property (CACHE Kerberos5_SYSTEM PROPERTY STRINGS mitkrb5)
+
 # find_program (GNUMAKE NAMES gmake make)
 
 include_directories (Unbound_INCLUDE_DIRS Quick-DER_INCLUDE_DIRS)
-
-#
-# OPTIONS / BUILD SETTINGS
-#
-
-set (PERPETUUM_COMPILER_PATH "perpetuum"
-	CACHE PATH "Command or path for the Perpetuum Compiler")
 
 
 #

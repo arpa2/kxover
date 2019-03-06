@@ -9,6 +9,8 @@ enable_testing ()
 
 include_directories (${CMAKE_SOURCE_DIR}/src)
 
+add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE} ${Kerberos5_DEFINITIONS})
+
 
 add_executable (test_udpwrap
 	test_udpwrap.c
@@ -26,9 +28,9 @@ add_executable (test_tcpwrap
 	${CMAKE_SOURCE_DIR}/src/kxover.c
 	${CMAKE_SOURCE_DIR}/src/backend.c
 	${CMAKE_SOURCE_DIR}/src/tcpwrap.c
-	${CMAKE_SOURCE_DIR}/src/kerberos.c)
+	${CMAKE_SOURCE_DIR}/src/mitkrb5.c)
 
-target_link_libraries (test_tcpwrap ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
+target_link_libraries (test_tcpwrap ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
 
 
 add_executable (test_kxclient
@@ -36,10 +38,9 @@ add_executable (test_kxclient
 	${CMAKE_SOURCE_DIR}/src/kxover.c
 	${CMAKE_SOURCE_DIR}/src/socket.c
 	${CMAKE_SOURCE_DIR}/src/faketls.c
-	${CMAKE_SOURCE_DIR}/src/kerberos.c)
+	${CMAKE_SOURCE_DIR}/src/mitkrb5.c)
 
-message (target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev))
-target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
+target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
 
 
 add_executable (test_kxserver
@@ -47,10 +48,9 @@ add_executable (test_kxserver
 	${CMAKE_SOURCE_DIR}/src/kxover.c
 	${CMAKE_SOURCE_DIR}/src/socket.c
 	${CMAKE_SOURCE_DIR}/src/faketls.c
-	${CMAKE_SOURCE_DIR}/src/kerberos.c)
+	${CMAKE_SOURCE_DIR}/src/mitkrb5.c)
 
-message (target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev))
-target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
+target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
 
 
 #
@@ -127,7 +127,7 @@ add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
-	${demo_hosts} FILE:HOSTS localkdc.demo IP:KDC
+	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 
@@ -136,19 +136,19 @@ if (0)
 add_test (NAME t_kxserver COMMAND ${py_setenv} ${pypeline}
 	${test_kxclient} UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${demo_hosts} FILE:HOSTS localkdc.demo IP:KDC
+	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 
 # Combining t_kxclient and t_kxserver into one, t_kxover
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
-	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
 	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
-	${demo_hosts} FILE:HOSTS localkdc.demo IP:KDC
+	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 

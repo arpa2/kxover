@@ -35,6 +35,10 @@
 #include "starttls.h"
 #include "socket.h"
 
+#ifdef DEBUG
+#include <stdio.h>
+#endif
+
 
 /* The acceptdata structure holds anything needed to
  * allow accept() detection and teardown administration.

@@ -12,23 +12,25 @@ import sys
 import stat
 
 
-if len (sys.argv) != 4:
-	sys.stderr.write ('Usage: <hosts-file> <demo-name> <demo-IP>\n')
+if len (sys.argv) < 4 or len (sys.argv) & 1 == 1:
+	sys.stderr.write ('Usage: <hosts-file> <demo-name> <demo-IP> [<demo-name> <demo-IP>...]\n')
 	sys.exit (1)
 
+def pairs (xs):
+    return zip (xs [::2],xs [1::2])
+
 hosts_file = sys.argv [1]
-demo_name  = sys.argv [2]
-demo_ip    = sys.argv [3]
+name_ip    = pairs (sys.argv [2:])
 
 hosts = {
 	'127.0.0.1': ['localhost'],
 	'::1': ['localhost']
 }
 
-if not hosts.has_key (demo_ip):
-	hosts [demo_ip] = []
-
-hosts [demo_ip].insert (0, demo_name)
+for (name,ip) in name_ip:
+    if not hosts.has_key (ip):
+            hosts [ip] = []
+    hosts [ip].insert (0, name)
 
 try:
     open (hosts_file, 'r')

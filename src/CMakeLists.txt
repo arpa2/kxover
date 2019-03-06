@@ -6,7 +6,7 @@
 set (BACKEND_POOLSIZE 512 CACHE STRING
 	"Maximum number of concurrent queries to the local KDC that acts as the KXOVER backend"
 )
-add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE})
+add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE} ${Kerberos5_DEFINITIONS})
 
 
 #
@@ -25,19 +25,21 @@ elseif(FAKE_TLS)
 	set (TLS_SOURCE "starttls.c")
 endif(FAKE_TLS)
 
+set (KRB_SOURCE "${Kerberos5_SYSTEM}.c")
+
 set (kxover_SRC
 	backend.c
 	udpwrap.c
 	tcpwrap.c
 	${TLS_SOURCE}
 	kxover.c
-	kerberos.c
+	${KRB_SOURCE}
 	socket.c
 	main.c
 )
 
 add_executable (kxover ${kxover_SRC})
-target_link_libraries (kxover ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ev) # (... tlspool)
+target_link_libraries (kxover ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev) # (... tlspool)
 
 
 #

@@ -1,4 +1,4 @@
 *.o
 deamon
-test/bin/dnssec-root-key
+dnssec-root-key
 
