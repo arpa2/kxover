@@ -1,0 +1,40 @@
+#!/usr/bin/env python
+#
+# test_timer -- Flush regular lines with a single dot as a timing trick.
+#
+# From: Rick van Rein <rick@openfortress.nl>
+
+
+import sys
+import time
+
+import signal
+
+
+if len (sys.argv) != 3:
+	sys.stderr.write ('Usage: %s <float-steptime> <stop-signal>\n' % (sys.argv [0],))
+	sys.exit (1)
+
+steptime = float (sys.argv [1])
+signum = int (sys.argv [2])
+
+def gently_stop (signum, stack):
+	global more
+	more = False
+
+signal.signal (signum, gently_stop)
+
+sys.stdout.write ('Printing "." with %fs steps until signaled to stop\n' % (steptime,))
+sys.stdout.write ('--\n')
+sys.stdout.flush ()
+total = 0.0
+more = True
+while more:
+	time.sleep (steptime)
+	new_total = total + steptime
+	sys.stdout.write ('dit\n' if int (new_total) <= int (total) else 'dot\n')
+	total = new_total
+	sys.stdout.flush ()
+
+sys.exit (0)
+

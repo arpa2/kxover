@@ -75,6 +75,7 @@ set (client_udp     python ${CMAKE_CURRENT_SOURCE_DIR}/client_udp)
 set (client_tcp     python ${CMAKE_CURRENT_SOURCE_DIR}/client_tcp)
 set (client_faketls python ${CMAKE_CURRENT_SOURCE_DIR}/client_tcp --fake-tls)
 set (demo_hosts     python ${CMAKE_CURRENT_SOURCE_DIR}/demo-hosts)
+set (dot_timer      python ${CMAKE_CURRENT_SOURCE_DIR}/dot-timer)
 set (test_udpwrap          ${CMAKE_CURRENT_BINARY_DIR}/test_udpwrap)
 set (test_tcpwrap          ${CMAKE_CURRENT_BINARY_DIR}/test_tcpwrap)
 set (test_kxclient         ${CMAKE_CURRENT_BINARY_DIR}/test_kxclient)
@@ -90,6 +91,8 @@ add_test (NAME t_pypeline COMMAND ${py_setenv} ${pypeline}
 	${client_udp} IP:KDC UDP:KDC ${krb_as_flow}
 	--
 	${fakekdc_udp}   IP:KDC UDP:KDC ${krb_as_flow}
+	--
+	${dot_timer} 0.2 SIG:HUP
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_test (NAME t_udpwrap COMMAND ${py_setenv} ${pypeline}
@@ -98,6 +101,8 @@ add_test (NAME t_udpwrap COMMAND ${py_setenv} ${pypeline}
 	${test_udpwrap} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC ${krb_as_flow}
+	--
+	${dot_timer} 0.2 SIG:HUP
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_test (NAME t_tcpwrap COMMAND ${py_setenv} ${pypeline}
@@ -106,6 +111,8 @@ add_test (NAME t_tcpwrap COMMAND ${py_setenv} ${pypeline}
 	${test_tcpwrap} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC  ${krb_as_flow}
+	--
+	${dot_timer} 0.2 SIG:HUP
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (FAKE_TLS)
@@ -116,6 +123,8 @@ add_test (NAME t_tlswrap_fake COMMAND ${py_setenv} ${pypeline}
 	${test_tcpwrap} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC ${krb_as_flow}
+	--
+	${dot_timer} 0.2 SIG:HUP
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 else()
 # No test for real TLS yet
@@ -125,6 +134,8 @@ add_test (NAME t_127_0_0_1 COMMAND ${py_setenv} ${pypeline}
 	${client_udp} 127.0.0.1 77 ${krb_as_flow}
 	--
 	${fakekdc_udp} 127.0.0.1 77 ${krb_as_flow}
+	--
+	${dot_timer} 0.2 SIG:HUP
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (0)
@@ -138,6 +149,8 @@ add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
+	${dot_timer} 0.2 SIG:HUP
+	--
 	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
@@ -147,17 +160,21 @@ if (0)
 add_test (NAME t_kxserver COMMAND ${py_setenv} ${pypeline}
 	${test_kxclient} UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
+	${dot_timer} 0.2 SIG:HUP
+	--
 	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 
 # Combining t_kxclient and t_kxserver into one, t_kxover
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
-	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
 	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
+	--
+	${dot_timer} 0.2 SIG:HUP
 	--
 	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})

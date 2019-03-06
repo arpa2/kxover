@@ -234,8 +234,8 @@ struct kxover_data {
 	int last_errno;
 	struct dercursor kx_recv;
 	struct dercursor kx_send;
-	ovly_KX_REQ kx_req_msg;
-	ovly_KX_REP kx_rep_msg;
+	ovly_KX_REQ kx_req_frame;
+	ovly_KX_REP kx_rep_frame;
 	int kxoffer_fd;
 	size_t kxoffer_recvlen;
 	char *kerberos_kdc_query;
@@ -266,8 +266,8 @@ struct kxover_data {
 	// der_buf_uint32_t rep_kvnobuf;
 } kxover_t;
 
-#define kx_req kx_req_msg.offer
-#define kx_rep kx_rep_msg.offer
+#define req_offer kx_req_frame.offer
+#define rep_offer kx_rep_frame.offer
 
 
 /* Kerberos configuration for KXOVER>
@@ -1001,31 +1001,31 @@ printf ("DEBUG: kx_start_client_kx_sending() called\n");
 		goto bailout;
 	}
 	//
-	// Create basic setup for the kx_req_msg
-	kxd->kx_req_msg.pvno = dercrs_int_5;
-	kxd->kx_req_msg.msg_type = dercrs_int_18;
+	// Create basic setup for the kx_req_frame
+	kxd->kx_req_frame.pvno = dercrs_int_5;
+	kxd->kx_req_frame.msg_type = dercrs_int_18;
 	//
-	// Set kxd->kx_req.request_time to "now"
+	// Set kxd->req_offer.request_time to "now"
 	kxd->kx_request_time = now;
 	if (!kerberos_time_set (now, kxd->kxreqtime)) {
 		goto bailout;
 	}
-	kxd->kx_req.request_time.derptr = kxd->kxreqtime;
-	kxd->kx_req.request_time.derlen = KERBEROS_TIME_STRLEN;
-printf ("DEBUG: kx_req->kxreqtime = %s\n", kxd->kxreqtime);
+	kxd->req_offer.request_time.derptr = kxd->kxreqtime;
+	kxd->req_offer.request_time.derlen = KERBEROS_TIME_STRLEN;
+printf ("DEBUG: req_offer->kxreqtime = %s\n", kxd->kxreqtime);
 	//
 	// Fill the salt with random bytes
 	if (!kerberos_prng (kxd->salt, sizeof (kxd->salt))) {
 		kxd->last_errno = errno;
 		goto bailout;
 	}
-	kxd->kx_req.salt.derptr = kxd->salt;
-	kxd->kx_req.salt.derlen = sizeof (kxd->salt);
-printf ("DEBUG: kx_req->salt = %02x %02x...%02x %02x\n", kxd->salt [0], kxd->salt [1], kxd->salt [sizeof (kxd->salt)-2], kxd->salt [sizeof (kxd->salt)-1]);
+	kxd->req_offer.salt.derptr = kxd->salt;
+	kxd->req_offer.salt.derlen = sizeof (kxd->salt);
+printf ("DEBUG: req_offer->salt = %02x %02x...%02x %02x\n", kxd->salt [0], kxd->salt [1], kxd->salt [sizeof (kxd->salt)-2], kxd->salt [sizeof (kxd->salt)-1]);
 	//
 	// Fill in kx_name with the ticket PrincipalName and Realm
-	kxd->kx_req.kx_name.realm = kxd->crealm;
-	kxd->kx_req.kx_name.principalName.name_type = dercrs_int_2;
+	kxd->req_offer.kx_name.realm = kxd->crealm;
+	kxd->req_offer.kx_name.principalName.name_type = dercrs_int_2;
 	kxd->kxname2 [0] = dercrs_kstr_krbtgt;
 	kxd->kxname2 [1] = kxd->srealm;
 	size_t kxname2len = der_pack (pack_name2, kxd->kxname2, NULL);
@@ -1035,27 +1035,27 @@ printf ("DEBUG: kx_req->salt = %02x %02x...%02x %02x\n", kxd->salt [0], kxd->sal
 		goto bailout;
 	}
 	der_pack (pack_name2, kxd->kxname2, kxname2pack + kxname2len);
-	kxd->kx_req.kx_name.principalName.name_string.wire.derptr = kxname2pack;
-	kxd->kx_req.kx_name.principalName.name_string.wire.derlen = kxname2len;
-printf ("DEBUG: kx_req->kx_name = %.*s/%.*s@%.*s\n", kxd->kxname2[0].derlen, kxd->kxname2[0].derptr, kxd->kxname2[1].derlen, kxd->kxname2[1].derptr, kxd->srealm.derlen, kxd->srealm.derptr);
+	kxd->req_offer.kx_name.principalName.name_string.wire.derptr = kxname2pack;
+	kxd->req_offer.kx_name.principalName.name_string.wire.derlen = kxname2len;
+printf ("DEBUG: req_offer->kx_name = %.*s/%.*s@%.*s\n", kxd->kxname2[0].derlen, kxd->kxname2[0].derptr, kxd->kxname2[1].derlen, kxd->kxname2[1].derptr, kxd->srealm.derlen, kxd->srealm.derptr);
 	//
-	//TODO//FILL// kxd->kx_req.kvno -- for now, MMDDS with S==0
+	//TODO//FILL// kxd->req_offer.kvno -- for now, MMDDS with S==0
 	uint32_t kvno = 3052;
-	kxd->kx_req.kvno = der_put_uint32 (kxd->req_kvnobuf, kvno);
+	kxd->req_offer.kvno = der_put_uint32 (kxd->req_kvnobuf, kvno);
 	//
 	// Set the enctypes to the ones allowed locally
-	//TODO//FILL// kxd->kx_req.etypes
+	//TODO//FILL// kxd->req_offer.etypes
 	//
-	// Set kxd->kx_req.from to "now", sharing space with kxd->kxreqtime
+	// Set kxd->req_offer.from to "now", sharing space with kxd->kxreqtime
 	kxd->kx_from = now;
 	if (!kerberos_time_set (now, kxd->kxfrom)) {
 		goto bailout;
 	}
-	kxd->kx_req.from.derptr = kxd->kxfrom;
-	kxd->kx_req.from.derlen = KERBEROS_TIME_STRLEN;
-printf ("DEBUG: kx_req->kxfrom = %s\n", kxd->kxfrom);
+	kxd->req_offer.from.derptr = kxd->kxfrom;
+	kxd->req_offer.from.derlen = KERBEROS_TIME_STRLEN;
+printf ("DEBUG: req_offer->kxfrom = %s\n", kxd->kxfrom);
 	//
-	// Set kxd->kx_req.till to "now" + configured #days
+	// Set kxd->req_offer.till to "now" + configured #days
 	time_t then = now + kxover_config->crossover_lifedays * 24 * 3600;
 	if (then < now) {
 		errno = EOVERFLOW;
@@ -1065,15 +1065,15 @@ printf ("DEBUG: kx_req->kxfrom = %s\n", kxd->kxfrom);
 	if (!kerberos_time_set (then, kxd->kxtill)) {
 		goto bailout;
 	}
-	kxd->kx_req.till.derptr = kxd->kxtill;
-	kxd->kx_req.till.derlen = KERBEROS_TIME_STRLEN;
-printf ("DEBUG: kx_req->kxtill = %s\n", kxd->kxtill);
+	kxd->req_offer.till.derptr = kxd->kxtill;
+	kxd->req_offer.till.derlen = KERBEROS_TIME_STRLEN;
+printf ("DEBUG: req_offer->kxtill = %s\n", kxd->kxtill);
 	//
-	//TODO//FILL// kxd->kx_req.max_uses (OPTIONAL)
+	//TODO//FILL// kxd->req_offer.max_uses (OPTIONAL)
 	//
-	// Set kxd->kx_req.my_name to krbtgt/CLIENT.REALM@CLIENT.REALM
-	kxd->kx_req.my_name.realm = kxd->crealm;
-	kxd->kx_req.my_name.principalName.name_type = dercrs_int_2;
+	// Set kxd->req_offer.my_name to krbtgt/CLIENT.REALM@CLIENT.REALM
+	kxd->req_offer.my_name.realm = kxd->crealm;
+	kxd->req_offer.my_name.principalName.name_type = dercrs_int_2;
 	kxd->myname2 [0] = dercrs_kstr_krbtgt;
 	kxd->myname2 [1] = kxd->crealm;
 	size_t myname2len = der_pack (pack_name2, kxd->myname2, NULL);
@@ -1083,33 +1083,35 @@ printf ("DEBUG: kx_req->kxtill = %s\n", kxd->kxtill);
 		goto bailout;
 	}
 	der_pack (pack_name2, kxd->myname2, myname2pack + myname2len);
-	kxd->kx_req.my_name.principalName.name_string.wire.derptr = myname2pack;
-	kxd->kx_req.my_name.principalName.name_string.wire.derlen = myname2len;
+	kxd->req_offer.my_name.principalName.name_string.wire.derptr = myname2pack;
+	kxd->req_offer.my_name.principalName.name_string.wire.derlen = myname2len;
 	//
-	//TODO//FILL// kxd->kx_req.extensions (PREPACK, IF ANY)
+	//TODO//FILL// kxd->req_offer.extensions (PREPACK, IF ANY)
 	//
-	// Map the fields in kx_req to a DER message kx_send
+	// Map the fields in req_offer to a DER message kx_send
 printf ("DEBUG: Packing as DER...\n");
-	size_t   reqlen = der_pack (pack_KX_REQ, (dercursor *) &kxd->kx_req_msg, NULL);
+	size_t   reqlen = der_pack (pack_KX_REQ, (dercursor *) &kxd->kx_req_frame, NULL);
 printf ("DEBUG: Precomputed DER size is %d\n", reqlen);
 	uint8_t *reqptr = malloc (reqlen);
 	if (reqptr == NULL) {
 		errno = ENOMEM;
 		goto bailout;
 	}
-	der_pack (pack_KX_REQ, (dercursor *) &kxd->kx_req_msg, reqptr + reqlen);
+	der_pack (pack_KX_REQ, (dercursor *) &kxd->kx_req_frame, reqptr + reqlen);
 	free (myname2pack);
 	free (kxname2pack);
 	kxname2pack = NULL;
 	myname2pack = NULL;
 	kxd->kx_send.derlen = reqlen;
 	kxd->kx_send.derptr = reqptr;
-int fd = open ("/tmp/kx_req.der", O_WRONLY | O_CREAT, 0);
+#ifdef DEBUG
+int fd = open ("/tmp/kx_req.der", O_WRONLY | O_CREAT | O_TRUNC, 0644);
 assert (write (fd, reqptr, reqlen) == reqlen);
 	// TODO:valgrind: invalid file descriptor -1 in write
 	// TODO:valgrind: Process terminating with default action of signal 6 (SIGABRT)
 close (fd);
 printf ("DEBUG: Written KX_REQ to /tmp/kx_req.der\n");
+#endif
 	//
 	// Now send the kx_send message over kxoffer_fd
 	if (send (kxd->kxoffer_fd, reqptr, reqlen, 0) != reqlen) {
@@ -1123,6 +1125,7 @@ printf ("DEBUG: Written KX_REQ to /tmp/kx_req.der\n");
 	// Register the next callback function to collect the response
 	ev_io_init (&kxd->ev_kxcnx, cb_kxs_client_kx_receiving, kxd->kxoffer_fd, EV_READ /* TODO:FORBIDDEN; | EV_ERROR */);
 	ev_io_start (kxover_loop, &kxd->ev_kxcnx);
+	kxd->progress = KXS_CLIENT_KX_RECEIVING;
 	return;
 bailout:
 printf ("DEBUG: kx_start_client_kx_sending() bails out\n");
@@ -1142,6 +1145,7 @@ printf ("DEBUG: kx_start_client_kx_sending() bails out\n");
  * first part must be at least 5 bytes to be considered, however.
  */
 static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
+printf ("DEBUG: cb_kxs_client_kx_receiving() called\n");
 	struct kxover_data *kxd =
 		(struct kxover_data *) (
 			((uint8_t *) evt) -
@@ -1159,6 +1163,7 @@ static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 		uint8_t hlen;
 		//TODO//NOT// dercursor sofar;
 		if (recv (kxd->kxoffer_fd, buf4, 4, 0) != 4) {
+printf ("DEBUG: Expected 4 bytes of packet length\n");
 			/* Reject silly small transmission */
 			kxd->last_errno = EBADMSG;
 			goto bailout;
@@ -1194,34 +1199,36 @@ static void cb_kxs_client_kx_receiving (EV_P_ ev_io *evt, int revents) {
 	size_t len;
 	uint8_t hlen;
 	if ((der_header (&inicrs, &tag, &len, &hlen) != 0) || (len+hlen != kxd->kx_recv.derlen)) {
+printf ("DER header wrong: tag 0x%02x, hlen=%d, len=%d, totalen %d\n", tag, hlen, len, kxd->kx_recv.derlen);
 		/* Error analysing the header */
 		kxd->last_errno = EBADMSG;
 		goto bailout;
 	}
-	if (!kxoffer_unpack (kxd->kx_recv, dercrs_int_19, &kxd->kx_rep)) {
+	if (!kxoffer_unpack (kxd->kx_recv, dercrs_int_19, &kxd->rep_offer)) {
+printf ("DER message of KX-OFFER failed to unpack: %d (%s)\n", errno, strerror (errno));
 		kxd->last_errno = errno;
 		goto bailout;
 	}
-	/* Analyse the data and compare kx_req and kx_rep */
-	if (der_cmp (kxd->kx_req.request_time, kxd->kx_rep.request_time) != 0) {
+	/* Analyse the data and compare req_offer and rep_offer */
+	if (der_cmp (kxd->req_offer.request_time, kxd->rep_offer.request_time) != 0) {
 		/* Request Time in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
-	if (der_cmp (kxd->kx_req.kx_name.realm, kxd->kx_rep.kx_name.realm) != 0) {
+	if (der_cmp (kxd->req_offer.kx_name.realm, kxd->rep_offer.kx_name.realm) != 0) {
 		/* Realm in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
-	if (der_cmp (kxd->kx_req.kx_name.principalName.name_type, kxd->kx_rep.kx_name.principalName.name_type) != 0) {
+	if (der_cmp (kxd->req_offer.kx_name.principalName.name_type, kxd->rep_offer.kx_name.principalName.name_type) != 0) {
 		/* name_type in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
-	if (der_cmp (*(dercursor *) &kxd->kx_req.kx_name.principalName.name_string,
-	             *(dercursor *) &kxd->kx_rep.kx_name.principalName.name_string) != 0) {
+	if (der_cmp (*(dercursor *) &kxd->req_offer.kx_name.principalName.name_string,
+	             *(dercursor *) &kxd->rep_offer.kx_name.principalName.name_string) != 0) {
 		/* name_string (SEQUENCE OF, so we get them all in one go) in KX-REQ and KX-REP did not match */
 		goto bailout_EPROTO;
 	}
 	struct dercursor service_realm;
-	if (!_parse_service_principalname (2, &kxd->kx_req.kx_name.principalName, NULL, &service_realm)) {
+	if (!_parse_service_principalname (2, &kxd->req_offer.kx_name.principalName, NULL, &service_realm)) {
 printf ("cb_kxs_client_kx_receiving() found invalid PrincipalName, last_errno := %d (%s)\n", errno, strerror (errno));
 		kxd->last_errno = errno;
 		goto bailout;
@@ -1238,6 +1245,7 @@ printf ("cb_kxs_client_kx_receiving() found invalid PrincipalName, last_errno :=
 		goto bailout_stopped;
 	}
 	kxd->progress = KXS_CLIENT_KEY_DERIVING;
+printf ("DEBUG: cb_kxs_client_kx_receiving() returns with progress == %d == KXS_CLIENT_KEY_DERIVING\n", kxd->progress);
 	return;
 bailout_EPROTO:
 	errno = EPROTO;
@@ -1246,6 +1254,7 @@ bailout:
 	ev_io_stop (EV_A_ evt);
 	/* ...and continue: */
 bailout_stopped:
+printf ("DEBUG: cb_kxs_client_kx_receiving() bailout\n");
 	kxover_finish (kxd);
 }
 
@@ -1725,14 +1734,14 @@ tcpkrb5_t kxover_classify_kerberos_up (struct dercursor krb) {
  * report the overall success or failure of the
  * KXOVER operation.
  *
- * The server borrows the ownership of kx_req_msg
+ * The server borrows the ownership of kx_req_frame
  * for the duration of its processing, that data is
  * assumed to be stable until the callback.
  */
 struct kxover_data *kxover_server (cb_kxover_result cb, void *cbdata,
-			struct dercursor kx_req_msg, int kxoffer_fd) {
-	assert (kx_req_msg.derptr != NULL);
-	assert (kx_req_msg.derlen > 10);
+			struct dercursor kx_req_frame, int kxoffer_fd) {
+	assert (kx_req_frame.derptr != NULL);
+	assert (kx_req_frame.derlen > 10);
 	assert (kxoffer_fd >= 0);
 	/* Allocate and initialise the kxover_data */
 	struct kxover_data *kxd;
@@ -1747,8 +1756,8 @@ struct kxover_data *kxover_server (cb_kxover_result cb, void *cbdata,
 	kxd->cb = cb;
 	kxd->progress = KXS_SERVER_INITIALISED;
 	/* Take in the server message, and unpack its DER */
-	kxd->kx_recv = kx_req_msg;
-	if (!kxoffer_unpack (kx_req_msg, dercrs_int_18, &kxd->kx_req)) {
+	kxd->kx_recv = kx_req_frame;
+	if (!kxoffer_unpack (kx_req_frame, dercrs_int_18, &kxd->req_offer)) {
 		/* errno is set to EBADMSG in kxoffer_unpack() */
 		kxd->last_errno = errno;
 		goto bailout;

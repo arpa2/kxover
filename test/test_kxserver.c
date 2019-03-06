@@ -45,6 +45,11 @@ void cb_please_stop (EV_P_ ev_signal *evt, int revents) {
 }
 #endif
 
+void cb_prepare_flush (EV_P_ ev_prepare *evp, int revents) {
+	fflush (stderr);
+	fflush (stdout);
+}
+
 void cb_kxover_done (void *cbdata, int result_errno,
 			struct dercursor client_realm,
 			struct dercursor service_realm) {
@@ -100,6 +105,11 @@ int main (int argc, char *argv []) {
 	// Use the default loop, plain and simple
 	loop = EV_DEFAULT;
 
+	// Ensure flushing stdout/stderr so we can count on ordering of interleaving
+	ev_prepare flusher;
+	ev_prepare_init (&flusher, cb_prepare_flush);
+	ev_prepare_start (loop, &flusher);
+
 	// Initialise the Kerberos module
 printf ("kerberos_init ()...\n");
 	if (!kerberos_init ()) {
@@ -145,6 +155,8 @@ printf ("pypeline detachment...\n");
 	if (sys_exit == 0) {
 		ev_run (EV_A_ 0);
 	}
+
+	ev_prepare_stop (loop, &flusher);
 
 printf ("kxover_fini ()...\n");
 	kxover_fini ();

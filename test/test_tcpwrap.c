@@ -54,6 +54,11 @@ void cb_stdin_reading (EV_P_ ev_io *evt, int _revents) {
 }
 #endif
 
+void cb_prepare_flush (EV_P_ ev_prepare *evp, int revents) {
+	fflush (stderr);
+	fflush (stdout);
+}
+
 
 int main (int argc, char *argv []) {
 
@@ -79,6 +84,11 @@ int main (int argc, char *argv []) {
 
 	// Have a straightforward event loop (from libev)
 	struct ev_loop *loop = EV_DEFAULT;
+
+	// Ensure flushing stdout/stderr so we can count on ordering of interleaving
+	ev_prepare flusher;
+	ev_prepare_init (&flusher, cb_prepare_flush);
+	ev_prepare_start (loop, &flusher);
 
 	// Initialise the Kerberos module
 	if (!kerberos_init ()) {
@@ -146,6 +156,8 @@ int main (int argc, char *argv []) {
 
 	// Run the event loop
 	ev_run (EV_A_ 0);
+
+	ev_prepare_stop (loop, &flusher);
 
 	// Shut down the Kerberos module
 	kerberos_fini ();
