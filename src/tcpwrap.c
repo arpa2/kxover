@@ -114,6 +114,7 @@ static void cb_starttls_handshaken (void *cbdata, int fd_new) {
 	ev_io_set (&wd->listener, fd_new, EV_READ /* TODO:FORBIDDEN: | EV_ERROR */);
 	ev_io_start (tcpwrap_loop, &wd->listener);
 	/* Done, finish */
+printf ("cb_starttls_handshaken() succeeds and traffic will be read from %d\n", fd_new);
 	return;
 disconnect:
 	if (wd->socket >= 0) {
@@ -220,7 +221,7 @@ service_realm.derptr, service_realm.derlen,
 client_realm.derptr, client_realm.derlen);
 	if (result_errno != 0) {
 		//TODO// Report failure to even setup the kxover_server
-		perror ("Failed to start kxover_server");
+		perror ("Failed while running the kxover_server");
 		goto disconnect;
 	}
 	/* We kept wd->reqptr for the realm strings, but can clean now */
@@ -232,6 +233,7 @@ client_realm.derptr, client_realm.derlen);
 	wd->kxover = NULL;
 	//TODO// Continue TLS connection on success
 disconnect:
+printf ("Wrong! Bad! Evil! Will shut down the socket to tcpwrap_cb_kxover_done()\n");
 	close (wd->socket);
 	if (wd->tlsdata != NULL) {
 		starttls_close (wd->tlsdata);
@@ -282,6 +284,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 	}
 	/* Handle TCP flags, if any */
 	uint32_t len_flags = ntohl (* (uint32_t *) len_flags_buf);
+printf ("_listener_handler() received 0x%08x as length/flags prefix\n", len_flags);
 	if (len_flags & 0x80000000) {
 		if (len_flags == 0x80000000) {
 			/* PROBE flag, tell it about STARTTLS */
@@ -371,14 +374,18 @@ printf ("DEBUG: Received a message to pass literally\n");
 printf ("DEBUG: Recognised a KXOVER request\n");
 		if ((wd->progress & PROGRESS_TLS) != PROGRESS_TLS) {
 			fprintf (stderr, "Attempt to run KXOVER without TLS layer\n");
-			goto disconnect;
+			goto disconnect_stopped;
 		}
 		wd->kxover = kxover_server (tcpwrap_cb_kxover_done, wd, msg, wd->socket);
 		if (wd->kxover == NULL) {
 			/* Report through the callback, but without realms */
 			struct dercursor dernull = { .derptr = NULL, .derlen = 0 };
+			if (errno == 0) {
+				errno = ECONNREFUSED;
+			}
 			tcpwrap_cb_kxover_done (wd, errno, dernull, dernull);
-			goto disconnect;
+			/* DO NOT cleanup wd or wd->socket -- the callback does that */
+			return;
 		}
 printf ("DEBUG: Side-tracked to a KXOVER server\n");
 		return;
@@ -386,12 +393,12 @@ printf ("DEBUG: Side-tracked to a KXOVER server\n");
 	default:
 printf ("DEBUG: Received an unknown or undesired result\n");
 		/* Unknown or undesired result */
-		goto disconnect;
+		goto disconnect_stopped;
 	}
 	/* Delegate to a backend construct to proxy as UDP with resends */
 	if (backend_start (wd, cb_write_request, cb_read_response) == NULL) {
 		/* Backend failure, drop the TCP message */
-		goto disconnect;
+		goto disconnect_stopped;
 	}
 	return;
 disconnect:

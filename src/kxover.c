@@ -1114,7 +1114,10 @@ printf ("DEBUG: Written KX_REQ to /tmp/kx_req.der\n");
 #endif
 	//
 	// Now send the kx_send message over kxoffer_fd
-	if (send (kxd->kxoffer_fd, reqptr, reqlen, 0) != reqlen) {
+	uint8_t reqlen_buf [4];
+	* ((uint32_t *) reqlen_buf) = htonl (reqlen);
+	if ((send (kxd->kxoffer_fd, reqlen_buf, 4, 0) != 4) ||
+	    (send (kxd->kxoffer_fd, reqptr, reqlen, 0) != reqlen)) {
 		/* Close the socket and let event handler signal it */
 		/* Note: We could send with callbacks, if need be */
 		close (kxd->kxoffer_fd);
@@ -1564,8 +1567,8 @@ printf ("DEBUG: cb_kxs_client_dnssec_realm() called with progress == %d\n", kxd-
 	//TODO// regexpmatch: DNS style, uppercase only
 	/* Look for the KDC based on the _kerberos TXT realm */
 	//TODO//BUG// Longevity of realm information copy!!!
-	kxd->srealm.derptr = &result->data[0][1];
-	kxd->srealm.derlen = label1len;
+	//TODO:DO_NOT_WRITE_BUT_COMPARE// kxd->srealm.derptr = &result->data[0][1];
+	//TODO:DO_NOT_WRITE_BUT_COMPARE// kxd->srealm.derlen = label1len;
 	if (!kx_start_dnssec_kdc (kxd, kxd->srealm)) {
 		/* kdc->last_errno was set by kx_start_dnssec_kdc() */
 		goto bailout;

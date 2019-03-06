@@ -12,7 +12,8 @@
 + pypeline should try to detect early termination of programs in arbitrary order
 + pypeline should support tests to fail with (a set of) acceptable exit codes
 - kvno in a KX-OFFER should follow the date/policy and available keys
-- get a proper service_name sent to the kxover_client() callback
++ get a proper service_name sent to the kxover_client() callback
++ find why tcpwrap.c crashes and leaves no interesting information
 
 + Have a KXOVER protocol client (in test mode)
 - Have a KXOVER protocol server (in test mode)
