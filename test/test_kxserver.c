@@ -139,13 +139,15 @@ printf ("pypeline detachment...\n");
 	ev_signal_start (EV_A_ &stop_event);
 #endif
 
+	struct starttls_data *tlsdata = NULL;	/* TODO:WILL:CRASH */
+
 	// Run the KXOVER server
 	fprintf (stderr, "TODO: This program is incomplete; we can also call from tcpwrap.c\n");
 	exit (1);
 	struct kxover_data *server_handle;
 	struct dercursor reqmsg = { .derptr = NULL, .derlen = 0 };
 	int sox = -1;
-	server_handle = kxover_server (cb_kxover_done, "cbdata", reqmsg, sox);
+	server_handle = kxover_server (cb_kxover_done, "cbdata", tlsdata, reqmsg, sox);
 	if (!server_handle) {
 		perror ("Failed to start kxover_server");
 		sys_exit = 1;

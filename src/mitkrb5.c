@@ -16,6 +16,8 @@
 #include <krb5/krb5.h>
 #include <mit-krb5/profile.h>
 
+#include <quick-der/api.h>
+
 #include "kerberos.h"
 
 
@@ -39,44 +41,127 @@
  * setup, so this is not much more special than a manually agreed
  * key for realm crossover.
  */
-static struct enctype enctypes_array [] = {
-	1,	"des-cbc-crc",			false,	false,
-	2,	"des-cbc-md4",			false,	false,
-	3,	"des-cbc-md5",			false,	false,
-	5,	"des3-cbc-md5",			false,	false,
-	7,	"des3-cbc-sha1",		false,	false,
-	9,	"dsaWithSHA1-CmsOID",		true,	false,
-	10,	"md5WithRSAEncryption-CmsOID",	true,	false,
-	11,	"sha1WithRSAEncryption-CmsOID",	true,	false,
-	12,	"rc2CBC-EnvOID",		true,	false,
-	13,	"rsaEncryption-EnvOID",		true,	false,
-	14,	"rsaES-OAEP-ENV-OID",		true,	false,
-	15,	"des-ede3-cbc-Env-OID",		true,	false,
-	16,	"des3-cbc-sha1-kd",		false,	false,
-	17,	"aes128-cts-hmac-sha1-96",	true,	true,
-	18,	"aes256-cts-hmac-sha1-96",	true,	true,
-	19,	"aes128-cts-hmac-sha256-128",	true,	true,
-	20,	"aes256-cts-hmac-sha384-192",	true,	true,
-	23,	"rc4-hmac",			false,	false,
-	24,	"rc4-hmac-exp",			false,	false,
-	25,	"camellia128-cts-cmac",		true,	true,
-	26,	"camellia256-cts-cmac",		true,	true,
-	/* End marker has (code==0) && (name==NULL) */
-	0,	NULL,				false,	false
+#define NUM_ENCTYPES 21
+static struct enctype enctypes_array [21] = {
+	1,	"des-cbc-crc",			true,	false,
+	2,	"des-cbc-md4",			true,	false,
+	3,	"des-cbc-md5",			true,	false,
+	5,	"des3-cbc-md5",			true,	false,
+	7,	"des3-cbc-sha1",		true,	false,
+	9,	"dsaWithSHA1-CmsOID",		false,	false,
+	10,	"md5WithRSAEncryption-CmsOID",	false,	false,
+	11,	"sha1WithRSAEncryption-CmsOID",	false,	false,
+	12,	"rc2CBC-EnvOID",		false,	false,
+	13,	"rsaEncryption-EnvOID",		false,	false,
+	14,	"rsaES-OAEP-ENV-OID",		false,	false,
+	15,	"des-ede3-cbc-Env-OID",		false,	false,
+	16,	"des3-cbc-sha1-kd",		true,	false,
+	17,	"aes128-cts-hmac-sha1-96",	false,	true,
+	18,	"aes256-cts-hmac-sha1-96",	false,	true,
+	19,	"aes128-cts-hmac-sha256-128",	false,	true,
+	20,	"aes256-cts-hmac-sha384-192",	false,	true,
+	23,	"rc4-hmac",			true,	false,
+	24,	"rc4-hmac-exp",			true,	false,
+	25,	"camellia128-cts-cmac",		false,	true,	// hash length?
+	26,	"camellia256-cts-cmac",		false,	true,	// hash length?
 };
 const struct enctype *enctypes = enctypes_array;
 
 
-char *kxetypes [] = {
-	"aes256-cts-hmac-sha384-192",
-	"aes256-cts-hmac-sha256-128-128",
-	"camellia256-cts-cmac",
-	NULL
-};
+/* Store encryption types (etypes) in a DER INTEGER before
+ * composing the SEQUENCE OF EncryptionType that goes into
+ * the KX-OFFER.etypes list.  This is done once, while
+ * running kerberos_init(), and is after then shared.  The
+ * following buffers are needed to store enough bytes for
+ * the transformation.
+ */
+static char *etypes_names [NUM_ENCTYPES + 1];  // NULL terminated
+static uint8_t seqof_etype [7 + 6 * NUM_ENCTYPES];  // SEQ,?lenlen,len<=5,*(INT,len=1,val<=4)
+static union dernode dercrs_seqof_etypes;
+
+
+/* Given a string with a selection, initialise the various
+ * static storage structures.  The selection may be NULL to
+ * select anything permissible and not deprecated.  If not,
+ * encryption type names are assumed separated by spaces
+ * and commas.  Note that there is a requirement of having
+ * the etypes sorted in the SEQUENCE OF EncryptionType.
+ */
+static void kerberos_init_etypes (char *seln) {
+	//
+	// Intermediate storage structures
+	der_buf_int32_t etypebuf [NUM_ENCTYPES];
+	struct dercursor der_crs_int32 [NUM_ENCTYPES];
+	derwalk pack_etypes [1 + NUM_ENCTYPES + 2];  // ENTER,*INTEGER,LEAVE,END
+	//
+	// Iterate over the enctypes_array and selectively add
+	int outp = 0;
+	int inp;
+	for (inp = 0; inp < NUM_ENCTYPES; inp++) {
+		//
+		// Test if we want the current name
+		if (!enctypes_array [inp].crossover) {
+			continue;
+		}
+		char *name = enctypes_array [inp].name;
+printf ("DEBUG: Considering encryption type %s\n", name);
+		if ((seln == NULL) && (enctypes_array [inp].deprecated)) {
+printf ("DEBUG: Deprecated\n");
+			continue;
+		}
+		char *seln2 = (seln != NULL) ? seln : name;
+printf ("DEBUG: Searching for \"%s\" in \"%s\"\n", name, seln);
+		char *etpos = strstr (seln2, name);
+		if (etpos == NULL) {
+printf ("DEBUG: Not found\n");
+			continue;
+		}
+		if ((etpos != seln2) && (etpos [-1] != ',') && (etpos [-1] != ' ')) {
+printf ("DEBUG: Not aligned at word beginning\n");
+			continue;
+		}
+		char term = etpos [strlen (name)];
+		if ((term != '\0') && (term != ',') && (term != ' ')) {
+printf ("DEBUG: Not aligned at word end\n");
+			continue;
+		}
+		//
+		// Test if the enctype is acceptable / advisable
+		if (enctypes_array [inp].deprecated) {
+			fprintf (stderr, "Warning: KXOVER uses deprecated algorithm \"%s\"\n", name);
+		}
+		//
+		// Add the enctype to the various arrays
+printf ("DEBUG: Adding encryption type %s\n", name);
+		etypes_names [outp] = name;
+		der_crs_int32 [outp] = der_put_int32 (etypebuf [outp], enctypes_array [inp].code);
+		pack_etypes [outp] = DER_PACK_STORE | DER_TAG_INTEGER;
+		outp++;
+	}
+	//
+	// Close off and render all structures
+	etypes_names [outp] = NULL;
+	pack_etypes [outp] = DER_PACK_END;
+	dercrs_seqof_etypes.wire.derlen = der_pack (pack_etypes, der_crs_int32, NULL);
+	dercrs_seqof_etypes.wire.derptr = seqof_etype;
+	der_pack (pack_etypes, der_crs_int32, seqof_etype + dercrs_seqof_etypes.wire.derlen);
+}
+
+
+/* Return a prepackaged form that can be used as SEQUENCE OF EncryptionType,
+ * and included in KX-OFFER messages.  Quick DER cannot handle variable-sized
+ * structures, so this must be prepared.
+ *
+ * The returned values are shared and must not be freed by the caller.
+ */
+const union dernode kerberos_seqof_enctypes (void) {
+	return dercrs_seqof_etypes;
+}
+
 
 static const struct kerberos_config default_config = {
 	//HUH?!?// .certified_client_hostname = NULL,
-	.crossover_enctypes = kxetypes,
+	.crossover_enctypes = etypes_names,
 	.kdc_hostname = "::1",
 	.kdc_port = 88,
 	.kvno_offset = 20000,
@@ -215,6 +300,11 @@ bool kerberos_init (void) {
 	if (krb5_init_context (&krb5_ctx) != 0) {
 		return false;
 	}
+	//
+	// Calculate lists of encryption types
+	kerberos_init_etypes (NULL);  /* TODO: config string */
+	//
+	// Success
 	return true;
 }
 

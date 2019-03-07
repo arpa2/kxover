@@ -45,6 +45,7 @@
 
 /* Opaque declarations */
 struct kxover_data;
+struct starttls_data;
 
 
 /* The maximum number of bytes in a DERific Kerberos message */
@@ -138,6 +139,8 @@ tcpkrb5_t kxover_classify_kerberos_down (struct dercursor krb);
  * local/service realm name is supported by the TLS
  * certificate presented locally makes sense, to avoid
  * being open to arbitrary requests and/or relaying.
+ * The TLS connection will have been setup outside of
+ * the kxover_server() call, and is therefore sent in.
  *
  * This functions starts the KXOVER server process,
  * and returns an opaque object on success, or NULL
@@ -146,12 +149,13 @@ tcpkrb5_t kxover_classify_kerberos_down (struct dercursor krb);
  * report the overall success or failure of the
  * KXOVER operation.
  *
- * The server borrows the ownership of kx_req_msg
+ * The server borrows the ownership of kx_req_frame
  * for the duration of its processing, that data is
  * assumed to be stable until the callback.
  */
 struct kxover_data *kxover_server (cb_kxover_result cb, void *cbdata,
-			struct dercursor kx_req_msg, int kxoffer_fd);
+			struct starttls_data *tlsdata,
+			struct dercursor kx_req_frame, int kxoffer_fd);
 
 
 /* Having classified TCPKRB5_NOTFOUND from downstream,

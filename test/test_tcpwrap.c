@@ -15,6 +15,7 @@
 
 #include "tcpwrap.h"
 #include "backend.h"
+#include "kxover.h"
 #include "starttls.h"
 #include "kerberos.h"
 #include "socket.h"
@@ -63,8 +64,8 @@ void cb_prepare_flush (EV_P_ ev_prepare *evp, int revents) {
 int main (int argc, char *argv []) {
 
 	// Process the commandline arguments
-	if (argc != 6) {
-		fprintf (stderr, "Usage: %s <tcpwrap-ip> <tcpwrap-port> <kdc-ip> <kdc-port> <signal>\n", argv [0]);
+	if (argc != 8) {
+		fprintf (stderr, "Usage: %s <tcpwrap-ip> <tcpwrap-port> <kdc-ip> <kdc-port> <root-key-file> <etc_hosts_file> <signal>\n", argv [0]);
 		exit (1);
 	}
 
@@ -80,7 +81,10 @@ int main (int argc, char *argv []) {
 		exit (1);
 	}
 
-	int stop_signal = atoi (argv [5]);
+	char *dnssec_rootkey_file = argv [5];
+	char *etc_hosts_file = argv [6];
+
+	int stop_signal = atoi (argv [7]);
 
 	// Have a straightforward event loop (from libev)
 	struct ev_loop *loop = EV_DEFAULT;
@@ -93,6 +97,11 @@ int main (int argc, char *argv []) {
 	// Initialise the Kerberos module
 	if (!kerberos_init ()) {
 		perror ("Kerberos initialisation failed");
+	}
+
+	// Initialise the KXOVER module (and Unbound)
+	if (!kxover_init (EV_A_ dnssec_rootkey_file, etc_hosts_file)) {
+		perror ("KXOVER initialisation failed");
 	}
 
 	// Initialise the network sockets and accompanying event structures
@@ -158,6 +167,9 @@ int main (int argc, char *argv []) {
 	ev_run (EV_A_ 0);
 
 	ev_prepare_stop (loop, &flusher);
+
+	// Shut down the KXOVER module (and Unbound)
+	kxover_fini ();
 
 	// Shut down the Kerberos module
 	kerberos_fini ();

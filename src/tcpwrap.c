@@ -217,11 +217,11 @@ static void tcpwrap_cb_kxover_done (void *cbdata,
 	struct wrapdata *wd = cbdata;
 if ((service_realm.derptr != NULL) && (client_realm.derptr != NULL))
 printf ("DEBUG: tcpwrap_cb_kxover_done() called for krbtgt/%.*s@%.*s\n",
-service_realm.derptr, service_realm.derlen,
-client_realm.derptr, client_realm.derlen);
+service_realm.derlen, service_realm.derptr,
+client_realm.derlen, client_realm.derptr);
 	if (result_errno != 0) {
 		//TODO// Report failure to even setup the kxover_server
-		perror ("Failed while running the kxover_server");
+printf ("DEBUG: Failed while running the kxover_server: %d (%s)\n", result_errno, strerror (result_errno));
 		goto disconnect;
 	}
 	/* We kept wd->reqptr for the realm strings, but can clean now */
@@ -233,7 +233,7 @@ client_realm.derptr, client_realm.derlen);
 	wd->kxover = NULL;
 	//TODO// Continue TLS connection on success
 disconnect:
-printf ("Wrong! Bad! Evil! Will shut down the socket to tcpwrap_cb_kxover_done()\n");
+printf ("DEBUG: Wrong! Bad! Evil! Will shut down the socket to tcpwrap_cb_kxover_done()\n");
 	close (wd->socket);
 	if (wd->tlsdata != NULL) {
 		starttls_close (wd->tlsdata);
@@ -376,7 +376,7 @@ printf ("DEBUG: Recognised a KXOVER request\n");
 			fprintf (stderr, "Attempt to run KXOVER without TLS layer\n");
 			goto disconnect_stopped;
 		}
-		wd->kxover = kxover_server (tcpwrap_cb_kxover_done, wd, msg, wd->socket);
+		wd->kxover = kxover_server (tcpwrap_cb_kxover_done, wd, wd->tlsdata, msg, wd->socket);
 		if (wd->kxover == NULL) {
 			/* Report through the callback, but without realms */
 			struct dercursor dernull = { .derptr = NULL, .derlen = 0 };

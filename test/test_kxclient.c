@@ -32,8 +32,8 @@ int sys_exit = 0;
 
 
 
-void cb_timeout_10s (EV_P_ ev_timer *evt, int revents) {
-	printf ("Timeout after 10 seconds of patience\n");
+void cb_timeout_15s (EV_P_ ev_timer *evt, int revents) {
+	printf ("Timeout after 15 seconds of patience\n");
 	sys_exit = 1;
 	ev_break (EV_A_ EVBREAK_ALL);
 }
@@ -48,7 +48,6 @@ void cb_please_stop (EV_P_ ev_signal *evt, int revents) {
 void cb_kxover_done (void *cbdata, int result_errno,
 			struct dercursor client_realm,
 			struct dercursor service_realm) {
-printf ("cb_kxover_done() called with errno == %d (%s)\n", result_errno, strerror (result_errno));
 	fprintf (stderr, "KXOVER finished for krbtgt/%.*s@%.*s\n", service_realm.derlen, service_realm.derptr, client_realm.derlen, client_realm.derptr);
 	if (result_errno != 0) {
 		fprintf (stderr, "KXOVER client failed: %d (%s)\n", result_errno, strerror (result_errno));
@@ -56,7 +55,6 @@ printf ("cb_kxover_done() called with errno == %d (%s)\n", result_errno, strerro
 		ev_break (EV_A_ EVBREAK_ALL);
 		return;
 	}
-printf ("cb_kxover_done() returns\n");
 }
 
 
@@ -131,9 +129,9 @@ printf ("pypeline detachment...\n");
 	printf ("--\n");
 	fflush (stdout);
 
-	// Setup a shutdown timer that expires after 10s
+	// Setup a shutdown timer that expires after 15s
 	ev_timer shutdown_timer;
-	ev_timer_init (&shutdown_timer, cb_timeout_10s, 10., 0.);
+	ev_timer_init (&shutdown_timer, cb_timeout_15s, 15., 0.);
 	ev_timer_start (EV_A_ &shutdown_timer);
 
 #if 0
@@ -145,7 +143,7 @@ printf ("pypeline detachment...\n");
 
 	// Start the KXOVER client
 	struct kxover_data *client_handle;
-printf ("kxover_client() starts now\n");
+printf ("kxover_client() starts now, for pid = %d, ppid = %d\n", getpid (), getppid ());
 	client_handle = kxover_client (cb_kxover_done, "cbdata", crealm, srealm);
 	if (!client_handle) {
 		perror ("Failed to start kxover_client");

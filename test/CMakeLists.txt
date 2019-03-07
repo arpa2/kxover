@@ -18,7 +18,7 @@ add_executable (krb5-entropy
 	krb5-entropy.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (krb5-entropy ${Kerberos5_LIBRARIES})
+target_link_libraries (krb5-entropy ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
 
 
 add_executable (test_udpwrap
@@ -39,7 +39,7 @@ add_executable (test_tcpwrap
 	${SRC}/tcpwrap.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (test_tcpwrap ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
+target_link_libraries (test_tcpwrap ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
 
 
 add_executable (test_kxclient
@@ -49,7 +49,7 @@ add_executable (test_kxclient
 	${SRC}/faketls.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
+target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
 
 
 add_executable (test_kxserver
@@ -59,7 +59,7 @@ add_executable (test_kxserver
 	${SRC}/faketls.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev)
+target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
 
 
 #
@@ -108,7 +108,7 @@ add_test (NAME t_udpwrap COMMAND ${py_setenv} ${pypeline}
 add_test (NAME t_tcpwrap COMMAND ${py_setenv} ${pypeline}
 	${client_tcp} IP:FRONT UDP:FRONT ${krb_as_flow}
 	--
-	${test_tcpwrap} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
+	${test_tcpwrap} IP:FRONT UDP:FRONT IP:KDC UDP:KDC ${dnssec_root_key} FILE:IGNORE SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC  ${krb_as_flow}
 	--
@@ -120,7 +120,7 @@ if (FAKE_TLS)
 add_test (NAME t_tlswrap_fake COMMAND ${py_setenv} ${pypeline}
 	${client_faketls} IP:FRONT UDP:FRONT ${krb_as_flow}
 	--
-	${test_tcpwrap} IP:FRONT UDP:FRONT IP:KDC UDP:KDC SIG:HUP
+	${test_tcpwrap} IP:FRONT UDP:FRONT IP:KDC UDP:KDC ${dnssec_root_key} FILE:IGNORE SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC ${krb_as_flow}
 	--
@@ -145,7 +145,7 @@ if (0)
 add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
 	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 SIG:HUP
+	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
@@ -168,9 +168,9 @@ endif ()
 
 # Combining t_kxclient and t_kxserver into one, t_kxover
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
-	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${valgrind} ${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 SIG:HUP
+	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--

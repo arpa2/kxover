@@ -159,11 +159,17 @@ static const derwalk krberror2code [] = {
  * but only to decode shallow versions, returning the contained
  * KX-OFFER for separate analysis.
  */
-static const derwalk pack_msg_shallow [] = {
+static const derwalk pack_frame_shallow [] = {
 	DER_PACK_ENTER | DER_TAG_SEQUENCE,
+	DER_PACK_ENTER | DER_TAG_CONTEXT(0),
 	DER_PACK_STORE | DER_TAG_INTEGER,	/* pvno(5) */
+	DER_PACK_LEAVE,
+	DER_PACK_ENTER | DER_TAG_CONTEXT(1),
 	DER_PACK_STORE | DER_TAG_INTEGER,	/* msg-type(...) */
+	DER_PACK_LEAVE,
+	DER_PACK_ENTER | DER_TAG_CONTEXT(2),
 	DER_PACK_ANY,
+	DER_PACK_LEAVE,
 	DER_PACK_LEAVE,
 	DER_PACK_END
 };
@@ -239,7 +245,7 @@ struct kxover_data {
 	int kxoffer_fd;
 	size_t kxoffer_recvlen;
 	char *kerberos_kdc_query;
-	char *kerberos_tls_hostname;
+	char kerberos_tls_hostname [256];
 	struct ub_result *ubres_txt;
 	struct ub_result *ubres_srv;
 	struct ub_result *ubres_aaaa;
@@ -273,19 +279,6 @@ struct kxover_data {
 /* Kerberos configuration for KXOVER>
  */
 static const struct kerberos_config *kxover_config;
-
-
-/* Reset an iterator.  This may be done initially or when
- * the need arises to start again.  The routine is generic.
- */
-static void iter_reset (struct iterator *it) {
-	// it->cursor  = 0;
-	// it->current = 0;
-	// it->prepare = 0;
-	// it->started = false;
-	// it->stopped = false;
-	memset (it, 0, sizeof (it));
-}
 
 
 /* The event loop for KXOVER operations.
@@ -329,6 +322,57 @@ static const struct dercursor dercrs_int_30       = { .derptr = (uint8_t *) der_
 static const struct dercursor dercrs_kstr_krbtgt  = { .derptr = (uint8_t *) der_kstr_krbtgt, .derlen = sizeof(der_kstr_krbtgt) };
 
 
+/* Compare two DER encoded INTEGERS, returning a negative integer for a<b,
+ * 0 for a==b and a positive integer for a>b.
+ *
+ * DER is as-compact-as-possible, and it is canonical, so we can assume that two
+ * INTEGERs of the same size only needs a signed byte-by-byte comparison.
+ *
+ * Only values of the same size can return value 0; all others return -1 or +1.
+ *
+ * When the sizes differ, the sign of the longest value determines the outcome.
+ * This is easy to see when the signs differ.  When the signs are the same it is
+ * also true, because the bigger range covered by the longer value.
+ *
+ * When sizes differ, a long negative a or long positive b lead to -1 and the
+ * opposite to +1.  This is also true when the sizes are the same but the signs
+ * differ; this can be used to complement an unsigned byte-by-byte comparison.
+ *
+ * This function should probably move into Quick DER.
+ */
+int der_cmp_INTEGER (dercursor a, dercursor b) {
+	uint8_t signbyte;
+	if (a.derlen == b.derlen) {
+		if (((*a.derptr ^ *b.derptr) & 0x80) == 0x00) {
+		// Same size, same sign: unsigned byte comparison
+			return memcmp (a.derptr, b.derptr, a.derlen);
+		}
+		// Same size, different sign: sign of a decides
+		signbyte = *a.derptr;
+	} else if (a.derlen > b.derlen) {
+		// Size of a longer: sign of a decides
+		signbyte = *a.derptr;
+	} else {
+		// Size of b longer: sign of b decides, but inverted
+		signbyte = ~ *b.derptr;
+	}
+	return ((0x80 & signbyte) == 0x80) ? -1 : +1;
+}
+
+
+/* Reset an iterator.  This may be done initially or when
+ * the need arises to start again.  The routine is generic.
+ */
+static void iter_reset (struct iterator *it) {
+	// it->cursor  = 0;
+	// it->current = 0;
+	// it->prepare = 0;
+	// it->started = false;
+	// it->stopped = false;
+	memset (it, 0, sizeof (it));
+}
+
+
 /* SRV iterators pass through the same records more than once, with
  * ever-rising priority in it->current.  While passing through, the
  * next priority level is collected in it->prepare, which will end
@@ -364,8 +408,8 @@ printf ("DEBUG: iter_srv_next() starts the SRV iterator\n");
 				continue;
 			}
 		} else {
-			/* Skip very short host names, including "." */
-			if (result->len [it->cursor] < 6+3) {
+			/* Skip very short host names, including ".", and very long ones */
+			if ((result->len [it->cursor] < 6+3) || (result->len [it->cursor] > 200)) {
 				continue;
 			}
 			/* Prepare the priority level for the next round */
@@ -436,6 +480,33 @@ printf ("DEBUG: iter_aaaa_a_next() stops the iterator\n");
 	/* We failed and will stop now */
 printf ("DEBUG: iter_aaaa_a_next() returns failure\n");
 	return false;
+}
+
+
+/* Based on SRV record pointed at by the SRV iterator, we can
+ * derive the kerberos_tls_hostname field value.
+ *
+ * This function does not fail.
+ */
+static void current_srv_to_kerberos_tls_hostname (struct kxover_data *kxd) {
+	int      len  = kxd->ubres_srv->len  [kxd->iter_srv.cursor] - 6;
+	uint8_t *data = kxd->ubres_srv->data [kxd->iter_srv.cursor] + 6;
+	uint8_t *here = kxd->kerberos_tls_hostname;
+	while (len-- > 0) {
+		uint8_t labellen = *data++;
+		assert ((labellen & 0x80) == 0x00);
+		if (labellen == 0) {
+			break;
+		}
+		memcpy (here, data, labellen);
+		here += labellen;
+		data += labellen;
+		len  -= labellen;
+		if (len > 0) {
+			*here++ = '.';
+		}
+	}
+	*here = '\0';
 }
 
 
@@ -599,30 +670,8 @@ printf ("DEBUG: Freeing old A result\n");
 	// Avoid repeated freeing of the resolver output
 	kxd->progress = KXS_CLIENT_DNSSEC_KDC;
 printf ("DEBUG: kx_resolve_aaaa_a() cleaned up old results, if any\n");
-	/* Construct teh kerberos_tls_hostname from the SRV record */
-	int      len  = kxd->ubres_srv->len  [kxd->iter_srv.cursor] - 6;
-	uint8_t *data = kxd->ubres_srv->data [kxd->iter_srv.cursor] + 6;
-	uint8_t *here = malloc (len);
-	if (here == NULL) {
-		kxd->last_errno = ENOMEM;
-		goto bailout;
-	}
-	kxd->kerberos_tls_hostname = (char *) here;
-	while (len-- > 0) {
-		uint8_t labellen = *data++;
-		assert ((labellen & 0x80) == 0x00);
-		if (labellen == 0) {
-			break;
-		}
-		memcpy (here, data, labellen);
-		here += labellen;
-		data += labellen;
-		len  -= labellen;
-		if (len > 0) {
-			*here++ = '.';
-		}
-	}
-	*here++ = '\0';
+	/* Construct the kerberos_tls_hostname from the SRV record */
+	current_srv_to_kerberos_tls_hostname (kxd);
 	/* Start two queries, one for AAAA and one for A */
 printf ("DEBUG: Resolving AAAA and A for %s\n", kxd->kerberos_tls_hostname);
 	int err6 = ub_resolve_async (kxover_unbound_ctx,
@@ -1037,14 +1086,14 @@ printf ("DEBUG: req_offer->salt = %02x %02x...%02x %02x\n", kxd->salt [0], kxd->
 	der_pack (pack_name2, kxd->kxname2, kxname2pack + kxname2len);
 	kxd->req_offer.kx_name.principalName.name_string.wire.derptr = kxname2pack;
 	kxd->req_offer.kx_name.principalName.name_string.wire.derlen = kxname2len;
-printf ("DEBUG: req_offer->kx_name = %.*s/%.*s@%.*s\n", kxd->kxname2[0].derlen, kxd->kxname2[0].derptr, kxd->kxname2[1].derlen, kxd->kxname2[1].derptr, kxd->srealm.derlen, kxd->srealm.derptr);
+printf ("DEBUG: req_offer->kx_name = %.*s/%.*s@%.*s\n", kxd->kxname2[0].derlen, kxd->kxname2[0].derptr, kxd->kxname2[1].derlen, kxd->kxname2[1].derptr, kxd->crealm.derlen, kxd->crealm.derptr);
 	//
 	//TODO//FILL// kxd->req_offer.kvno -- for now, MMDDS with S==0
 	uint32_t kvno = 3052;
 	kxd->req_offer.kvno = der_put_uint32 (kxd->req_kvnobuf, kvno);
 	//
 	// Set the enctypes to the ones allowed locally
-	//TODO//FILL// kxd->req_offer.etypes
+	kxd->req_offer.etypes = kerberos_seqof_enctypes ();
 	//
 	// Set kxd->req_offer.from to "now", sharing space with kxd->kxreqtime
 	kxd->kx_from = now;
@@ -1085,9 +1134,11 @@ printf ("DEBUG: req_offer->kxtill = %s\n", kxd->kxtill);
 	der_pack (pack_name2, kxd->myname2, myname2pack + myname2len);
 	kxd->req_offer.my_name.principalName.name_string.wire.derptr = myname2pack;
 	kxd->req_offer.my_name.principalName.name_string.wire.derlen = myname2len;
+printf ("DEBUG: req_offer->my_name = %.*s/%.*s@%.*s\n", kxd->myname2[0].derlen, kxd->myname2[0].derptr, kxd->myname2[1].derlen, kxd->myname2[1].derptr, kxd->crealm.derlen, kxd->crealm.derptr);
 	//
-	//TODO//FILL// kxd->req_offer.extensions (PREPACK, IF ANY)
-	//
+	//TODO//FILL// kxd->req_offer.extensions (PREPACK, IF ANY) (NOT OPTIONAL)
+	kxd->req_offer.extensions.wire.derptr = "";
+	kxd->req_offer.extensions.wire.derlen = 0;
 	// Map the fields in req_offer to a DER message kx_send
 printf ("DEBUG: Packing as DER...\n");
 	size_t   reqlen = der_pack (pack_KX_REQ, (dercursor *) &kxd->kx_req_frame, NULL);
@@ -1207,7 +1258,12 @@ printf ("DER header wrong: tag 0x%02x, hlen=%d, len=%d, totalen %d\n", tag, hlen
 		kxd->last_errno = EBADMSG;
 		goto bailout;
 	}
-	if (!kxoffer_unpack (kxd->kx_recv, dercrs_int_19, &kxd->rep_offer)) {
+	if (tag != APPTAG_KXOVER_REP) {
+		kxd->last_errno = EPROTO;
+		goto bailout;
+	}
+printf ("Moved from tag 0x%02x to tag 0x%02x which will now be taken apart\n", tag, *inicrs.derptr);
+	if (!kxoffer_unpack (inicrs, dercrs_int_19, &kxd->rep_offer)) {
 printf ("DER message of KX-OFFER failed to unpack: %d (%s)\n", errno, strerror (errno));
 		kxd->last_errno = errno;
 		goto bailout;
@@ -1268,6 +1324,7 @@ printf ("DEBUG: cb_kxs_client_kx_receiving() bailout\n");
  * callbacks.
  */
 static void _cb_kxover_unbound (EV_P_ ev_io *_evt, int _revents) {
+assert (kxover_unbound_ctx != NULL);
 printf ("DEBUG: _cb_kxover_unbound() called -- passing on to ub_process()\n");
 	ub_process (kxover_unbound_ctx);
 printf ("DEBUG: _cb_kxover_unbound() ended  -- finished with ub_process()\n");
@@ -1322,7 +1379,7 @@ printf ("DEBUG: kx_start_key_deriving() bails out\n");
 
 
 /* Unpack an incoming KX-OFFER message, contained in either
- * KX-REQ (msg_type 18) or KX-REP (msg_type 19).
+ * KX-REQ (msg_type 18) or KX-REP (msg_type 19) frame.
  * Store the resulting dercrs values in outvars.
  *
  * Return true on success, or false with errno set on failure.
@@ -1331,7 +1388,7 @@ static bool kxoffer_unpack (dercursor msg, dercursor msg_type,
 			ovly_KX_OFFER *outvars) {
 	/* First unpack the message surroundings of KX-RE? */
 	struct dercursor msg_ovly [3];  /* 5, msg-type, KX-OFFER */
-	if (der_unpack (&msg, pack_msg_shallow, msg_ovly, 1) != 0) {
+	if (der_unpack (&msg, pack_frame_shallow, msg_ovly, 1) != 0) {
 		errno = EBADMSG;
 		goto bailout;
 	}
@@ -1448,6 +1505,7 @@ printf ("DEBUG: kx_start_dnssec_kdc() called for %.*s\n", realm_name.derlen, (ch
 	kerberos_kdc_query [19+realm_name.derlen] = '\0';
 printf ("DEBUG: SRV query for KDC at kerberos_kdc_query == \"%s\"\n", kerberos_kdc_query);
 	/* Continue to look for the server realm's KDC address */
+	assert (kxover_unbound_ctx != NULL);
 	int ub_errno = ub_resolve_async (kxover_unbound_ctx,
 			kerberos_kdc_query, DNS_SRV, DNS_INET,
 			kxd, cb_kxs_either_dnssec_kdc, &kxd->ubqid_srv);
@@ -1457,6 +1515,7 @@ printf ("DEBUG: Bailing out from attempted Unbound SRV: %s\n", ub_strerror (ub_e
 		kxd->last_errno = ENXIO;
 		goto bailout;
 	}
+	//TODO//PROGRESS// -- taking note of activation of kxd->ubqid_srv
 	/* Success */
 	return true;
 bailout:
@@ -1499,12 +1558,17 @@ printf ("DEBUG: Processing SRV records as potentials for key derivation in cb_kx
 		/* On a server, check the host name against the certificate */
 		iter_reset (&kxd->iter_srv);
 		while (iter_srv_next (&kxd->iter_srv, kxd->ubres_srv)) {
+			/* Construct the kerberos_tls_hostname from the SRV record */
+			current_srv_to_kerberos_tls_hostname (kxd);
+printf ("DEBUG: cb_kxs_either_dnssec_kdc() Comparing SRV name %s to TLS-certified client hostname\n", kxd->kerberos_tls_hostname);
 			struct dercursor hostname;
-			hostname.derptr = kxd->kerberos_tls_hostname;
-			hostname.derlen = strlen (hostname.derptr);
+			hostname.derptr =         kxd->kerberos_tls_hostname ;
+			hostname.derlen = strlen (kxd->kerberos_tls_hostname);
+			//TODO// Map DNS format name to human format name
 			if (starttls_remote_hostname_check_certificate (
 					hostname, kxd->tlsdata)) {
 				/* Found it.  Move on to _KEY_DERIVING. */
+printf ("DEBUG: cb_kxs_either_dnssec_kdc() for the server found a match between client SRV and Certificate\n");
 				if (!kx_start_key_deriving (kxd)) {
 					kxd->last_errno = ENOSYS;
 					goto bailout;
@@ -1729,6 +1793,8 @@ tcpkrb5_t kxover_classify_kerberos_up (struct dercursor krb) {
  * local/service realm name is supported by the TLS
  * certificate presented locally makes sense, to avoid
  * being open to arbitrary requests and/or relaying.
+ * The TLS connection will have been setup outside of
+ * the kxover_server() call, and is therefore sent in.
  *
  * This functions starts the KXOVER server process,
  * and returns an opaque object on success, or NULL
@@ -1742,7 +1808,9 @@ tcpkrb5_t kxover_classify_kerberos_up (struct dercursor krb) {
  * assumed to be stable until the callback.
  */
 struct kxover_data *kxover_server (cb_kxover_result cb, void *cbdata,
+			struct starttls_data *tlsdata,
 			struct dercursor kx_req_frame, int kxoffer_fd) {
+printf ("kxover_server() called on a frame of %d bytes tagged with 0x%02x\n", kx_req_frame.derlen, *kx_req_frame.derptr);
 	assert (kx_req_frame.derptr != NULL);
 	assert (kx_req_frame.derlen > 10);
 	assert (kxoffer_fd >= 0);
@@ -1755,16 +1823,49 @@ struct kxover_data *kxover_server (cb_kxover_result cb, void *cbdata,
 	}
 	kxd->kxoffer_fd = kxoffer_fd;
 	kxd->cbdata = cbdata;
-	ev_timer_init (&kxd->ev_timeout, cb_kxover_timeout, 60.0, 0.0);
 	kxd->cb = cb;
+	kxd->tlsdata = tlsdata;
+	ev_timer_init (&kxd->ev_timeout, cb_kxover_timeout, 60.0, 0.0);
 	kxd->progress = KXS_SERVER_INITIALISED;
+	/* Move into the structure */
+	struct dercursor inicrs = kx_req_frame;
+	uint8_t tag;
+	size_t len;
+	uint8_t hlen;
+	if (der_header (&inicrs, &tag, &len, &hlen)) {
+		kxd->last_errno = errno;
+		goto bailout;
+	}
+	if ((tag != APPTAG_KXOVER_REQ) && (len + hlen == kx_req_frame.derlen)) {
+		kxd->last_errno = EBADMSG;
+		goto bailout;
+	}
 	/* Take in the server message, and unpack its DER */
 	kxd->kx_recv = kx_req_frame;
-	if (!kxoffer_unpack (kx_req_frame, dercrs_int_18, &kxd->req_offer)) {
+	if (!kxoffer_unpack (inicrs, dercrs_int_18, &kxd->req_offer)) {
 		/* errno is set to EBADMSG in kxoffer_unpack() */
 		kxd->last_errno = errno;
 		goto bailout;
 	}
+	bool ok = true;
+	/* Validate the PrincipalName of kx_name to be krbtgt/SERVICE.REALM and harvest kxd->srealm */
+	/* Validate the PrincipalName of my_name to be krbtgt/CLIENT.REALM  and harvest kxd->crealm */
+	ok = ok && _parse_service_principalname (2, &kxd->req_offer.kx_name.principalName, NULL, &kxd->srealm);
+	ok = ok && _parse_service_principalname (2, &kxd->req_offer.my_name.principalName, NULL, &kxd->crealm);
+	if (!ok) {
+printf ("DEBUG: Rejected kx_name and/or my_name PrincipalName (only accept krbtgt/REALM)\n");
+		kxd->last_errno = EPERM;
+		goto bailout;
+	}
+	/* Validate: kxd->crealm matches my_name Realm and kx_name realm */
+	ok = ok && (der_cmp (kxd->crealm, kxd->req_offer.my_name.realm) == 0);
+	ok = ok && (der_cmp (kxd->crealm, kxd->req_offer.kx_name.realm) == 0);
+	if (!ok) {
+printf ("DEBUG: Invalid mixing of realms: CLIENT.REALM must be used for my_name and kx_name\n");
+		kxd->last_errno = EPROTO;
+		goto bailout;
+	}
+	/* Proceed to the next stage of processing */
 	kxd->progress = KXS_SERVER_KX_RECEIVING;
 	/* Continue by checking the realms against the TLS certificate */
 	if (!kx_start_realmscheck (kxd)) {
@@ -1960,10 +2061,6 @@ printf ("DEBUG: client Unbound free TXT\n");
 		} else {
 printf ("DEBUG: client Unbound cancel TXT\n");
 			ub_cancel (kxover_unbound_ctx, kxd->ubqid_txt);
-		}
-		if (kxd->kerberos_tls_hostname != NULL) {
-			free (kxd->kerberos_tls_hostname);
-			kxd->kerberos_tls_hostname = NULL;
 		}
 	case KXS_CLIENT_INITIALISED:
 		//TODO:UNUSED// if (kxd->kerberos_REALM != NULL) {

@@ -102,6 +102,15 @@ bool kerberos_time_set (time_t tstamp, char out_krbtime [KERBEROS_TIME_STORAGE])
 bool kerberos_time_get (const char krbtime [KERBEROS_TIME_STORAGE], time_t *out_tstamp);
 
 
+/* Return a prepackaged form that can be used as SEQUENCE OF EncryptionType,
+ * and included in KX-OFFER messages.  Quick DER cannot handle variable-sized
+ * structures, so this must be prepared.
+ *
+ * The returned values are shared and must not be freed by the caller.
+ */
+const union dernode kerberos_seqof_enctypes (void);
+
+
 /* Setup what is desired for the Kerberos environment.
  */
 bool kerberos_init (void);

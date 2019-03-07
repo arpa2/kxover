@@ -1,6 +1,8 @@
 #!/usr/bin/env grep ^-
 # Leading characters are - for TODO, + for DONE, X for WONTFIX
 
+SMALL CHANGES:
+
 + check cleanup: SIGPIPE error -13, caused by Unbound cleanup and improper ev_loop end
 + add dnskey-path to parameters of test/simple-client
 + introduce $<SHELL_PATH> for bin/* and possibly more
@@ -14,10 +16,20 @@
 - kvno in a KX-OFFER should follow the date/policy and available keys
 + get a proper service_name sent to the kxover_client() callback
 + find why tcpwrap.c crashes and leaves no interesting information
++ expose etypes in a ready-to-use fixed derarray for KX-OFFER.etypes (not OPTIONAL)
++ be sure to have an *empty* SEQUENCE in KX-OFFER.extensions (this is not OPTIONAL)
++ find a way to push tlsdate from tcpwrap into kxover_server()
++ derive realm names from incoming KX-REQ during kxover_server() handling
+
+LARGER CHANGES:
 
 + Have a KXOVER protocol client (in test mode)
-- Have a KXOVER protocol server (in test mode)
-- Actually exchange KX-OFFER messages -- and validate them
++ Have a KXOVER protocol server (in test mode)
++ Actually exchange KX-OFFER messages -- and validate them
 - Implement key agreement and storage as Kerberos crossover keys
 - Protect the exchange with real TLS
 
+DESIGN MESMERISATIONS:
+
+- Consider etypes empty -> then require an extension with another purpose
+- Consider request and delivery of a service-supplied ticket in an extension
