@@ -20,6 +20,9 @@ SMALL CHANGES:
 + be sure to have an *empty* SEQUENCE in KX-OFFER.extensions (this is not OPTIONAL)
 + find a way to push tlsdate from tcpwrap into kxover_server()
 + derive realm names from incoming KX-REQ during kxover_server() handling
++ polish time handling functions around the KerberosTime format and "now" windowing
+- produce and send KX-REP in kxover_server ()
+- receive and recognise KX-REP in kxover_client ()
 
 LARGER CHANGES:
 
@@ -27,9 +30,11 @@ LARGER CHANGES:
 + Have a KXOVER protocol server (in test mode)
 + Actually exchange KX-OFFER messages -- and validate them
 - Implement key agreement and storage as Kerberos crossover keys
-- Protect the exchange with real TLS
+- Protect the exchange with real TLS (but keep faketls.c for deployment testing)
 
 DESIGN MESMERISATIONS:
 
 - Consider etypes empty -> then require an extension with another purpose
 - Consider request and delivery of a service-supplied ticket in an extension
++ Insert max-uses into KEYINFO even if it occurs just once (then with that value)
+

@@ -11,6 +11,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifdef DEBUG
+#include <stdio.h>
+#endif
+
 #include <time.h>
 
 #include <krb5/krb5.h>
@@ -104,25 +108,19 @@ static void kerberos_init_etypes (char *seln) {
 			continue;
 		}
 		char *name = enctypes_array [inp].name;
-printf ("DEBUG: Considering encryption type %s\n", name);
 		if ((seln == NULL) && (enctypes_array [inp].deprecated)) {
-printf ("DEBUG: Deprecated\n");
 			continue;
 		}
 		char *seln2 = (seln != NULL) ? seln : name;
-printf ("DEBUG: Searching for \"%s\" in \"%s\"\n", name, seln);
 		char *etpos = strstr (seln2, name);
 		if (etpos == NULL) {
-printf ("DEBUG: Not found\n");
 			continue;
 		}
 		if ((etpos != seln2) && (etpos [-1] != ',') && (etpos [-1] != ' ')) {
-printf ("DEBUG: Not aligned at word beginning\n");
 			continue;
 		}
 		char term = etpos [strlen (name)];
 		if ((term != '\0') && (term != ',') && (term != ' ')) {
-printf ("DEBUG: Not aligned at word end\n");
 			continue;
 		}
 		//
@@ -132,7 +130,6 @@ printf ("DEBUG: Not aligned at word end\n");
 		}
 		//
 		// Add the enctype to the various arrays
-printf ("DEBUG: Adding encryption type %s\n", name);
 		etypes_names [outp] = name;
 		der_crs_int32 [outp] = der_put_int32 (etypebuf [outp], enctypes_array [inp].code);
 		pack_etypes [outp] = DER_PACK_STORE | DER_TAG_INTEGER;
@@ -238,42 +235,98 @@ const struct dercursor kerberos_localrealm2hostname (struct dercursor local_real
 
 
 /* Set a KerberosTime from a time_t value.  The output string
- * will be NUL terminated, but its length will always be the
- * fixed value KERBEROS_TIME_LEN.
+ * will not be NUL terminated, and its length will always be
+ * the fixed value KERBEROS_TIME_STRLEN.
+ *
+ * Call this function with a buffer initialised to suitable
+ * values for .derptr and .derlen.  There will be no problems
+ * due to trailing NUL characters written.
  *
  * Note that TZ=UTC thanks to kerberos_init().
  *
  * Return true on success, or false with errno set on failure.
  */
-bool kerberos_time_set (time_t tstamp, char out_krbtime [KERBEROS_TIME_STORAGE]) {
+bool kerberos_time_set (time_t tstamp, dercursor out_krbtime) {
 	struct tm tmp_tm;
+	if ((out_krbtime.derptr == NULL) || (out_krbtime.derlen != KERBEROS_TIME_STRLEN)) {
+		errno = EINVAL;
+		return false;
+	}
 	localtime_r ((const time_t *) &tstamp, &tmp_tm);
-	strftime (out_krbtime, KERBEROS_TIME_STORAGE, KERBEROS_TIME_FORMAT, &tmp_tm);
+	char mid [KERBEROS_TIME_STRLEN + 1];
+	strftime (mid, sizeof (mid), KERBEROS_TIME_FORMAT, &tmp_tm);
+	memcpy (out_krbtime.derptr, mid, KERBEROS_TIME_STRLEN);
 	return true;
 }
 
 
+/* This function is like kerberos_time_set() but it uses the
+ * current wallclock time instead of a user-supplied time.
+ * The tstamp value can be output, but it may be NULL if this
+ * is not desired.
+ *
+ * Return true on success, or false with errno set on failure.
+ */
+bool kerberos_time_set_now (time_t *opt_out_tstamp, dercursor out_krbtime) {
+	time_t now = time (opt_out_tstamp);
+	if (now == (time_t) -1) {
+		/* errno is set to EOVERFLOW */
+		return false;
+	}
+	return kerberos_time_set (now, out_krbtime);
+}
+
+
 /* Get a time_t value from a KerberosTime string.  The string
- * is assumed to be NUL-terminated, even if its length is
- * fixed and predictable.
+ * is not assumed to be NUL-terminated, but its length should
+ * match the format.
  *
  * Note that TZ=UTC thanks to kerberos_init().
  *
  * Return true on success, or false with errno set on failure.
  */
-bool kerberos_time_get (const char krbtime [KERBEROS_TIME_STORAGE], time_t *out_tstamp) {
+bool kerberos_time_get (dercursor krbtime, time_t *out_tstamp) {
 	char *strptime ();
-	if (strlen (krbtime) != KERBEROS_TIME_STRLEN) {
-		errno = EINVAL;
-		return false;
+	char mid [KERBEROS_TIME_STRLEN + 1];
+	if (krbtime.derlen != KERBEROS_TIME_STRLEN) {
+		goto bailout_EINVAL;
 	}
+	memcpy (mid, krbtime.derptr, KERBEROS_TIME_STRLEN);
+	mid [KERBEROS_TIME_STRLEN] = '\0';
 	struct tm tmp_tm;
 	memset (&tmp_tm, 0, sizeof (tmp_tm));
-	if (strptime (krbtime, KERBEROS_TIME_FORMAT, &tmp_tm) == NULL) {
-		errno = EINVAL;
-		return false;
+	if (strptime (mid, KERBEROS_TIME_FORMAT, &tmp_tm) == NULL) {
+		goto bailout_EINVAL;
 	}
 	*out_tstamp = mktime (&tmp_tm);
+	return true;
+bailout_EINVAL:
+	errno = EINVAL;
+	return false;
+}
+
+
+/* This function is like kerberos_time_get() but it adds a
+ * Check that a time matches well enough with the clock time,
+ * in practice meaning a window of about 5 minutes around the
+ * system's idea of time.
+ *
+ * Return true on success, or false with errno set otherwise.
+ */
+bool kerberos_time_get_check_now (dercursor krbtime, time_t *out_tstamp) {
+	if (!kerberos_time_get (krbtime, out_tstamp)) {
+		return false;
+	}
+	time_t now;
+	now = time (NULL);
+	if (now == (time_t) -1) {
+		/* errno is set to EOVERFLOW */
+		return false;
+	}
+	if ((*out_tstamp < now - 2*60) || (*out_tstamp > now + 3*60)) {
+		errno = ETIMEDOUT;
+		return false;
+	}
 	return true;
 }
 

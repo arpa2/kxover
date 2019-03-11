@@ -190,11 +190,21 @@ static const derwalk pack_KX_REP [] = {
 	DER_PACK_END
 };
 
-typedef DER_OVLY_kxover_KX_OFFER   ovly_KX_OFFER  ;
-typedef DER_OVLY_kxover_KX_REQ ovly_KX_REQ;
-typedef DER_OVLY_kxover_KX_REP ovly_KX_REP;
 
-typedef DER_OVLY_rfc4120_PrincipalName pack_PrincipalName;
+/* Quick DER packer for a KXOVER-KEY-INFO context value.
+ */
+static const derwalk pack_KXOVER_KEY_INFO [] = {
+	DER_PACK_kxover_KXOVER_KEY_INFO,
+	DER_PACK_END
+};
+
+
+typedef DER_OVLY_kxover_KX_OFFER        ovly_KX_OFFER;
+typedef DER_OVLY_kxover_KX_REQ          ovly_KX_REQ;
+typedef DER_OVLY_kxover_KX_REP          ovly_KX_REP;
+typedef DER_OVLY_kxover_KXOVER_KEY_INFO ovly_KXOVER_KEY_INFO;
+
+typedef DER_OVLY_rfc4120_PrincipalName  ovly_PrincipalName;
 
 
 /* Quick DER pack/unpack instructions for KRB-ERROR.
@@ -262,14 +272,19 @@ struct kxover_data {
 	struct iterator iter_srv;
 	struct iterator iter_aaaa_a;
 	struct starttls_data *tlsdata;
-	time_t kx_request_time;
-	time_t kx_from;
-	time_t kx_till;
-	kerberos_time_t kxreqtime;
-	kerberos_time_t kxfrom;
-	kerberos_time_t kxtill;
+	time_t request_time;
+	time_t req_from;
+	time_t req_till;
+	time_t rep_from;
+	time_t rep_till;
 	der_buf_uint32_t req_kvnobuf;
+	der_buf_uint32_t rep_kvnobuf;
 	// der_buf_uint32_t rep_kvnobuf;
+	char krbtime_req_time [KERBEROS_TIME_STRLEN];
+	char krbtime_req_from [KERBEROS_TIME_STRLEN];
+	char krbtime_req_till [KERBEROS_TIME_STRLEN];
+	char krbtime_rep_from [KERBEROS_TIME_STRLEN];
+	char krbtime_rep_till [KERBEROS_TIME_STRLEN];
 } kxover_t;
 
 #define req_offer kx_req_frame.offer
@@ -1042,26 +1057,17 @@ static void kx_start_client_kx_sending (struct kxover_data *kxd, bool _refresh_o
 		DER_PACK_END };
 printf ("DEBUG: kx_start_client_kx_sending() called\n");
 	//
-	// First look at the wall clock...
-	time_t now;
-	now = time (NULL);
-	if (now == (time_t) -1) {
-		/* errno is set to EOVERFLOW */
-		goto bailout;
-	}
-	//
 	// Create basic setup for the kx_req_frame
 	kxd->kx_req_frame.pvno = dercrs_int_5;
 	kxd->kx_req_frame.msg_type = dercrs_int_18;
 	//
 	// Set kxd->req_offer.request_time to "now"
-	kxd->kx_request_time = now;
-	if (!kerberos_time_set (now, kxd->kxreqtime)) {
+	kxd->req_offer.request_time.derptr = kxd->krbtime_req_time;
+	kxd->req_offer.request_time.derlen = KERBEROS_TIME_STRLEN;
+	if (!kerberos_time_set_now (&kxd->request_time, kxd->req_offer.request_time)) {
 		goto bailout;
 	}
-	kxd->req_offer.request_time.derptr = kxd->kxreqtime;
-	kxd->req_offer.request_time.derlen = KERBEROS_TIME_STRLEN;
-printf ("DEBUG: req_offer->kxreqtime = %s\n", kxd->kxreqtime);
+printf ("DEBUG: req_offer.request_time = %.*s\n", KERBEROS_TIME_STRLEN, kxd->krbtime_req_time);
 	//
 	// Fill the salt with random bytes
 	if (!kerberos_prng (kxd->salt, sizeof (kxd->salt))) {
@@ -1095,28 +1101,39 @@ printf ("DEBUG: req_offer->kx_name = %.*s/%.*s@%.*s\n", kxd->kxname2[0].derlen, 
 	// Set the enctypes to the ones allowed locally
 	kxd->req_offer.etypes = kerberos_seqof_enctypes ();
 	//
-	// Set kxd->req_offer.from to "now", sharing space with kxd->kxreqtime
-	kxd->kx_from = now;
-	if (!kerberos_time_set (now, kxd->kxfrom)) {
-		goto bailout;
-	}
-	kxd->req_offer.from.derptr = kxd->kxfrom;
-	kxd->req_offer.from.derlen = KERBEROS_TIME_STRLEN;
-printf ("DEBUG: req_offer->kxfrom = %s\n", kxd->kxfrom);
+	// Set kxd->req_offer.from to the same value as "request_time"
+	memcpy (kxd->krbtime_req_from, kxd->krbtime_req_time, KERBEROS_TIME_STRLEN);
+	kxd->req_offer.from = kxd->req_offer.request_time;
+printf ("DEBUG: req_offer->kxfrom = %.*s\n", KERBEROS_TIME_STRLEN, kxd->krbtime_req_from);
 	//
 	// Set kxd->req_offer.till to "now" + configured #days
-	time_t then = now + kxover_config->crossover_lifedays * 24 * 3600;
-	if (then < now) {
+	kxd->req_offer.till.derptr = kxd->krbtime_req_till;
+	kxd->req_offer.till.derlen = KERBEROS_TIME_STRLEN;
+	kxd->req_till = kxd->request_time + kxover_config->crossover_lifedays * 24 * 3600;
+	if (kxd->req_till < kxd->request_time) {
+		//
+		// In 2038, signed 32-bit versions of time_t wrap around
+		// from the highest positive to the lowest negative time.
+		// This is a local problem related to local time_t, and
+		// should not matter this kind of software anymore.  The
+		// generic nature of Kerberos and DER makes this not an
+		// issue for the transported protocol data.
+		//
+		// It would trigger the error below; but by then libraries
+		// will have moved to a larger time_t type, or one that is
+		// unsigned.  If this does not happen and this code remains
+		// the same, we would notice a time space where we cannot
+		// allocate for as many days as we used to, but that is
+		// all.  There will be no security problems, just passing
+		// inconvenience.
+		//
 		errno = EOVERFLOW;
 		goto bailout;
 	}
-	kxd->kx_till = then;
-	if (!kerberos_time_set (then, kxd->kxtill)) {
+	if (!kerberos_time_set (kxd->req_till, kxd->req_offer.till)) {
 		goto bailout;
 	}
-	kxd->req_offer.till.derptr = kxd->kxtill;
-	kxd->req_offer.till.derlen = KERBEROS_TIME_STRLEN;
-printf ("DEBUG: req_offer->kxtill = %s\n", kxd->kxtill);
+printf ("DEBUG: req_offer->kxtill = %.*s\n", KERBEROS_TIME_STRLEN, kxd->krbtime_req_till);
 	//
 	//TODO//FILL// kxd->req_offer.max_uses (OPTIONAL)
 	//
@@ -1335,12 +1352,108 @@ void TODO_cb_ignore (void *cbdata, bool ok) {
 printf ("DEBUG: TODO_cb_ignore (cbdata, ok=%d)\n", ok);
 }
 
+
+/* Merge the KX-REQ and KX-REP messages as specified, to fill
+ * the KXOVER-KEY-INFO structure.  This mostly comes down to
+ * copying fields directly, or after a simple selection.
+ *
+ * One value will simply be cleared, namely etype.  This is
+ * intended to be used for iteration over etypes that KX-REQ
+ * and KX-REP have in common.  Such iteration can be done
+ * after this merging procedure has completed, and the merge
+ * need not be repeated.
+ *
+ * Return true on success, or false with errno set on failure.
+ */
+static bool merge_offers_into_keyinfo (struct kxover_data *kxd,
+			ovly_KXOVER_KEY_INFO *keyinfo) {
+	memset (keyinfo, 0, sizeof (ovly_KXOVER_KEY_INFO));
+	//
+	// kx-name (from either, they should be the same)
+	keyinfo->kx_name = kxd->req_offer.kx_name;
+	//
+	// req-name
+	keyinfo->req_name = kxd->req_offer.my_name;
+	//
+	// rep-name
+	keyinfo->rep_name = kxd->req_offer.my_name;
+	//
+	// from (the latest from both)
+	time_t key_from;
+printf ("DEBUG: req_from = %d (%.*s), rep_from = %d (%.*s)\n", kxd->req_from, kxd->req_offer.from.derlen, kxd->req_offer.from.derptr, kxd->rep_from, kxd->rep_offer.from.derlen, kxd->rep_offer.from.derptr);
+	if (kxd->req_from > kxd->rep_from) {
+		keyinfo->from = kxd->req_offer.from;
+		key_from = kxd->req_from;
+	} else {
+		keyinfo->from = kxd->rep_offer.from;
+		key_from = kxd->rep_from;
+	}
+	//
+	// till (the earliest from both)
+	time_t key_till;
+printf ("DEBUG: req_till = %d (%.*s), rep_till = %d (%.*s)\n", kxd->req_till, kxd->req_offer.till.derlen, kxd->req_offer.till.derptr, kxd->rep_till, kxd->rep_offer.till.derlen, kxd->rep_offer.till.derptr);
+	if (kxd->req_till < kxd->rep_till) {
+		keyinfo->till = kxd->req_offer.till;
+		key_till = kxd->req_till;
+	} else {
+		keyinfo->till = kxd->rep_offer.till;
+		key_till = kxd->rep_till;
+	}
+	if (key_till <= key_from) {
+printf ("merge_offers_into_keyinfo() ended up with \"from\" time %d falling after \"till\" time %d\n", key_from, key_till);
+		errno = ETIMEDOUT;
+		return false;
+	}
+	//
+	// max-use (OPTIONAL; lowest requested)
+	bool req_maxuses, rep_maxuses;
+	req_maxuses = (kxd->req_offer.max_uses.derptr != 0);
+	rep_maxuses = (kxd->rep_offer.max_uses.derptr != 0);
+	if (req_maxuses || rep_maxuses) {
+		uint32_t key_maxuses = ~0;
+		if (req_maxuses && rep_maxuses) {
+			if (der_cmp_INTEGER (kxd->req_offer.max_uses, kxd->rep_offer.max_uses) <= 0) {
+				rep_maxuses = false;
+			} else {
+				req_maxuses = false;
+			}
+		}
+		if (req_maxuses) {
+			keyinfo->max_uses = kxd->req_offer.max_uses;
+		} else {
+			keyinfo->max_uses = kxd->rep_offer.max_uses;
+		}
+	}
+	//
+	// kvno
+	keyinfo->kvno = kxd->rep_offer.kvno;
+	//
+	// etype (SKIPPED, user iterators over it)
+	//
+	// req-salt
+	keyinfo->req_salt = kxd->req_offer.salt;
+	//
+	// rep-salt
+	keyinfo->rep_salt = kxd->rep_offer.salt;
+	//
+	// extension-info (NOT OPTIONAL BUT POSSIBLY EMPTY)
+	keyinfo->extension_info.wire.derptr = "";
+	keyinfo->extension_info.wire.derlen = 0;
+	//
+	// nothing failed, so report success
+	return true;
+}
+		
+
+
 /* Start key determination and storage in the KDC database.
  * On a KXOVER server, this runs before responding so the KDC
  * is sure to have the key; on a KXOVER client, this runs
  * after receiving a response because that information is
  * needed to perform these computations.  After this call,
  * progress should be set to KXS_x_KEY_DERIVING.
+ *
+ * Returnt true on success, or false with kxd->last_errno set on failure.
  */
 static bool kx_start_key_deriving (struct kxover_data *kxd) {
 printf ("DEBUG: kx_start_key_deriving() called\n");
@@ -1352,16 +1465,29 @@ printf ("DEBUG: kx_start_key_deriving() called\n");
 		// .derlen = 28,
 	};
 	assert (strlen (label.derptr) == label.derlen);
-	static const struct dercursor no_ctxval = {
-		.derptr = NULL,
-		.derlen = 0,
-	};
+	/* The context value is KXOVER-KEY-INFO */
+	ovly_KXOVER_KEY_INFO keyinfo;
+	if (!merge_offers_into_keyinfo (kxd, &keyinfo)) {
+printf ("DEBUG: kx_start_key_deriving() failed to merge KXOVER-KEY-INFO\n");
+		kxd->last_errno = errno;
+		goto bailout;
+	}
+	struct dercursor ctxval;
+	ctxval.derlen = der_pack (pack_KXOVER_KEY_INFO, (struct dercursor *) &keyinfo, NULL);
+	ctxval.derptr = malloc (ctxval.derlen);
+	if (ctxval.derptr == NULL) {
+printf ("DEBUG: kx_start_key_deriving() failed to allocate memory for KXOVER-KEY-INFO\n");
+		kxd->last_errno = ENOMEM;
+		goto bailout;
+	}
+	der_pack (pack_KXOVER_KEY_INFO, (struct dercursor *) &keyinfo, ctxval.derptr + ctxval.derlen);
 	/* Determine the key size needed, in bytes */
 	uint16_t keylen = 32;
-	uint8_t key [keylen];
+	uint8_t key [32];
+	assert (sizeof (key) == keylen);
 	/* Ask the starttls.c module to derive a shared key */
-printf ("DEBUG: Calling starttls_export_key with no_ctxval [.ptr=NULL, .len=0]\n");
-	if (!starttls_export_key (label, no_ctxval,
+printf ("DEBUG: Calling starttls_export_key with %d bytes of ctxval\n", ctxval.derlen);
+	if (!starttls_export_key (label, ctxval,
 			keylen, key,
 			kxd->tlsdata,
 			TODO_cb_ignore, kxd)) {
@@ -1373,7 +1499,6 @@ printf ("DEBUG: kx_start_key_deriving() finished\n");
 	return true;
 bailout:
 printf ("DEBUG: kx_start_key_deriving() bails out\n");
-	kxover_finish (kxd);
 	return false;
 }
 
@@ -1405,7 +1530,7 @@ static bool kxoffer_unpack (dercursor msg, dercursor msg_type,
 	msg = msg_ovly [2];
 	/* Unpack the KX-OFFER into outvars */
 	if (der_unpack (&msg, pack_KX_OFFER, (dercursor *) outvars, 1) != 0) {
-	errno = EBADMSG;
+		errno = EBADMSG;
 		goto bailout;
 	}
 	/* We succeeded in finding the KX-OFFER in the DER message */
@@ -1429,7 +1554,7 @@ bailout:
  *
  * Return true on success, or false with errno set on failure.
  */
-static bool _parse_service_principalname (int name_type, const pack_PrincipalName *princname,
+static bool _parse_service_principalname (int name_type, const ovly_PrincipalName *princname,
 			struct dercursor *out_label0, struct dercursor *out_label1) {
 	bool ok = true;
 	/* We simply ignore the name_type, as directed by RFC 4120 */
@@ -1570,7 +1695,6 @@ printf ("DEBUG: cb_kxs_either_dnssec_kdc() Comparing SRV name %s to TLS-certifie
 				/* Found it.  Move on to _KEY_DERIVING. */
 printf ("DEBUG: cb_kxs_either_dnssec_kdc() for the server found a match between client SRV and Certificate\n");
 				if (!kx_start_key_deriving (kxd)) {
-					kxd->last_errno = ENOSYS;
 					goto bailout;
 				}
 				kxd->progress = KXS_SERVER_KEY_DERIVING;
@@ -1863,6 +1987,16 @@ printf ("DEBUG: Rejected kx_name and/or my_name PrincipalName (only accept krbtg
 	if (!ok) {
 printf ("DEBUG: Invalid mixing of realms: CLIENT.REALM must be used for my_name and kx_name\n");
 		kxd->last_errno = EPROTO;
+		goto bailout;
+	}
+	/* Validate: request_time <= from < till */
+	ok = ok && kerberos_time_get (kxd->req_offer.request_time, &kxd->request_time);
+	ok = ok && kerberos_time_get (kxd->req_offer.from,         &kxd->req_from    );
+	ok = ok && kerberos_time_get (kxd->req_offer.till,         &kxd->req_till    );
+	ok = ok && (kxd->request_time <= kxd->req_from) && (kxd->req_from < kxd->req_till);
+	if (!ok) {
+printf ("DEBUG: Invalid request timing: request_time %d <= from %d < till %d\n", kxd->request_time, kxd->req_from, kxd->req_till);
+		kxd->last_errno = ETIMEDOUT;
 		goto bailout;
 	}
 	/* Proceed to the next stage of processing */

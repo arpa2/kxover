@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <time.h>
 
 #include "socket.h"
 #include "kxover.h"
@@ -35,13 +36,13 @@ int sys_exit = 0;
 void cb_timeout_15s (EV_P_ ev_timer *evt, int revents) {
 	printf ("Timeout after 15 seconds of patience\n");
 	sys_exit = 1;
-	ev_break (EV_A_ EVBREAK_ALL);
+	ev_break (EV_A_ EVBREAK_ONE);
 }
 
 #if 0
 void cb_please_stop (EV_P_ ev_signal *evt, int revents) {
 	printf ("Stop as requested per signal\n");
-	ev_break (EV_A_ EVBREAK_ALL);
+	ev_break (EV_A_ EVBREAK_ONE);
 }
 #endif
 
@@ -52,7 +53,7 @@ void cb_kxover_done (void *cbdata, int result_errno,
 	if (result_errno != 0) {
 		fprintf (stderr, "KXOVER client failed: %d (%s)\n", result_errno, strerror (result_errno));
 		sys_exit = 1;
-		ev_break (EV_A_ EVBREAK_ALL);
+		ev_break (EV_A_ EVBREAK_ONE);
 		return;
 	}
 }
@@ -65,6 +66,8 @@ void cb_prepare_flush (EV_P_ ev_prepare *evp, int revents) {
 
 
 int main (int argc, char *argv []) {
+
+	static int c_main = 0; assert (c_main++ == 0);
 
 	// Process the commandline arguments
 	if (argc != 5) {
@@ -111,28 +114,28 @@ int main (int argc, char *argv []) {
 	ev_prepare flusher;
 	ev_prepare_init (&flusher, cb_prepare_flush);
 	ev_prepare_start (loop, &flusher);
+	static int c_flusher_init = 0; assert (c_flusher_init++ == 0);
 
 	// Initialise the Kerberos module
 printf ("kerberos_init ()...\n");
 	if (!kerberos_init ()) {
 		perror ("Kerberos initialisation failed");
 	}
+	static int c_k5init = 0; assert (c_k5init++ == 0);
 
 printf ("starttls_init () -> faketls_init ()...\n");
 	starttls_init (loop);
+	static int c_tlsinit = 0; assert (c_tlsinit++ == 0);
 
 printf ("kxover_init ()...\n");
 	kxover_init (EV_A_ dnssec_rootkey_file, etc_hosts_file);
-
-	// Inform pypeline that we are ready for action
-printf ("pypeline detachment...\n");
-	printf ("--\n");
-	fflush (stdout);
+	static int c_kxinit = 0; assert (c_kxinit++ == 0);
 
 	// Setup a shutdown timer that expires after 15s
 	ev_timer shutdown_timer;
 	ev_timer_init (&shutdown_timer, cb_timeout_15s, 15., 0.);
 	ev_timer_start (EV_A_ &shutdown_timer);
+	static int c_shut = 0; assert (c_shut++ == 0);
 
 #if 0
 	// Register a stop signal handler
@@ -141,9 +144,16 @@ printf ("pypeline detachment...\n");
 	ev_signal_start (EV_A_ &stop_event);
 #endif
 
+	// Inform pypeline that we are ready for action
+printf ("pypeline detachment...\n");
+	printf ("--\n");
+	fflush (stdout);
+	static int c_detach = 0; assert (c_detach++ == 0);
+
 	// Start the KXOVER client
 	struct kxover_data *client_handle;
-printf ("kxover_client() starts now, for pid = %d, ppid = %d\n", getpid (), getppid ());
+printf ("kxover_client() starts now, for pid = %d, ppid = %d, at %d\n", getpid (), getppid (), time (NULL));
+	static int c_kxcli = 0; assert (c_kxcli++ == 0);
 	client_handle = kxover_client (cb_kxover_done, "cbdata", crealm, srealm);
 	if (!client_handle) {
 		perror ("Failed to start kxover_client");

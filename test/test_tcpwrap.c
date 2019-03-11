@@ -25,7 +25,7 @@
 
 #if 0
 void timeout_alarm (int sigalrm) {
-	fprintf (stderr, "\nFinished 10 seconds of work\n");
+	fprintf (stderr, "\nFinished 15 seconds of work\n");
 	exit (0);
 }
 #endif
@@ -37,8 +37,8 @@ void cb_second (EV_P_ ev_timer *evt, int revents) {
 }
 #endif
 
-void cb_timeout_10s (EV_P_ ev_timer *evt, int revents) {
-	printf ("Shutdown after 10 seconds of presence\n");
+void cb_timeout_15s (EV_P_ ev_timer *evt, int revents) {
+	printf ("Shutdown after 15 seconds of presence\n");
 	ev_break (EV_A_ EVBREAK_ALL);
 }
 
@@ -131,17 +131,17 @@ int main (int argc, char *argv []) {
 	fflush (stdout);
 
 #if 0
-	// Setup a 10s timeout alarm (which will exit on a positive note)
+	// Setup a 15s timeout alarm (which will exit on a positive note)
 	struct sigaction sigact;
 	sigaction (SIGALRM, NULL, &sigact);
 	sigact.sa_handler = timeout_alarm;
 	sigaction (SIGALRM, &sigact, NULL);
-	alarm (10);
+	alarm (15);
 #endif
 
-	// Setup a shutdown timer that expires after 10s
+	// Setup a shutdown timer that expires after 15s
 	ev_timer shutdown_timer;
-	ev_timer_init (&shutdown_timer, cb_timeout_10s, 10., 0.);
+	ev_timer_init (&shutdown_timer, cb_timeout_15s, 15., 0.);
 	ev_timer_start (EV_A_ &shutdown_timer);
 
 #if 0

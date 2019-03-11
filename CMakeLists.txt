@@ -25,7 +25,7 @@ option (DEBUG
         OFF)
 
 if (DEBUG)
-	add_compile_options (-DDEBUG -ggdb3 -O0)
+	add_compile_options (-DDEBUG -ggdb3 -O0 -fstack-protector)
 endif()
 
 option (FAKE_TLS

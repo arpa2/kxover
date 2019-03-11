@@ -72,34 +72,58 @@ const struct dercursor kerberos_localrealm2hostname (struct dercursor local_real
 
 
 /* KerberosTime strings have a fixed length of 15 chars, and
- * follow the strftime format "%Y%m%d%H%M%SZ".  In our code,
- * we always attach a NUL character (making the size 16 chars)
- * so we can use the standard C routines.  This extra NUL is
- * not sent or received in the DER encoding, of course.
+ * follow the strftime format "%Y%m%d%H%M%SZ".  The kerberos
+ * implementation will not attach a NUL character at the end
+ * as is the case with standard C routines.
  */
 #define KERBEROS_TIME_FORMAT  "%Y%m%d%H%M%SZ"
 #define KERBEROS_TIME_STRLEN  15
-#define KERBEROS_TIME_STORAGE 16
-
-typedef char kerberos_time_t [KERBEROS_TIME_STORAGE];
 
 
 /* Set a KerberosTime from a time_t value.  The output string
- * will be NUL terminated, but its string length will always
- * be the fixed value KERBEROS_TIME_STRLEN.
+ * will not be NUL terminated, and its length will always be
+ * the fixed value KERBEROS_TIME_STRLEN.
+ *
+ * Call this function with a buffer initialised to suitable
+ * values for .derptr and .derlen.  There will be no problems
+ * due to trailing NUL characters written.
+ *
+ * Note that TZ=UTC thanks to kerberos_init().
  *
  * Return true on success, or false with errno set on failure.
  */
-bool kerberos_time_set (time_t tstamp, char out_krbtime [KERBEROS_TIME_STORAGE]);
+bool kerberos_time_set (time_t tstamp, dercursor out_krbtime);
 
 
 /* Get a time_t value from a KerberosTime string.  The string
- * is assumed to be NUL-terminated, even if its length is
- * fixed and predictable.
+ * is not assumed to be NUL-terminated, but its length should
+ * match the format.
+ *
+ * Note that TZ=UTC thanks to kerberos_init().
  *
  * Return true on success, or false with errno set on failure.
  */
-bool kerberos_time_get (const char krbtime [KERBEROS_TIME_STORAGE], time_t *out_tstamp);
+bool kerberos_time_get (dercursor krbtime, time_t *out_tstamp);
+
+
+/* This function is like kerberos_time_set() but it uses the
+ * current wallclock time instead of a user-supplied time.
+ * The tstamp value can be output, but it may be NULL if this
+ * is not desired.
+ *
+ * Return true on success, or false with errno set on failure.
+ */
+bool kerberos_time_set_now (time_t *opt_out_tstamp, dercursor out_krbtime);
+
+
+/* This function is like kerberos_time_get() but it adds a
+ * Check that a time matches well enough with the clock time,
+ * in practice meaning a window of about 5 minutes around the
+ * system's idea of time.
+ *
+ * Return true on success, or false with errno set otherwise.
+ */
+bool kerberos_time_get_check_now (dercursor krbtime, time_t *out_tstamp);
 
 
 /* Return a prepackaged form that can be used as SEQUENCE OF EncryptionType,

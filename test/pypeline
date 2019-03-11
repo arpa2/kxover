@@ -172,6 +172,12 @@ class SyncedProcess (threading.Thread):
         exitval = self.final_result ()
         return (exitval, exitval in self.ok_exit)
 
+    def final_output (self):
+        self.join ()
+        if self.proc.returncode is None:
+            self.proc.wait ()
+        return self.sofar
+
 syncprox = []
 for (proc,zig,excitement) in zip (prox,zigz,exok):
     pni = 0
@@ -230,6 +236,7 @@ for (sync,proc) in zip (syncprox,prox):
     else:
         sys.stdout.write ('pypeline: failure: %s -> exit (%d)\n' % (sync.name, result))
         exitval = 1
+    sys.stdout.write ('\nFINAL OUTPUT FROM %s IS:\n%s\n\n' % (sync.name.upper (), sync.final_output ()))
 
 if tmpdir is not None:
     for tmpfn in os.listdir (tmpdir):

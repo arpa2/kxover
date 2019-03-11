@@ -349,7 +349,7 @@ KXOVER-KEY-INFO ::= SEQUENCE {
         -- Timing information:
         from            [3] KerberosTime,               -- from KX-OFFER, the latest
         till            [4] KerberosTime,               -- from KX-OFFER, the earliest
-        max-use         [5] UInt32 OPTIONAL,            -- from KX-OFFER, the lowest
+        max-uses        [5] UInt32 OPTIONAL,            -- from KX-OFFER, the lowest
 
         -- Key descriptive information:
         kvno            [6] KeyVersionNumber,           -- from KX-OFFER
@@ -370,9 +370,9 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 --
 -- The `from` value represents the latest of the two values in `KX-REQ`
 -- and `KX-REP`.  The `till` value represents the earliest of the two
--- values in `KX-REQ` and `KX-REP`.  The `max-use` value exists only if
--- it exists in both `KX-REQ` and `KX-REP`, in which case it is set to
--- the lowest of the two values.
+-- values in `KX-REQ` and `KX-REP`.  The `max-uses` value exists only if
+-- it exists in either or both of `KX-REQ` and `KX-REP`.  It is set to
+-- the lowest of the one or two values.
 --
 -- The `kvno` value is taken from the `KX-OFFER` in the `KX-REP`.  This
 -- value is often based on the suggestion of `kvno` in `KX-REQ`, but it
