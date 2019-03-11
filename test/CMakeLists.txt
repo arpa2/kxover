@@ -168,9 +168,9 @@ endif ()
 
 # Combining t_kxclient and t_kxserver into one, t_kxover
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
-	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${valgrind} ${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
+	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
