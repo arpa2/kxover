@@ -17,6 +17,14 @@
 #include <errno.h>
 
 
+#ifdef DEBUG
+#  include <stdio.h>
+#  define DPRINTF printf
+#else
+#  define DPRINTF(...)
+#endif
+
+
 /* Given a socket address, determine its length.
  *
  * This function does not fail.
@@ -46,7 +54,7 @@ bool socket_address (sa_family_t af, uint8_t *addr, uint16_t portnr, struct sock
 		((struct sockaddr_in6 *) sa)->sin6_port = htons (portnr);
 		return true;
 	case AF_INET:
-printf ("DEBUG: socket address (%d.%d.%d.%d, %d)\n", addr [0], addr [1], addr [2], addr [3], portnr);
+DPRINTF ("DEBUG: socket address (%d.%d.%d.%d, %d)\n", addr [0], addr [1], addr [2], addr [3], portnr);
 		memcpy (&((struct sockaddr_in  *) sa)->sin_addr,  addr,  4);
 		((struct sockaddr_in  *) sa)->sin_port  = htons (portnr);
 		return true;

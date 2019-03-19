@@ -6,6 +6,10 @@
 #  MIT-krb5_LIBRARIES      - Libraries to link against for MIT krb5
 #  MIT-krb5_DEFINITIONS    - Definitions to add to the compiler
 #
+# The configuration can be specialised with a configuration module,
+#
+#  MIT-krb5_CONFIG_MODULE  - Invoke krb5-config for this module
+#
 # Since other Kerberos systems exist, notably Heimdal and possibly
 # one day Shishi, is some continued work to put the values into
 # more general variables:
@@ -51,11 +55,11 @@ exec_program (${MIT-krb5_CONFIG}
 		OUTPUT_VARIABLE MIT-krb5_VERSION)
 
 exec_program (${MIT-krb5_CONFIG}
-		ARGS --cflags
+		ARGS ${MIT-krb5_CONFIG_MODULE} --cflags
 		OUTPUT_VARIABLE MIT-krb5_DEFINITIONS)
 
 exec_program (${MIT-krb5_CONFIG}
-		ARGS --libs --deps
+		ARGS ${MIT-krb5_CONFIG_MODULE} --libs --deps
 		OUTPUT_VARIABLE MIT-krb5_LIBRARIES)
 
 if (Kerberos5_SYSTEM)

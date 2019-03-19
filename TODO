@@ -13,7 +13,7 @@ SMALL CHANGES:
 + build localhost.demo.arpa2.org A override option into simple-client test
 + pypeline should try to detect early termination of programs in arbitrary order
 + pypeline should support tests to fail with (a set of) acceptable exit codes
-- kvno in a KX-OFFER should follow the date/policy and available keys
++ kvno in a KX-OFFER should follow the date/policy and available keys
 + get a proper service_name sent to the kxover_client() callback
 + find why tcpwrap.c crashes and leaves no interesting information
 + expose etypes in a ready-to-use fixed derarray for KX-OFFER.etypes (not OPTIONAL)
@@ -21,20 +21,36 @@ SMALL CHANGES:
 + find a way to push tlsdate from tcpwrap into kxover_server()
 + derive realm names from incoming KX-REQ during kxover_server() handling
 + polish time handling functions around the KerberosTime format and "now" windowing
-- produce and send KX-REP in kxover_server ()
-- receive and recognise KX-REP in kxover_client ()
++ produce and send KX-REP in kxover_server ()
++ receive and recognise KX-REP in kxover_client ()
++ add entropy need in etypes list; adapt salt size to its max
++ configure the kxover service name (and have a suitable default)
++ login to kadmin under the kxover service name
++ silently ignore same-KDC import: (kvno,etype) match *and* keybytes match
++ drop the "requirement" to use the DEBUG configuration option -- for printf()
++ implement the kvno policy based on dates within a year, so MMDDS
++ implement exponential fallback to slow down attackers and abusive users
+- actually use the random bytes generated from TLS for key insertion
+- test (and possibly fix) timeouts of kadm5 login and/or connection
++ support installation and packaging (builds RPM, DEB, EXE, TAR*)
++ have an option to select whether to run tests that need online data (such as DNS)
 
 LARGER CHANGES:
 
 + Have a KXOVER protocol client (in test mode)
 + Have a KXOVER protocol server (in test mode)
 + Actually exchange KX-OFFER messages -- and validate them
-- Implement key agreement and storage as Kerberos crossover keys
++ Implement key agreement and storage as Kerberos crossover keys
 - Protect the exchange with real TLS (but keep faketls.c for deployment testing)
 
 DESIGN MESMERISATIONS:
 
-- Consider etypes empty -> then require an extension with another purpose
++ Consider etypes empty -> then require an extension with another purpose
 - Consider request and delivery of a service-supplied ticket in an extension
+- Consider request and delivery of a pre-shared key for future TLS use
+- Consider insertion of a SASL exchange for alternative client authentication
+- Consider compisition to M-out-of-N schemes -- that is, facilitate N > 1
 + Insert max-uses into KEYINFO even if it occurs just once (then with that value)
++ Sum the entropy needs of matched etypes, and generate in one TLS key export
++ Remove etype/s from the KX-KEY-INFO structure
 

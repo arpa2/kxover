@@ -120,6 +120,7 @@ int main (int argc, char *argv []) {
 printf ("kerberos_init ()...\n");
 	if (!kerberos_init ()) {
 		perror ("Kerberos initialisation failed");
+		exit (1);
 	}
 	static int c_k5init = 0; assert (c_k5init++ == 0);
 

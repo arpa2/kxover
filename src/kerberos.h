@@ -30,11 +30,11 @@
  * setup, so this is not much more special than a manually agreed
  * key for realm crossover.
  */
-struct enctype { int32_t code; char *name; bool deprecated; bool crossover; };
+struct enctype { int32_t code; char *name; bool deprecated; bool crossover; size_t random4key; };
 extern const struct enctype *enctypes;
 
 struct kerberos_config {
-	char *cerfified_client_hostname;
+	char *certified_client_hostname;
 	char **crossover_enctypes;
 	char *kdc_hostname;
 	uint16_t kdc_port;
@@ -42,6 +42,9 @@ struct kerberos_config {
 	char *kvno_scheme;
 	uint8_t kvno_maxtry;
 	uint8_t crossover_lifedays;
+	char *kxover_keytab;
+	char *kxover_name;
+	char *kxover_realm;
 };
 
 
@@ -133,6 +136,33 @@ bool kerberos_time_get_check_now (dercursor krbtime, time_t *out_tstamp);
  * The returned values are shared and must not be freed by the caller.
  */
 const union dernode kerberos_seqof_enctypes (void);
+
+
+/* Return the number of bytes of salt to use.  The result will not exceed
+ * MAX_SALT_BYTES.
+ *
+ * This function does not fail.
+ */
+#define MAX_SALT_BYTES 32
+const size_t kerberos_salt_bytes (void);
+
+
+/* Retrieve the number of random bytes for a given encryption type.
+ *
+ * Return true on success, or false with errno set otherwise.
+ */
+bool kerberos_random4key (uint32_t etype, size_t *random_len);
+
+
+/* Load the number of random bytes required for a given
+ * encryption type.  This will be used when exporting key
+ * material from TLS.
+ *
+ * Return true in case of error, false with errno otherwise.
+ */
+bool kerberos_random2key (uint32_t kvno, int32_t etype,
+				size_t random_len, uint8_t *random_bytes,
+				struct dercursor crealm, struct dercursor srealm);
 
 
 /* Setup what is desired for the Kerberos environment.

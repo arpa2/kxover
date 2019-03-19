@@ -139,6 +139,7 @@ add_test (NAME t_127_0_0_1 COMMAND ${py_setenv} ${pypeline}
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 if (0)
+if (ONLINE_TESTING)
 #TODO# We used test_tcpwrap instead of fakekdc_tcp, but this now recognised KXOVER
 #TODO# t_kxclient patched out for now because test_tcpwrap fails
 #TODO# The following test is not active; we can pass traffic to client+server
@@ -154,8 +155,10 @@ add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
 	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
+endif ()
 
 if (0)
+if (ONLINE_TESTING)
 #TODO# The following test is not active; we can pass traffic to client+server
 add_test (NAME t_kxserver COMMAND ${py_setenv} ${pypeline}
 	${test_kxclient} UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
@@ -165,8 +168,10 @@ add_test (NAME t_kxserver COMMAND ${py_setenv} ${pypeline}
 	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
+endif ()
 
 # Combining t_kxclient and t_kxserver into one, t_kxover
+if (ONLINE_TESTING)
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
 	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
@@ -178,5 +183,6 @@ add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
 	--
 	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif ()
 
 

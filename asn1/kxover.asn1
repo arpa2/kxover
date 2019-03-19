@@ -183,7 +183,8 @@ KX-OFFER ::= SEQUENCE {
 --     upon.  The `salt` MAY be empty, but it MAY also range up to the length
 --     of the longest key for any of the proposed encryption types.  As long as
 --     this is permitted, a recipient MAY disapprove of `salt` if it is
---     unreasonably long.
+--     unreasonably long by rejecting the `KX-OFFER`; it MUST NOT cut off parts
+--     of the `salt`.
 -- 
 --   * The `kx-name`, `req-name` and `rep-name` all hold a PrincipalName and
 --     Realm; `kx-name` names the key being setup through KXOVER, `req-name`
@@ -278,7 +279,8 @@ KX-OFFER ::= SEQUENCE {
 --     for this information, but it is anticipated that hash-based signatures
 --     may be added in the future, which would call for this counter limit.
 --     The effective value exists only if it exists in both `KX-REP` and
---     `KX-REQ`, in which case it is the lowest of the two.
+--     `KX-REQ`, in which case it is the lowest of the two.  For `etypes`
+--     that do not use this value, it will be silently ignored.
 --
 --   * The `etypes` field defines encryption types that the sender can create
 --     for realm crossover.  The numeric values MUST be a rising sequence.
@@ -353,14 +355,13 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 
         -- Key descriptive information:
         kvno            [6] KeyVersionNumber,           -- from KX-OFFER
-        etype           [7] EncryptionType,             -- from KX-OFFER, one at a time
 
         -- Additional salt:
-        req-salt        [8] OCTET STRING,               -- from KX-OFFER.salt in KX-REQ
-        rep-salt        [9] OCTET STRING,               -- from KX-OFFER.salt in KX-REP
+        req-salt        [7] OCTET STRING,               -- from KX-OFFER.salt in KX-REQ
+        rep-salt        [8] OCTET STRING,               -- from KX-OFFER.salt in KX-REP
 
         -- Extensions:
-        extension-info [10] SEQUENCE OF KX-OFFER-EXTENSION
+        extension-info  [9] SEQUENCE OF KX-OFFER-EXTENSION
 }
 
 -- The `kx-name` value is taken from the `KX-OFFER`; this value is the
@@ -378,12 +379,18 @@ KXOVER-KEY-INFO ::= SEQUENCE {
 -- value is often based on the suggestion of `kvno` in `KX-REQ`, but it
 -- is not incorporated in this calculation.
 --
--- The `etype` is a value that has occurred in the `etypes` field in both
--- the `KX-REQ` and `KX-REP`.  The overlap should be non-empty, and may
--- hold multiple encryption types; the same `kvno` can be used with multiple
--- `etype` values because `kvno` is not used witout `etype` in Kerberos.  The
--- various `etype` and `kvno` pairs each derive their own `KXOVER-KEY-INFO`
--- and corresponding secret key.
+-- The `etype` value is not part of `KX-OFFER`.  Instead, one key export
+-- from TLS covers the total need of the sequence of agreed-upon etypes.
+-- Each etype specifies the number of random bytes to input to its
+-- random-to-key function.  The TLS key export provides the concatenated
+-- random bytes for these etypes.  The order of the agreed-upon etypes is
+-- rising, as in the two `KX-OFFER.etypes` fields.
+--
+-- Extensions may also need random input.  This extends after encryption
+-- types.  The order of random input to extensions is determined by the
+-- order in which such extensions appear in `KX-REP`.  Extensions should
+-- specify (in text or data fields) how many bytes of random input they
+-- require, and this should be clear and consistent for both parties.
 --
 -- The `req-salt` and `rep-salt` are taken from the `salt` field in the
 -- `KX-OFFER` as respectively found in `KX-REQ` and `KX-REP`.

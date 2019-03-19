@@ -51,3 +51,9 @@ target_link_libraries (kxover ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerb
 # Installation Details
 #
 
+message ("Installing kxover executable into ${CMAKE_INSTALL_SBINDIR}")
+install (PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/kxover
+	DESTINATION ${CMAKE_INSTALL_SBINDIR}
+	RENAME ${Kerberos5_SYSTEM}-kxover-server
+)
+

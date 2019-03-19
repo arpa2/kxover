@@ -35,8 +35,13 @@
 #include "starttls.h"
 #include "socket.h"
 
-#ifdef DEBUG
 #include <stdio.h>
+
+
+#ifdef DEBUG
+#  define DPRINTF printf
+#else
+#  define DPRINTF(...)
 #endif
 
 
@@ -114,7 +119,7 @@ static void cb_starttls_handshaken (void *cbdata, int fd_new) {
 	ev_io_set (&wd->listener, fd_new, EV_READ /* TODO:FORBIDDEN: | EV_ERROR */);
 	ev_io_start (tcpwrap_loop, &wd->listener);
 	/* Done, finish */
-printf ("cb_starttls_handshaken() succeeds and traffic will be read from %d\n", fd_new);
+DPRINTF ("cb_starttls_handshaken() succeeds and traffic will be read from %d\n", fd_new);
 	return;
 disconnect:
 	if (wd->socket >= 0) {
@@ -216,12 +221,12 @@ static void tcpwrap_cb_kxover_done (void *cbdata,
 			struct dercursor service_realm) {
 	struct wrapdata *wd = cbdata;
 if ((service_realm.derptr != NULL) && (client_realm.derptr != NULL))
-printf ("DEBUG: tcpwrap_cb_kxover_done() called for krbtgt/%.*s@%.*s\n",
+DPRINTF ("DEBUG: tcpwrap_cb_kxover_done() called for krbtgt/%.*s@%.*s\n",
 service_realm.derlen, service_realm.derptr,
 client_realm.derlen, client_realm.derptr);
 	if (result_errno != 0) {
 		//TODO// Report failure to even setup the kxover_server
-printf ("DEBUG: Failed while running the kxover_server: %d (%s)\n", result_errno, strerror (result_errno));
+DPRINTF ("DEBUG: Failed while running the kxover_server: %d (%s)\n", result_errno, strerror (result_errno));
 		goto disconnect;
 	}
 	/* We kept wd->reqptr for the realm strings, but can clean now */
@@ -233,7 +238,7 @@ printf ("DEBUG: Failed while running the kxover_server: %d (%s)\n", result_errno
 	wd->kxover = NULL;
 	//TODO// Continue TLS connection on success
 disconnect:
-printf ("DEBUG: Wrong! Bad! Evil! Will shut down the socket to tcpwrap_cb_kxover_done()\n");
+DPRINTF ("DEBUG: Wrong! Bad! Evil! Will shut down the socket to tcpwrap_cb_kxover_done()\n");
 	close (wd->socket);
 	if (wd->tlsdata != NULL) {
 		starttls_close (wd->tlsdata);
@@ -284,7 +289,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int revents) {
 	}
 	/* Handle TCP flags, if any */
 	uint32_t len_flags = ntohl (* (uint32_t *) len_flags_buf);
-printf ("_listener_handler() received 0x%08x as length/flags prefix\n", len_flags);
+DPRINTF ("_listener_handler() received 0x%08x as length/flags prefix\n", len_flags);
 	if (len_flags & 0x80000000) {
 		if (len_flags == 0x80000000) {
 			/* PROBE flag, tell it about STARTTLS */
@@ -364,14 +369,14 @@ printf ("_listener_handler() received 0x%08x as length/flags prefix\n", len_flag
 	switch (kxover_classify_kerberos_down (msg)) {
 	case TCPKRB5_PASS:
 		/* Literally pass Kerberos data (u2d2u) */
-printf ("DEBUG: Received a message to pass literally\n");
+DPRINTF ("DEBUG: Received a message to pass literally\n");
 		break;
 	case TCPKRB5_KXOVER_REQ:
 		/* Sidetrack: Handle as KXOVER request (u2d).
 		 * The wd->reqptr serves as backend store until the callback
 		 * And even within the callback, the realms are supported by it!
 		 */
-printf ("DEBUG: Recognised a KXOVER request\n");
+DPRINTF ("DEBUG: Recognised a KXOVER request\n");
 		if ((wd->progress & PROGRESS_TLS) != PROGRESS_TLS) {
 			fprintf (stderr, "Attempt to run KXOVER without TLS layer\n");
 			goto disconnect_stopped;
@@ -387,11 +392,11 @@ printf ("DEBUG: Recognised a KXOVER request\n");
 			/* DO NOT cleanup wd or wd->socket -- the callback does that */
 			return;
 		}
-printf ("DEBUG: Side-tracked to a KXOVER server\n");
+DPRINTF ("DEBUG: Side-tracked to a KXOVER server\n");
 		return;
 	case TCPKRB5_ERROR:
 	default:
-printf ("DEBUG: Received an unknown or undesired result\n");
+DPRINTF ("DEBUG: Received an unknown or undesired result\n");
 		/* Unknown or undesired result */
 		goto disconnect_stopped;
 	}
