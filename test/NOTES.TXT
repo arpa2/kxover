@@ -19,6 +19,8 @@ shell# kadmind -r   PIXIE.DEMO.ARPA2.ORG
 
 
 After this we have local-realm access to both:
+(This also works with both -O and -N to force old and new GSS-API authentication.)
+(Old uses "kadmin/admin", new leaves it NULL in the kadm5_init_with_skey() call.)
 
 shell# kadmin -k -t /etc/kxover/public.keytab -p kxover/public@UNICORN.DEMO.ARPA2.ORG -r UNICORN.DEMO.ARPA2.ORG list_principals
 K/M@UNICORN.DEMO.ARPA2.ORG
@@ -73,6 +75,43 @@ kadmin: Keytab contains no suitable keys for kxover/public@PIXIE.DEMO.ARPA2.ORG 
 ### ( echo addprinc -randkey krbtgt/UNICORN.DEMO.ARPA2.ORG ;            echo quit ) | kadmin.local -r PIXIE.DEMO.ARPA2.ORG
 ###TODO### Pass it over with ktutil?
 ### ( echo delete_principal  krbtgt/UNICORN.DEMO.ARPA2.ORG ; echo yes ; echo quit ) | kadmin.local -r PIXIE.DEMO.ARPA2.ORG
+
+
+
+
+...but now to establish the same results in our code...
+
+Plain kadmin works:
+
+shell# kadmin -k -t /etc/kxover/public.keytab -p kxover/public@UNICORN.DEMO.ARPA2.ORG -r UNICORN.DEMO.ARPA2.ORG
+
+Mar 20 19:47:39 5996ff4d4fdf kadmind[13559](Notice): Request: kadm5_init, kxover/public@UNICORN.DEMO.ARPA2.ORG, success, client=kxover/public@UNICORN.DEMO.ARPA2.ORG, service=kadmin/admin@UNICORN.DEMO.ARPA2.ORG, addr=172.17.0.2, vers=4, flavor=6
+Mar 20 19:47:44 5996ff4d4fdf kadmind[13559](info): closing down fd 18
+
+
+But our mitkrb5.c call to kadm5_init_with_skey() call reports an error and logs:
+
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):     The ticket isn't for us
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):    GSS-API error strings complete.
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):     The ticket isn't for us
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):    GSS-API error strings complete.
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):     The ticket isn't for us
+Mar 20 19:46:05 5996ff4d4fdf kadmind[13557](Notice):    GSS-API error strings complete.
+Mar 20 19:46:06 5996ff4d4fdf kadmind[13557](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 19:46:06 5996ff4d4fdf kadmind[13557](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 19:46:06 5996ff4d4fdf kadmind[13557](Notice):     Cannot decrypt ticket for kadmin/admin@UNICORN.DEMO.ARPA2.ORG using keytab key for kadmin/changepw@PIXIE.DEMO.ARPA2.ORG
+Mar 20 19:46:06 5996ff4d4fdf kadmind[13557](Notice):    GSS-API error strings complete.
+Mar 20 19:46:06 5996ff4d4fdf kadmind[13557](info): closing down fd 18
+
+
+Adding the realm solved it, however.  The default realm PIXIE has no kxover/public@UNICORN, namely.
+
 
 
 

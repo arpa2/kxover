@@ -131,9 +131,9 @@ else()
 endif()
 
 add_test (NAME t_127_0_0_1 COMMAND ${py_setenv} ${pypeline}
-	${client_udp} 127.0.0.1 77 ${krb_as_flow}
+	${client_udp} 127.0.0.1 66 ${krb_as_flow}
 	--
-	${fakekdc_udp} 127.0.0.1 77 ${krb_as_flow}
+	${fakekdc_udp} 127.0.0.1 66 ${krb_as_flow}
 	--
 	${dot_timer} 0.2 SIG:HUP
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
@@ -146,9 +146,9 @@ if (ONLINE_TESTING)
 add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
 	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
+	${test_tcpwrap} IP:KDC 66 IP:KDC UDP:KDC66 ${dnssec_root_key} FILE:HOSTS SIG:HUP
 	--
-	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
+	${fakekdc_udp} IP:KDC UDP:KDC66 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
 	${dot_timer} 0.2 SIG:HUP
 	--
@@ -176,9 +176,9 @@ if (CUT_THROAT_TESTING)
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
 	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${valgrind} ${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
+	${valgrind} ${test_tcpwrap} IP:KDC 66 IP:KDC UDP:KDC66 ${dnssec_root_key} FILE:HOSTS SIG:HUP
 	--
-	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
+	${fakekdc_udp} IP:KDC UDP:KDC66 #bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
 	${dot_timer} 0.2 SIG:HUP
 	--

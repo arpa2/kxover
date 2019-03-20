@@ -19,6 +19,7 @@
 #include <mit-krb5/profile.h>
 #include <kadm5/admin.h>
 
+/* Fixed default settings... chances are, _PUBLIC_SERVICE needs a realm */
 #define KADM5_KXOVER_PUBLIC_SERVICE "kxover/public"
 #define KADM5_KXOVER_PUBLIC_KEYTAB  "/etc/kxover/public.keytab"
 
@@ -194,54 +195,23 @@ const size_t kerberos_salt_bytes (void) {
 
 static const struct kerberos_config default_config = {
 	.certified_client_hostname = NULL,
-	.crossover_enctypes = etypes_names,
+	.crossover_enctypes = NULL,
+	.crossover_enctypev = etypes_names,
 	.kdc_hostname = "::1",
 	.kdc_port = 88,
-	.kvno_offset = 20000,
-	.kvno_scheme = "%m%d0",
-	.kvno_maxtry = 3,
+	//NOTYET// .kvno_offset = 20000,
+	//NOTYET// .kvno_scheme = "%m%d0",
+	//NOTYET// .kvno_maxtry = 3,
 	.crossover_lifedays = 100,
 	.kxover_keytab = KADM5_KXOVER_PUBLIC_KEYTAB,
 	.kxover_name   = KADM5_KXOVER_PUBLIC_SERVICE,
-	.kxover_realm = NULL
+	.kxover_realm = "UNICORN.DEMO.ARPA2.ORG",
 };
 
 
 static krb5_context krb5_ctx;
 static krb5_context kadm5_ctx;
 static void *kadm5_hdl;
-
-
-/* Load the configuration.  As a convenience, this is taken from the
- * normal configuration setup for Kerberos.  Specifically, we introduce a
- * section "[kxover]" to be used in ${KRB5_CONFIG-/etc/krb5.conf}:
- *
- * Loading occurs once, upon first call.  Entries that are not found
- * are kept to their default values.
- *
- * [kxover]
- * #NOTYET# certified_client_hostname = kdc.example.com
- * #NOTYET# permitted_enctypes = aes256-cts-hmac-sha384-192,aes256-cts-hmac-sha1-96,camellia256-cts-cmac
- * #NOTYET# kdc_address = ::1
- * #NOTYET# kdc_port = 88
- * #NOTYET# kvno_offset = 20000
- * #NOTYET# kvno_scheme = %m%d0
- * #NOTYET# kvno_maxtry = 3
- * #NOTYET# crossover_lifedays = 100
- * #NOTYET# kxover_keytab = KADM5_KXOVER_PUBLIC_KEYTAB
- * #NOTYET# kxover_name   = KADM5_KXOVER_PUBLIC_SERVICE
- * #NOTYET# kxover_realm  = (default)
- */
-const struct kerberos_config *kerberos_config (void) {
-	//krb5_get_profile// http://web.mit.edu/kerberos/krb5-current/doc/appdev/refs/api/krb5_get_profile.html
-	//profile_get_type// https://github.com/krb5/krb5/blob/09c9b7d6f64767429e90ad11a529e6ffa9538043/src/util/profile/profile.hin
-	static struct kerberos_config retdata;
-	static bool first_call = TRUE;
-	if (first_call) {
-		memcpy (&retdata, &default_config, sizeof (retdata));
-	}
-	return &retdata;
-}
 
 
 /* Internal routine for error handling.  When no error has
@@ -257,6 +227,78 @@ static bool _krb5_handle_error (int as_errno, krb5_error_code kerrno) {
 		return false;
 	}
 	return true;
+}
+
+
+/* Load the configuration.  As a convenience, this is taken from the
+ * normal configuration setup for Kerberos.  Specifically, we introduce a
+ * section "[kxover]" to be used in ${KRB5_CONFIG-/etc/krb5.conf}:
+ *
+ * Loading occurs once, upon first call.  Entries that are not found
+ * are kept to their default values.
+ *
+ * [kxover]
+ * 	certified_client_hostname = kdc.example.com
+ * 	crossover_enctypes = aes256-cts-hmac-sha384-192,aes256-cts-hmac-sha1-96,camellia256-cts-cmac
+ * 	#NOTHERE# kdc_address = ::1
+ * 	#NOTHERE# kdc_port = 88
+ * 	#NOTYET# kvno_offset = 20000
+ * 	#NOTYET# kvno_scheme = %m%d0
+ * 	#NOTYET# kvno_maxtry = 3
+ *	crossover_lifedays = 100
+ *	kxover_keytab = KADM5_KXOVER_PUBLIC_KEYTAB
+ *	kxover_name   = KADM5_KXOVER_PUBLIC_SERVICE
+ *	kxover_realm  = (default)
+ *
+ * The agreeable crossover_enctypes end up in crossover_enctypev, an
+ * inferred member of the structure with configuration information.
+ */
+const struct kerberos_config *kerberos_config (void) {
+	//krb5_get_profile// http://web.mit.edu/kerberos/krb5-current/doc/appdev/refs/api/krb5_get_profile.html
+	//profile_get_type// https://github.com/krb5/krb5/blob/09c9b7d6f64767429e90ad11a529e6ffa9538043/src/util/profile/profile.hin
+	static struct kerberos_config retval_config;
+	static bool first_call = TRUE;
+	if (first_call) {
+		memcpy (&retval_config, &default_config, sizeof (retval_config));
+	}
+	profile_t profile = NULL;
+	if (!_krb5_handle_error (EINVAL, krb5_get_profile (krb5_ctx, &profile))) {
+DPRINTF ("Failed to open the current profile\n");
+		return false;
+	}
+	profile_get_string (profile,
+		"kxover", "certified_client_hostname", NULL,
+		default_config.certified_client_hostname,
+		&retval_config.certified_client_hostname);
+	profile_get_string (profile,
+		"kxover", "crossover_enctypes", NULL,
+		default_config.crossover_enctypes,
+		&retval_config.crossover_enctypes);
+	profile_get_integer (profile,
+		"kxover", "crossover_lifedays", NULL,
+		default_config.crossover_lifedays,
+		&retval_config.crossover_lifedays);
+	profile_get_string (profile,
+		"kxover", "kxover_keytab", NULL,
+		default_config.kxover_keytab,
+		&retval_config.kxover_keytab);
+	profile_get_string (profile,
+		"kxover", "kxover_name", NULL,
+		default_config.kxover_name,
+		&retval_config.kxover_name);
+	profile_get_string (profile,
+		"kxover", "kxover_realm", NULL,
+		default_config.kxover_realm,
+		&retval_config.kxover_realm);
+	profile_release (profile);
+DPRINTF ("[kxover] certified_client_hostname = \"%s\"\n", retval_config.certified_client_hostname);
+DPRINTF ("[kxover] crossover_enctypes        = \"%s\"\n", retval_config.crossover_enctypes       );
+DPRINTF ("[kxover] crossover_lifedays        =  %d\n",    retval_config.crossover_lifedays       );
+DPRINTF ("[kxover] kxover_keytab             = \"%s\"\n", retval_config.kxover_keytab            );
+DPRINTF ("[kxover] kxover_name               = \"%s\"\n", retval_config.kxover_name              );
+DPRINTF ("[kxover] kxover_realm              = \"%s\"\n", retval_config.kxover_realm             );
+	retval_config.crossover_enctypev = etypes_names;
+	return &retval_config;
 }
 
 
@@ -771,17 +813,17 @@ DPRINTF ("Failed to set TZ=UTC in the environment\n");
 		}
 	}
 	//
-	// Load the configuration
-	const struct kerberos_config *krb5cfg = kerberos_config ();
-	//
 	// Open a Kerberos context
 	if (krb5_init_context (&krb5_ctx) != 0) {
 DPRINTF ("Failed to initialise Kerberos context for basic use\n");
 		return false;
 	}
 	//
+	// Load the configuration
+	const struct kerberos_config *krb5cfg = kerberos_config ();
+	//
 	// Calculate lists of encryption types
-	kerberos_init_etypes (NULL);  /* TODO: config string */
+	kerberos_init_etypes (krb5cfg->crossover_enctypes);
 	//
 	// Open a separate Kerberos context for kadm5
 	if (kadm5_init_krb5_context (&kadm5_ctx) != 0) {
@@ -792,22 +834,22 @@ DPRINTF ("Failed to initialise Kerberos context for kadm5\n");
 	kadm5_config_params kadm5param;
 	memset (&kadm5param, 0, sizeof (kadm5param));
 	if (krb5cfg->kxover_realm != NULL) {
-DPRINTF ("Set kxover_realm to %s", krb5cfg->kxover_realm);
+DPRINTF ("Set kxover_realm to %s\n", krb5cfg->kxover_realm);
 		kadm5param.mask  |= KADM5_CONFIG_REALM;
 		kadm5param.realm  = krb5cfg->kxover_realm;
 	}
-	// Login: kadm5_init_with_skey() as TODO:FIXED: "kxover/daemon@ARPA2.ORG"
+	//
+	// Login: kadm5_init_with_skey() based on [kxover] configuration
 	//TODO// This may expire and therefore need to be refreshed regularly
-	char *dbargs = NULL;
-	if (kadm5_init_with_skey (kadm5_ctx,
+	char *dbargs[] = { NULL };
+	if (!_krb5_handle_error (EPERM, kadm5_init_with_skey (kadm5_ctx,
 				krb5cfg->kxover_name,
 				krb5cfg->kxover_keytab,
-				"kadmin/admin",
+				NULL /* new style GSS-API auth, old was KADM5_ADMIN_SERVICE or "kadmin/admin" */,
 				&kadm5param,
 				KADM5_STRUCT_VERSION, KADM5_API_VERSION_4,
-				&dbargs, &kadm5_hdl) != 0) {
-DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "kadmin/admin", krb5cfg->kxover_name, krb5cfg->kxover_keytab);
-		errno = EPERM;
+				dbargs, &kadm5_hdl))) {
+DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "(new-style,NULL)" /* OLD: KADM5_ADMIN_SERVICE or "kadmin/admin"*/, krb5cfg->kxover_name, krb5cfg->kxover_keytab);
 		krb5_free_context (kadm5_ctx);
 		krb5_free_context (krb5_ctx);
 		return false;

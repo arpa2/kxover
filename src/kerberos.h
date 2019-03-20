@@ -35,13 +35,14 @@ extern const struct enctype *enctypes;
 
 struct kerberos_config {
 	char *certified_client_hostname;
-	char **crossover_enctypes;
+	char  *crossover_enctypes;
+	char **crossover_enctypev;
 	char *kdc_hostname;
 	uint16_t kdc_port;
-	uint32_t kvno_offset;
-	char *kvno_scheme;
-	uint8_t kvno_maxtry;
-	uint8_t crossover_lifedays;
+	//NOTYET// uint32_t kvno_offset;
+	//NOTYET// char *kvno_scheme;
+	//NOTYET// uint8_t kvno_maxtry;
+	int crossover_lifedays;
 	char *kxover_keytab;
 	char *kxover_name;
 	char *kxover_realm;
