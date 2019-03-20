@@ -765,6 +765,7 @@ bool kerberos_init (void) {
 	char *tz_old = getenv ("TZ");
 	if ((tz_old == NULL) || (strcmp (tz_old, "UTC") != 0)) {
 		if (setenv ("TZ", "UTC", 1) == -1) {
+DPRINTF ("Failed to set TZ=UTC in the environment\n");
 			/* errno is set by setenv() */
 			return false;
 		}
@@ -775,6 +776,7 @@ bool kerberos_init (void) {
 	//
 	// Open a Kerberos context
 	if (krb5_init_context (&krb5_ctx) != 0) {
+DPRINTF ("Failed to initialise Kerberos context for basic use\n");
 		return false;
 	}
 	//
@@ -783,12 +785,14 @@ bool kerberos_init (void) {
 	//
 	// Open a separate Kerberos context for kadm5
 	if (kadm5_init_krb5_context (&kadm5_ctx) != 0) {
+DPRINTF ("Failed to initialise Kerberos context for kadm5\n");
 		krb5_free_context (krb5_ctx);
 		return false;
 	}
 	kadm5_config_params kadm5param;
 	memset (&kadm5param, 0, sizeof (kadm5param));
 	if (krb5cfg->kxover_realm != NULL) {
+DPRINTF ("Set kxover_realm to %s", krb5cfg->kxover_realm);
 		kadm5param.mask  |= KADM5_CONFIG_REALM;
 		kadm5param.realm  = krb5cfg->kxover_realm;
 	}
@@ -802,6 +806,7 @@ bool kerberos_init (void) {
 				&kadm5param,
 				KADM5_STRUCT_VERSION, KADM5_API_VERSION_4,
 				&dbargs, &kadm5_hdl) != 0) {
+DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "kadmin/admin", krb5cfg->kxover_name, krb5cfg->kxover_keytab);
 		errno = EPERM;
 		krb5_free_context (kadm5_ctx);
 		krb5_free_context (krb5_ctx);

@@ -41,6 +41,10 @@ option (ONLINE_TESTING
 	"Testing may go online, using .DEMO.ARPA2.ORG demo realms with DNSSEC/DANE"
 	ON)
 
+option (CUT_THROAT_TESTING
+	"Include cut-through tests: under development, still made to work, known to fail"
+	OFF)
+
 
 #
 # Dependencies

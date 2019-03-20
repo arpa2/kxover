@@ -1,0 +1,146 @@
+TODO/setup:
+
+ - /etc/krb5.conf
+ - /etc/krb5kdc/kdc.conf
+ - /etc/krb5kdc/kadm5.acl.pixie
+ - /etc/krb5kdc/kadm5.acl.unicorn
+
+
+Running the KDCs (with different ports for UDP+TCP in kdc.conf):
+
+shell# krb5kdc -r UNICORN.DEMO.ARPA2.ORG
+shell# krb5kdc -r   PIXIE.DEMO.ARPA2.ORG
+
+
+Running the kadmin daemons (with different ports in kdc.conf):
+
+shell# kadmind -r UNICORN.DEMO.ARPA2.ORG
+shell# kadmind -r   PIXIE.DEMO.ARPA2.ORG
+
+
+After this we have local-realm access to both:
+
+shell# kadmin -k -t /etc/kxover/public.keytab -p kxover/public@UNICORN.DEMO.ARPA2.ORG -r UNICORN.DEMO.ARPA2.ORG list_principals
+K/M@UNICORN.DEMO.ARPA2.ORG
+imap.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+kadmin/5996ff4d4fdf@UNICORN.DEMO.ARPA2.ORG
+kadmin/admin@UNICORN.DEMO.ARPA2.ORG
+kadmin/changepw@UNICORN.DEMO.ARPA2.ORG
+kadmin@UNICORN.DEMO.ARPA2.ORG
+kiprop/5996ff4d4fdf@UNICORN.DEMO.ARPA2.ORG
+krbtgt/UNICORN.DEMO.ARPA2.ORG@UNICORN.DEMO.ARPA2.ORG
+kxover/public@UNICORN.DEMO.ARPA2.ORG
+ldap.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+smtp.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+www.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+
+
+shell# kinit demo@PIXIE.DEMO.ARPA2.ORG
+shell# echo sekreet3 | kadmin -r PIXIE.DEMO.ARPA2.ORG list_principals
+Password for demo/admin@PIXIE.DEMO.ARPA2.ORG: 
+K/M@PIXIE.DEMO.ARPA2.ORG
+demo/admin@PIXIE.DEMO.ARPA2.ORG
+demo1@PIXIE.DEMO.ARPA2.ORG
+demo2@PIXIE.DEMO.ARPA2.ORG
+demo3@PIXIE.DEMO.ARPA2.ORG
+demo@PIXIE.DEMO.ARPA2.ORG
+kadmin/5996ff4d4fdf@PIXIE.DEMO.ARPA2.ORG
+kadmin/admin@PIXIE.DEMO.ARPA2.ORG
+kadmin/changepw@PIXIE.DEMO.ARPA2.ORG
+kadmin@PIXIE.DEMO.ARPA2.ORG
+kiprop/5996ff4d4fdf@PIXIE.DEMO.ARPA2.ORG
+krbtgt/PIXIE.DEMO.ARPA2.ORG@PIXIE.DEMO.ARPA2.ORG
+
+
+But we do not have realm crossover access, in spite of it being supported in the ACL:
+shell# kadmin -k -t /etc/kxover/public.keytab -p kxover/public@UNICORN.DEMO.ARPA2.ORG -r UNICORN.DEMO.ARPA2.ORG list_principals
+
+
+shell# kinit demo@PIXIE.DEMO.ARPA2.ORG
+shell# echo sekreet3 | kadmin -r UNICORN.DEMO.ARPA2.ORG list_principals
+Password for demo/admin@PIXIE.DEMO.ARPA2.ORG: 
+kadmin: GSS-API (or Kerberos) error while initializing kadmin interface
+
+
+Also, the realm in -p defaults to the login rather than -r, so again no luck without crossover:
+
+shell# kinit demo@PIXIE.DEMO.ARPA2.ORG
+shell# kadmin -k -t /etc/kxover/public.keytab -p kxover/public -r UNICORN.DEMO.ARPA2.ORG list_principals
+kadmin: Keytab contains no suitable keys for kxover/public@PIXIE.DEMO.ARPA2.ORG while initializing kadmin interface
+
+
+# DO NOT create and delete a realm crossover ticket; it is here in case you want to try manually
+### ( echo addprinc -randkey krbtgt/UNICORN.DEMO.ARPA2.ORG ;            echo quit ) | kadmin.local -r PIXIE.DEMO.ARPA2.ORG
+###TODO### Pass it over with ktutil?
+### ( echo delete_principal  krbtgt/UNICORN.DEMO.ARPA2.ORG ; echo yes ; echo quit ) | kadmin.local -r PIXIE.DEMO.ARPA2.ORG
+
+
+
+
+
+...only older tests below...before splitting kadmind...
+
+
+
+Working for kadmin:
+
+shell# echo sekreet | kadmin -x debug=10 -r PIXIE.DEMO.ARPA2.ORG -p demo@PIXIE.DEMO.ARPA2.ORG list_principals
+
+shell# kinit demo@PIXIE.DEMO.ARPA2.ORG
+shell# echo sekreet3 | kadmin -x debug=10 -r UNICORN.DEMO.ARPA2.ORG list_principals
+
+
+Not working for kadmin:
+
+shell# ( echo rkt /etc/kxover/public.keytab ; echo list ) | ktutil
+slot KVNO Principal
+---- ---- ---------------------------------------------------------------------
+   1    3     kxover/public@UNICORN.DEMO.ARPA2.ORG
+   2    3     kxover/public@UNICORN.DEMO.ARPA2.ORG
+
+shell# kadmin -x debug=10 -r UNICORN.DEMO.ARPA2.ORG -k -t /etc/kxover/public.keytab -p kxover/public@UNICORN.DEMO.ARPA2.ORG list_principals
+kadmin: GSS-API (or Kerberos) error while initializing kadmin interface
+
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     The ticket isn't for us
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):    GSS-API error strings complete.
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     The ticket isn't for us
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):    GSS-API error strings complete.
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     The ticket isn't for us
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):    GSS-API error strings complete.
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice): Authentication attempt failed: 172.17.0.2, GSS-API error strings are:
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     Unspecified GSS failure.  Minor code may provide more information
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):     Cannot decrypt ticket for kadmin/admin@UNICORN.DEMO.ARPA2.ORG using keytab key for kadmin/changepw@PIXIE.DEMO.ARPA2.ORG
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](Notice):    GSS-API error strings complete.
+Mar 20 09:48:44 5996ff4d4fdf kadmind[12413](info): closing down fd 18
+
+
+Restarting kadmind with -r PIXIE.DEMO.ARPA2.ORG -r UNICORN.DEMO.ARPA2.ORG works:
+
+shell# kadmin -x debug=10 -r UNICORN.DEMO.ARPA2.ORG -k -t /etc/kxover/public.keytab -p kxover/public@UNICORN.DEMO.ARPA2.ORG list_principals
+K/M@UNICORN.DEMO.ARPA2.ORG
+imap.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+kadmin/5996ff4d4fdf@UNICORN.DEMO.ARPA2.ORG
+kadmin/admin@UNICORN.DEMO.ARPA2.ORG
+kadmin/changepw@UNICORN.DEMO.ARPA2.ORG
+kadmin@UNICORN.DEMO.ARPA2.ORG
+kiprop/5996ff4d4fdf@UNICORN.DEMO.ARPA2.ORG
+krbtgt/UNICORN.DEMO.ARPA2.ORG@UNICORN.DEMO.ARPA2.ORG
+kxover/public@UNICORN.DEMO.ARPA2.ORG
+ldap.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+smtp.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+www.unicorn.demo.arpa2.lab@UNICORN.DEMO.ARPA2.ORG
+
+
+...but now the first domain on the line is hampered:
+
+shell# echo sekreet3 | kadmin -x debug=10 -r PIXIE.DEMO.ARPA2.ORG -p demo/admin@PIXIE.DEMO.ARPA2.ORG list_principals
+Password for demo/admin@PIXIE.DEMO.ARPA2.ORG: 
+kadmin: GSS-API (or Kerberos) error while initializing kadmin interface
+
+

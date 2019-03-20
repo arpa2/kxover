@@ -490,10 +490,11 @@ bool tcpwrap_init (struct ev_loop *loop) {
 bool tcpwrap_service (struct sockaddr *ear) {
 	int sox = -1;
 	struct wrapdata *wd = NULL;
+	struct acceptdata *ad = NULL;
 	if (!socket_server (ear, SOCK_STREAM, &sox)) {
 		goto fail;
 	}
-	struct acceptdata *ad = calloc (1, sizeof (struct acceptdata));
+	ad = calloc (1, sizeof (struct acceptdata));
 	if (ad == NULL) {
 		goto fail;
 	}

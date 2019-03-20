@@ -85,7 +85,7 @@ set (test_bin ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set (dnssec_root_key $<SHELL_PATH:${test_bin}/dnssec-root-key>)
 set (krb_as_flow $<SHELL_PATH:${test_bin}/krb5-as-req1.der> $<SHELL_PATH:${test_bin}/krb5-as-rep1.der> $<SHELL_PATH:${test_bin}/krb5-as-req2.der> $<SHELL_PATH:${test_bin}/krb5-as-rep2.der>)
 
-add_test (NAME t_entropy COMMAND ${CMAKE_CURRENT_BINARY_DIR}/krb5-entropy)
+add_test (NAME t_entropy COMMAND ${valgrind} ${CMAKE_CURRENT_BINARY_DIR}/krb5-entropy)
 
 add_test (NAME t_pypeline COMMAND ${py_setenv} ${pypeline}
 	${client_udp} IP:KDC UDP:KDC ${krb_as_flow}
@@ -152,7 +152,7 @@ add_test (NAME t_kxclient COMMAND ${py_setenv} ${pypeline}
 	--
 	${dot_timer} 0.2 SIG:HUP
 	--
-	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
+	${demo_hosts} FILE:HOSTS kdc.pixie.demo.arpa2.lab IP:KDC kdc.unicorn.demo.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 endif ()
@@ -165,24 +165,26 @@ add_test (NAME t_kxserver COMMAND ${py_setenv} ${pypeline}
 	--
 	${dot_timer} 0.2 SIG:HUP
 	--
-	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
+	${demo_hosts} FILE:HOSTS kdc.pixie.demo.arpa2.lab IP:KDC kdc.unicorn.demo.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 endif ()
 
 # Combining t_kxclient and t_kxserver into one, t_kxover
 if (ONLINE_TESTING)
+if (CUT_THROAT_TESTING)
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
-	${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
+	${valgrind} ${test_tcpwrap} IP:KDC 77 IP:KDC UDP:KDC77 ${dnssec_root_key} FILE:HOSTS SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC77 bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--
 	${dot_timer} 0.2 SIG:HUP
 	--
-	${demo_hosts} FILE:HOSTS kdc.pixie.arpa2.lab IP:KDC kdc.unicorn.arpa2.lab IP:KDC
+	${demo_hosts} FILE:HOSTS kdc.pixie.demo.arpa2.lab IP:KDC kdc.unicorn.demo.arpa2.lab IP:KDC
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+endif ()
 endif ()
 
 
