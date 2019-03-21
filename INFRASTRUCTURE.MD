@@ -44,6 +44,54 @@ that would only service TCP queries, and it would be
 subjected to the ability to decode requests, thus sharing
 internally held keys.
 
+### Minimal Effort for a KDC
+
+The KDC will need to interact slightly with KXOVER.
+Specifically, it will need to know that a host belongs
+under a certain realm.  There are two ways of doing
+this:
+
+ 1. Through [draft-vanrein-dnstxt-krb1](https://datatracker.ietf.org/doc/draft-vanrein-dnstxt-krb1/)
+    which means looking up `_kerberos` TXT records under
+    the host name and taking out the first string to get
+    the realm for that host.  DNSSEC is required for this
+    to work.
+
+ 2. Through a database with host-to-realm setups that is
+    managed by KXOVER, and with a timeout on each entry.
+    KXOVER can detect failures to access a host, make the
+    necessary arrangements up to and including insertion
+    of a host-to-realm mapping in this database, and the
+    request could be resent.  The KDC would then find
+    the newly added mapping and continue.
+
+The second option offers better isolation and is more
+general.  It is also easier on the KDC, especially
+because it can reject any unknown host-to-realm mapping
+immediately, and have KXOVER pickup on it without even
+having to wait until a DNSSEC lookup whose information
+the KDC will not be able to use.
+
+Only in cases where realm crossover has been setup is
+it quicker to handle this directly in the KDC.  But
+even then it is probably better to treat a new host
+(and its timeout constraints) as a non-KDC issue, for
+the sake of simplicity, and its impact on security.
+
+As for this external database, a very simple format
+can be considered.  It can just be the `_kerberos` TXT
+format taken out of the DNSSEC cache of KXOVER, but
+possibly constrained to realms that are known to be
+good.  KXOVER can in fact learn if it sees a host
+showing up again when a realm crossover key is nearing
+its end-of-life; the crossover can then be refreshed.
+
+In terms of configuration, this requires a DNS service
+to be configured for the host-to-realm mapping, and
+this is independent of the rest of the queries that a
+KDC might want to make.
+
+
 ## KXOVER as a Kerberos CA
 
 Instead of intervening in traffic between KDC and client,
