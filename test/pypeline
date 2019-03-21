@@ -213,7 +213,7 @@ for (proc,zig,excitement) in zip (prox,zigz,exok):
 # is in the ordering in phases, not the ordering on the command line.
 #
 
-sys.stdout.write ('pypeline: End Game #1.  Await self-terminating programs.\n')
+sys.stdout.write ('pypeline: end game, stage 1/3.  Await self-terminating programs.\n')
 phase1_mutex.acquire ()
 while len (phase1_threads) > 0:
     active = phase1_threads.copy ()
@@ -223,11 +223,11 @@ while len (phase1_threads) > 0:
             sys.stdout.write ('pypeline: stopped: %s\n' % (sync.name,))
 phase1_mutex.release ()
 
-sys.stdout.write ('pypeline: End Game #2.  Sending registered termination signals.\n')
+sys.stdout.write ('pypeline: end game, stage 2/3.  Sending registered termination signals.\n')
 for sync in syncprox:
     sync.send_signals ()
 
-sys.stdout.write ('pypeline: End Game #3.  Wait until signal-registering programs have ended.\n')
+sys.stdout.write ('pypeline: end game, stage 3/3.  Wait until signal-registering programs have ended.\n')
 exitval = 0
 for (sync,proc) in zip (syncprox,prox):
     (result,result_ok) = sync.final_judgement ()

@@ -31,9 +31,13 @@ SMALL CHANGES:
 + implement the kvno policy based on dates within a year, so MMDDS
 + implement exponential fallback to slow down attackers and abusive users
 - actually use the random bytes generated from TLS for key insertion
-- test (and possibly fix) timeouts of kadm5 login and/or connection
++ test (and possibly fix) timeouts of kadm5 login and/or connection
 + support installation and packaging (builds RPM, DEB, EXE, TAR*)
 + have an option to select whether to run tests that need online data (such as DNS)
+- add a test that creates / removes a principal key via kadmin as kxover/public
+- add a test that creates / removes a crossover key via kadmin as kxover/public
++ find any source of spurious fork()s and kxover_client() restarts -- and squash it
++ find any unbalance in the event loop macro's
 
 LARGER CHANGES:
 
@@ -46,10 +50,11 @@ LARGER CHANGES:
 DESIGN MESMERISATIONS:
 
 + Consider etypes empty -> then require an extension with another purpose
+- Consider authentication to always be an extension, and DANE the first one defined
 - Consider request and delivery of a service-supplied ticket in an extension
 - Consider request and delivery of a pre-shared key for future TLS use
 - Consider insertion of a SASL exchange for alternative client authentication
-- Consider compisition to M-out-of-N schemes -- that is, facilitate N > 1
+- Consider composition to M-out-of-N schemes -- that is, facilitate N > 1
 + Insert max-uses into KEYINFO even if it occurs just once (then with that value)
 + Sum the entropy needs of matched etypes, and generate in one TLS key export
 + Remove etype/s from the KX-KEY-INFO structure

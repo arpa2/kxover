@@ -53,6 +53,7 @@ static void _fire_fd_cb (EV_P_ ev_timer *tim, int revents) {
 			((uint8_t *) tim) -
 				offsetof (faketls_data, fd_timer));
 	_teardown_fd_cb (ftd);
+DPRINTF ("Callback on fd timer, 0x%016x", (intptr_t) ftd);
 	ftd->fd_cb (ftd->fd_cbdata, ftd->fd_new);
 }
 
@@ -81,6 +82,7 @@ static void _fire_test_cb (EV_P_ ev_idle *idl, int revents) {
 			((uint8_t *) idl) -
 				offsetof (faketls_test, ev_test));
 	_teardown_test_cb (ftt);
+DPRINTF ("Callback on test, 0x%016x", (intptr_t) ftt);
 	ftt->test_cb (ftt->test_cbdata, ftt->test_result);
 }
 

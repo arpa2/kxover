@@ -39,6 +39,10 @@
 #endif
 
 
+#define EV_ADD(descr,ptr) DPRINTF ("ev_loop += %10s 0x%016x at %s:%d\n", (descr), (ptr), __FILE__, __LINE__)
+#define EV_SUB(descr,ptr) DPRINTF ("ev_loop -= %10s 0x%016x at %s:%d\n", (descr), (ptr), __FILE__, __LINE__)
+
+
 /* Forward declarations */
 void kxover_finish (struct kxover_data *kxd);
 static void kxover_client_connect_attempt (struct kxover_data *kxd);
@@ -778,6 +782,7 @@ DPRINTF ("DEBUG: socket_address() or socket_client() failure %d (%s) -- will be 
 	/* Setup event handling with a connect() responder as callback */
 	ev_io_init (&kxd->ev_kxcnx, cb_kxs_client_connecting, sox, EV_WRITE /* TODO:FORBIDDEN: | EV_ERROR*/);
 	ev_io_start (kxover_loop, &kxd->ev_kxcnx);
+	EV_ADD ("kxcnx", &kxd->ev_kxcnx);
 #if 0
 	/* Finally connect to the remote's AAAA/A and the port from SRV */
 	if (connect (sox, &sa, salen) < 0) {
@@ -828,6 +833,7 @@ static void cb_kxs_client_connecting (EV_P_ ev_io *evt, int revents) {
 		(struct kxover_data *) (
 			((uint8_t *) evt) -
 				offsetof (struct kxover_data, ev_kxcnx));
+	EV_SUB ("evt", evt);
 	ev_io_stop (EV_A_ evt);
 	/* On failure, try again on any further addresses */
 	if (revents & EV_ERROR) {
@@ -838,6 +844,7 @@ static void cb_kxs_client_connecting (EV_P_ ev_io *evt, int revents) {
 	ev_io_init (evt, cb_kxs_client_starttls,
 			kxd->kxoffer_fd, EV_READ /* TODO:FORBIDDEN | EV_ERROR*/);
 	ev_io_start (kxover_loop, evt);
+	EV_ADD ("evt", evt);
 	/* Send the STARTTLS flag */
 	uint8_t buf4 [4];
 	* (uint32_t *) buf4 = htonl (0x80000001);
@@ -866,6 +873,7 @@ DPRINTF ("DEBUG: cb_kxs_client_starttls() called\n");
 			((uint8_t *) evt) -
 				offsetof (struct kxover_data, ev_kxcnx));
 	/* For now, stop reports from the socket */
+	EV_SUB ("evt", evt);
 	ev_io_stop (EV_A_ evt);
 	/* Bail out when socket errors occurred */
 	if (revents & EV_ERROR) {
@@ -1028,6 +1036,7 @@ DPRINTF ("DEBUG: cb_kxs_either_realmscheck() has seen 2/2 realms for the client\
 		/* Register the next callback function to collect the response */
 		ev_io_init (&kxd->ev_kxcnx, cb_kxs_client_kx_receiving, kxd->kxoffer_fd, EV_READ /* TODO:FORBIDDEN; | EV_ERROR */);
 		ev_io_start (kxover_loop, &kxd->ev_kxcnx);
+		EV_ADD ("kxcnx", &kxd->ev_kxcnx);
 		kxd->progress = KXS_CLIENT_KX_RECEIVING;
 	} else {
 		/* Fail with the message that mentions both acceptable states */
@@ -1338,6 +1347,7 @@ DPRINTF ("DEBUG: Expected 4 bytes of packet length\n");
 		return;
 	}
 	/* When all arrived, stop further socket receiving */
+	EV_SUB ("evt", evt);
 	ev_io_stop (EV_A_ evt);
 	/* Compare the outer DER length and unpack the KX-REP */
 	struct dercursor inicrs = kxd->kx_recv;
@@ -1426,6 +1436,7 @@ bailout_EPROTO:
 	kxd->last_errno = EPROTO;
 	/* ...and continue: */
 bailout:
+	EV_SUB ("evt", evt);
 	ev_io_stop (EV_A_ evt);
 	/* ...and continue: */
 bailout_stopped:
@@ -1965,10 +1976,17 @@ DPRINTF ("DEBUG: cb_kxs_client_dnssec_realm() bailout with kxd->last_errno = %d\
  */
 bool kxover_init (EV_P_ char *dnssec_rootkey_file, char *opt_etc_hosts_file) {
 	assert (kxover_unbound_ctx == NULL);
+	DPRINTF ("DEBUG: Creating Unbound context\n");
 	kxover_unbound_ctx = ub_ctx_create ();
 	if (kxover_unbound_ctx == NULL) {
+		DPRINTF ("DEBUG: Creating Unbound context failed\n");
 		errno = ECONNREFUSED;
 		return false;
+	}
+	DPRINTF ("DEBUG: Created  Unbound context\n");
+	if (ub_ctx_async (kxover_unbound_ctx, 1)) {
+		DPRINTF ("Failure to prefer thread of process (neither should be necessary? ...continuing)\n");
+		;
 	}
 	if (ub_ctx_add_ta_autr (kxover_unbound_ctx, dnssec_rootkey_file)) {
 		errno = ECONNREFUSED;
@@ -1992,10 +2010,13 @@ bool kxover_init (EV_P_ char *dnssec_rootkey_file, char *opt_etc_hosts_file) {
 	kxover_loop = loop;
 	ev_io_init (&kxover_unbound_watcher, _cb_kxover_unbound, fd, EV_READ /* TODO:FORBIDDEN | EV_ERROR*/);
 	ev_io_start (EV_A_ &kxover_unbound_watcher);
+	EV_ADD ("unbound", &kxover_unbound_watcher);
 	return true;
 teardown_unbound:
+	DPRINTF ("DEBUG: Dropping Unbound context due to failure\n");
 	ub_ctx_delete (kxover_unbound_ctx);
 	kxover_unbound_ctx = NULL;
+	DPRINTF ("DEBUG: Dropped  Unbound context due to failure\n");
 	return false;
 }
 
@@ -2004,8 +2025,12 @@ teardown_unbound:
  * ended before this is called.
  */
 void kxover_fini (void) {
+	EV_SUB ("unbound", &kxover_unbound_watcher);
+	ev_io_stop (kxover_loop, &kxover_unbound_watcher);
+	DPRINTF ("DEBUG: Dropping Unbound context\n");
 	ub_ctx_delete (kxover_unbound_ctx);
 	kxover_unbound_ctx = NULL;
+	DPRINTF ("DEBUG: Dropped  Unbound context\n");
 }
 
 
@@ -2430,6 +2455,7 @@ static void _kxover_cleanup (struct kxover_data *kxd) {
 void kxover_finish (struct kxover_data *kxd) {
 DPRINTF ("DEBUG: kxover_finish() called with progress == %d and last_errno == %d (%s)\n", kxd->progress, kxd->last_errno, strerror (kxd->last_errno));
 	/* First of all, disarm the timeout timer */
+	EV_SUB ("timer", &kxd->ev_timeout);
 	ev_timer_stop (kxover_loop, &kxd->ev_timeout);
 	/* Now record the current progress, used later */
 	enum kxover_progress orig_progress = kxd->progress;
@@ -2537,10 +2563,12 @@ DPRINTF ("DEBUG: Starting KXOVER client for KRB-ERROR\n");
  * timeout value <= 0.0 will stop the timer.
  */
 void kxover_timeout (struct kxover_data *kxd, float timeout_seconds) {
+	EV_SUB ("timeout", &kxd->ev_timeout);
 	ev_timer_stop (kxover_loop, &kxd->ev_timeout);
 	if (timeout_seconds > 0.0) {
 		ev_timer_set (&kxd->ev_timeout, timeout_seconds, 0.0);
 		ev_timer_start (kxover_loop, &kxd->ev_timeout);
+		EV_ADD ("timeout", &kxd->ev_timeout);
 	}
 }
 
@@ -2556,5 +2584,4 @@ DPRINTF ("DEBUG: cb_kxover_timeout() called with progress == %d\n", kxd->progres
 	kxd->last_errno = ETIMEDOUT;
 	kxover_finish (kxd);
 }
-
 

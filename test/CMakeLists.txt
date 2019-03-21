@@ -14,6 +14,12 @@ include_directories (${SRC})
 add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE} ${Kerberos5_DEFINITIONS})
 
 
+add_library (preload_fork SHARED preload_fork.c)
+
+add_executable (test_fork
+	test_fork.c)
+
+
 add_executable (krb5-entropy
 	krb5-entropy.c
 	${SRC}/mitkrb5.c)
@@ -67,6 +73,7 @@ target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES}
 #
 
 set (valgrind       valgrind --log-file=${CMAKE_BINARY_DIR}/valgrind.log)
+set (forkgrind             ${CMAKE_COMMAND} -E env LD_PRELOAD=${CMAKE_CURRENT_BINARY_DIR}/libpreload_fork.so)
 set (py_setenv             ${CMAKE_COMMAND} -E env PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}:${CMAKE_CURRENT_BINARY_DIR}:${_ppath})
 set (pypeline       python ${CMAKE_CURRENT_SOURCE_DIR}/pypeline)
 set (fakekdc_udp    python ${CMAKE_CURRENT_SOURCE_DIR}/fakekdc_udp)
@@ -86,6 +93,12 @@ set (dnssec_root_key $<SHELL_PATH:${test_bin}/dnssec-root-key>)
 set (krb_as_flow $<SHELL_PATH:${test_bin}/krb5-as-req1.der> $<SHELL_PATH:${test_bin}/krb5-as-rep1.der> $<SHELL_PATH:${test_bin}/krb5-as-req2.der> $<SHELL_PATH:${test_bin}/krb5-as-rep2.der>)
 
 add_test (NAME t_entropy COMMAND ${valgrind} ${CMAKE_CURRENT_BINARY_DIR}/krb5-entropy)
+
+add_test (NAME t_fork_preload COMMAND ${py_setenv} ${pypeline}
+	1 ${forkgrind} ${valgrind} ${CMAKE_CURRENT_BINARY_DIR}/test_fork
+	--
+	0                          ${CMAKE_CURRENT_BINARY_DIR}/test_fork
+	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 add_test (NAME t_pypeline COMMAND ${py_setenv} ${pypeline}
 	${client_udp} IP:KDC UDP:KDC ${krb_as_flow}
@@ -174,9 +187,9 @@ endif ()
 if (ONLINE_TESTING)
 if (CUT_THROAT_TESTING)
 add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
-	${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
+	${forkgrind} ${valgrind} ${test_kxclient} PIXIE.DEMO.ARPA2.ORG UNICORN.DEMO.ARPA2.ORG ${dnssec_root_key} FILE:HOSTS
 	--
-	${valgrind} ${test_tcpwrap} IP:KDC 66 IP:KDC UDP:KDC66 ${dnssec_root_key} FILE:HOSTS SIG:HUP
+	${test_tcpwrap} IP:KDC 66 IP:KDC UDP:KDC66 ${dnssec_root_key} FILE:HOSTS SIG:HUP
 	--
 	${fakekdc_udp} IP:KDC UDP:KDC66 #bin/krb5-as-req1.der bin/krb5-as-rep1.der
 	--

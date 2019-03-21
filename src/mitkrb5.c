@@ -252,6 +252,8 @@ static bool _krb5_handle_error (int as_errno, krb5_error_code kerrno) {
  *
  * The agreeable crossover_enctypes end up in crossover_enctypev, an
  * inferred member of the structure with configuration information.
+ *
+ * TODO: Is /etc/krb5.conf good, or is /etc/krb5kdc/kdc.conf better?
  */
 const struct kerberos_config *kerberos_config (void) {
 	//krb5_get_profile// http://web.mit.edu/kerberos/krb5-current/doc/appdev/refs/api/krb5_get_profile.html
@@ -260,44 +262,45 @@ const struct kerberos_config *kerberos_config (void) {
 	static bool first_call = TRUE;
 	if (first_call) {
 		memcpy (&retval_config, &default_config, sizeof (retval_config));
-	}
-	profile_t profile = NULL;
-	if (!_krb5_handle_error (EINVAL, krb5_get_profile (krb5_ctx, &profile))) {
-DPRINTF ("Failed to open the current profile\n");
-		return false;
-	}
-	profile_get_string (profile,
-		"kxover", "certified_client_hostname", NULL,
-		default_config.certified_client_hostname,
-		&retval_config.certified_client_hostname);
-	profile_get_string (profile,
-		"kxover", "crossover_enctypes", NULL,
-		default_config.crossover_enctypes,
-		&retval_config.crossover_enctypes);
-	profile_get_integer (profile,
-		"kxover", "crossover_lifedays", NULL,
-		default_config.crossover_lifedays,
-		&retval_config.crossover_lifedays);
-	profile_get_string (profile,
-		"kxover", "kxover_keytab", NULL,
-		default_config.kxover_keytab,
-		&retval_config.kxover_keytab);
-	profile_get_string (profile,
-		"kxover", "kxover_name", NULL,
-		default_config.kxover_name,
-		&retval_config.kxover_name);
-	profile_get_string (profile,
-		"kxover", "kxover_realm", NULL,
-		default_config.kxover_realm,
-		&retval_config.kxover_realm);
-	profile_release (profile);
+		profile_t profile = NULL;
+		if (!_krb5_handle_error (EINVAL, krb5_get_profile (krb5_ctx, &profile))) {
+			DPRINTF ("Failed to open profile from the current krb5_context\n");
+			return NULL;
+		}
+		profile_get_string (profile,
+			"kxover", "certified_client_hostname", NULL,
+			default_config.certified_client_hostname,
+			&retval_config.certified_client_hostname);
+		profile_get_string (profile,
+			"kxover", "crossover_enctypes", NULL,
+			default_config.crossover_enctypes,
+			&retval_config.crossover_enctypes);
+		profile_get_integer (profile,
+			"kxover", "crossover_lifedays", NULL,
+			default_config.crossover_lifedays,
+			&retval_config.crossover_lifedays);
+		profile_get_string (profile,
+			"kxover", "kxover_keytab", NULL,
+			default_config.kxover_keytab,
+			&retval_config.kxover_keytab);
+		profile_get_string (profile,
+			"kxover", "kxover_name", NULL,
+			default_config.kxover_name,
+			&retval_config.kxover_name);
+		profile_get_string (profile,
+			"kxover", "kxover_realm", NULL,
+			default_config.kxover_realm,
+			&retval_config.kxover_realm);
+		profile_release (profile);
 DPRINTF ("[kxover] certified_client_hostname = \"%s\"\n", retval_config.certified_client_hostname);
 DPRINTF ("[kxover] crossover_enctypes        = \"%s\"\n", retval_config.crossover_enctypes       );
 DPRINTF ("[kxover] crossover_lifedays        =  %d\n",    retval_config.crossover_lifedays       );
 DPRINTF ("[kxover] kxover_keytab             = \"%s\"\n", retval_config.kxover_keytab            );
 DPRINTF ("[kxover] kxover_name               = \"%s\"\n", retval_config.kxover_name              );
 DPRINTF ("[kxover] kxover_realm              = \"%s\"\n", retval_config.kxover_realm             );
-	retval_config.crossover_enctypev = etypes_names;
+		retval_config.crossover_enctypev = etypes_names;
+		first_call = FALSE;
+	}
 	return &retval_config;
 }
 
@@ -802,6 +805,7 @@ bool kerberos_random2key (uint32_t kvno, int32_t etype,
  * Yeah, this is rather an amiss in the POSIX standards...
  */
 bool kerberos_init (void) {
+DPRINTF ("kerberos_init() called with pid=%d / ppid=%d\n", getpid (), getppid ());
 	//
 	// Set TZ=UTC so the POSIX time functions make /some/ sense
 	char *tz_old = getenv ("TZ");
@@ -821,6 +825,10 @@ DPRINTF ("Failed to initialise Kerberos context for basic use\n");
 	//
 	// Load the configuration
 	const struct kerberos_config *krb5cfg = kerberos_config ();
+	if (krb5cfg == NULL) {
+		krb5_free_context (krb5_ctx);
+		return false;
+	}
 	//
 	// Calculate lists of encryption types
 	kerberos_init_etypes (krb5cfg->crossover_enctypes);
