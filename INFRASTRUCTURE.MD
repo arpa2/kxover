@@ -91,6 +91,12 @@ to be configured for the host-to-realm mapping, and
 this is independent of the rest of the queries that a
 KDC might want to make.
 
+When a KDC refuses a request and KXOVER resends it,
+there may be a problem due to the matching `Nonce`
+and other fields: the KDC may think it is finished,
+even when the situation may have advanced.  This is
+another point where some more leeway may be needed.
+
 
 ## KXOVER as a Kerberos CA
 

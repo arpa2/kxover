@@ -7,7 +7,7 @@
 - Construct a dedicated KXOVER server for daemon mode use
 - Construct a dedicated KXOVER client for daemon mode use
 - Construct a dedicated KXOVER client for command line use
-- Construct a dedicated KXOVER operations tool to list/get/set in KDB
+- Construct a dedicated KXOVER operations tool to list/add/del in KDB
 + Specialise KX-OFFER messages sent under STARTTLS as a KXOVER server
 + KX-OFFER += salt (both sides), += extensions, -= accept-*
 + KX' ASN.1 += format for "context info"; label is ranked "spec req"

@@ -27,7 +27,9 @@ endif(FAKE_TLS)
 
 set (KRB_SOURCE "${Kerberos5_SYSTEM}.c")
 
-set (kxover_SRC
+# For now, kxover-daemon is a stand-alone program.  We may merge with the tool.
+# One way of doing this is a large shared library with small front-end programs.
+set (kxover-daemon_SRC
 	backend.c
 	udpwrap.c
 	tcpwrap.c
@@ -38,8 +40,27 @@ set (kxover_SRC
 	main.c
 )
 
-add_executable (kxover ${kxover_SRC})
-target_link_libraries (kxover ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev) # (... tlspool)
+# For now, kxover-client holds mostly the same sources as kxover-daemon.
+# We can merge them later; as one binary with multiple names, perhaps.
+set (kxover-client_SRC
+	tool.c
+	${KRB_SOURCE}
+)
+
+# The kxover-service and kxover-client share code, but differentiate on name.
+set (kxover-service_SRC
+	tool.c
+	${KRB_SOURCE}
+)
+
+add_executable (kxover-daemon ${kxover-daemon_SRC})
+target_link_libraries (kxover-daemon ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev) # (... tlspool)
+
+add_executable (kxover-client ${kxover-client_SRC})
+target_link_libraries (kxover-client ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
+
+add_executable (kxover-service ${kxover-client_SRC})
+target_link_libraries (kxover-service ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
 
 
 #

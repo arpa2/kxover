@@ -87,6 +87,7 @@ set (test_udpwrap          ${CMAKE_CURRENT_BINARY_DIR}/test_udpwrap)
 set (test_tcpwrap          ${CMAKE_CURRENT_BINARY_DIR}/test_tcpwrap)
 set (test_kxclient         ${CMAKE_CURRENT_BINARY_DIR}/test_kxclient)
 set (test_kxserver         ${CMAKE_CURRENT_BINARY_DIR}/test_kxserver)
+set (kxclitool             ${CMAKE_BINARY_DIR}/src/kxover-client)
 
 set (test_bin ${CMAKE_CURRENT_SOURCE_DIR}/bin)
 set (dnssec_root_key $<SHELL_PATH:${test_bin}/dnssec-root-key>)
@@ -199,5 +200,14 @@ add_test (NAME t_kxover COMMAND ${py_setenv} ${pypeline}
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 endif ()
 endif ()
+
+# Approach the kadm5 database of MIT krb5 and list kxover keys
+#TODO# Report the -- line in both
+#TODO# if (CUT_THROAT_TESTING)
+#TODO# add_test (NAME t_tool_list COMMAND ${py_setenv} ${pypeline}
+#TODO# 	kadmind -r UNICORN.DEMO.ARPA2.ORG
+#TODO# 	--
+#TODO# 	${kxclitool} list UNICORN.DEMO.ARPA2.ORG PIXIE.DEMO.ARPA2.ORG)
+#TODO# endif()
 
 

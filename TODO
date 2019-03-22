@@ -34,10 +34,24 @@ SMALL CHANGES:
 + test (and possibly fix) timeouts of kadm5 login and/or connection
 + support installation and packaging (builds RPM, DEB, EXE, TAR*)
 + have an option to select whether to run tests that need online data (such as DNS)
+- remove old database entry and iterator code from mitkrb5.c
 - add a test that creates / removes a principal key via kadmin as kxover/public
 - add a test that creates / removes a crossover key via kadmin as kxover/public
 + find any source of spurious fork()s and kxover_client() restarts -- and squash it
 + find any unbalance in the event loop macro's
+X switch to unbound event mode, see libunbound/unbound-event.h
+X ubev doc: https://www.nlnetlabs.nl/documentation/unbound/doxygen/unbound-event_8h.html
+X ubev example: https://github.com/openbsd/src/blob/master/sbin/unwind/resolver.c#L1015
++ give each REALM its own kxover/public@REALM -- crossover with kadm5 is difficult
++ separately authenticate with kadm5 for each KXOVER -- as GSS-API does not keep it up
++ open and close the kerberos backend with an handle for a given crealm/srealm pair
++ make an iterator over keys under the crealm/srealm specific handle
+- silently remove expired keys when they do not match
+- consider iterating over all crossover keys under one's realm?
++ use the connection for a given crealm/srealm pair in src/tool.c
+- avoid that TGS tickets can be created through the KXOVER protocol
+- in mitkrb5.c move the kadm5 link for kerberos_access()     into a   thread
+- in mitkrb5.c move the kadm5 cleanups kerberos_disconnect() into the thread
 
 LARGER CHANGES:
 
@@ -46,6 +60,8 @@ LARGER CHANGES:
 + Actually exchange KX-OFFER messages -- and validate them
 + Implement key agreement and storage as Kerberos crossover keys
 - Protect the exchange with real TLS (but keep faketls.c for deployment testing)
+- If the kadm5 setup delay takes too, perhaps do it in parallel
+- Considering merging kxover-client, -server, -daemon.
 
 DESIGN MESMERISATIONS:
 

@@ -161,17 +161,125 @@ bool kerberos_random4key (uint32_t etype, size_t *random_len);
  *
  * Return true in case of error, false with errno otherwise.
  */
-bool kerberos_random2key (uint32_t kvno, int32_t etype,
+bool TODO_OLD_kerberos_random2key (uint32_t kvno, int32_t etype,
 				size_t random_len, uint8_t *random_bytes,
 				struct dercursor crealm, struct dercursor srealm);
 
 
+/* The opaque type of a kerberos database connection can
+ * be used for a combination of a client realm and a
+ * service realm.
+ * Because both client and service realm have the same
+ * crossovers keys, it is necessary to choose a role
+ * so that a connection can be made to the right side
+ * of the realm crossover game.
+ *
+ * Return true on success with out_connection set, or
+ * return false with errno set on failure, in which
+ * case out_connection will be set to NULL.  Assume
+ * that kerberos_disconnect never fails.
+ */
+struct kerberos_dbcnx;
+//
+bool kerberos_connect (struct dercursor crealm, struct dercursor srealm,
+				bool as_client,
+				struct kerberos_dbcnx **out_connection);
+//
+void kerberos_disconnect (struct kerberos_dbcnx *togo);
+
+
+/* Access for reading and/or writing.  This may or may
+ * not be a meaningful distinction to the underlying
+ * Kerberos implementation, depending on its idea of
+ * access control.  Later operations may therefore
+ * fail to write, even if write access was granted.
+ *
+ * This usually causes login to the local key store.
+ * Login may involve network traffic, like a GSS-API
+ * exchange, so we desire a callback when it is done.
+ * This call may be made from another thread!
+ *
+ * The login may take some time, up to seconds even.
+ * For this reason, the best use of this call is to
+ * invoke it as soon as the two realms and the local
+ * role (client or service realm) are known.  The
+ * idea is that the KXOVER progress can then happen
+ * in parallel with the Kerberos access setup.
+ *
+ * Return true on success, or false with errno on failure.
+ *
+ * The callback function is called with last_errno set
+ * to 0 on success, or an error number otherwise.
+ */
+typedef void (*kerberos_access_callback) (
+				struct kerberos_dbcnx *cnx,
+				void *cbdata,
+				int last_errno);
+//
+bool kerberos_access (struct kerberos_dbcnx *cnx,
+				bool as_writer,
+				kerberos_access_callback cb,
+				void *cbdata);
+
+
+/* Iterate over realm crossover keys.  Start without an
+ * entry, then call for the next entry to get the first,
+ * second and so on.  Data for the iterator is stored
+ * in the kerberos_dbcnx type and will be cleaned up
+ * during kerberos_disconnect().
+ *
+ * _reset() might report an error due to technical reasons
+ *          other than not finding a key;
+ * _next() reports a false result when no more keys are
+ *         available, which may be the case with the first
+ *         invocation (when no keys exist yet).
+ *
+ * Return true on succes, or false with errno on failure;
+ * only when nothing is found during _next() will errno
+ * be deliberately set to 0 for OK.
+ */
+bool kerberos_iter_reset (struct kerberos_dbcnx *cnx);
+bool kerberos_iter_next  (struct kerberos_dbcnx *cnx,
+				uint32_t *out_kvno,
+				int32_t *out_etype);
+
+
+/* Remove the given key from the key store under the
+ * current kerberos_dbcnx connection.  It is not
+ * generally safe to remove keys while iteration is
+ * in progress; as an exception, it is safe to delete
+ * the key reported last by kerberos_iter_next().
+ */
+bool kerberos_del_key (struct kerberos_dbcnx *cnx,
+				uint32_t kvno, int32_t etype);
+
+
+/* Load the number of random bytes required for a given
+ * encryption type.  This will be used when exporting key
+ * material from TLS.
+ *
+ * On some Kerberos systems, when the same KDC hosts both
+ * the client and service realm, there could be an error
+ * caused by the addition of the same key.  The implementation
+ * should in that case recognise that the key proposed for
+ * addition already exists, with the exact same data, and
+ * silently ignore the addition request.
+ *
+ * Return true in case of error, false with errno otherwise.
+ */
+bool kerberos_add_key (struct kerberos_dbcnx *cnx,
+				uint32_t kvno, int32_t etype,
+				size_t random_len, uint8_t *random_bytes);
+
+
 /* Setup what is desired for the Kerberos environment.
+ * You should call this before any kerberos_connect().
  */
 bool kerberos_init (void);
 
 
-/* CLeanup what was allocated for the Kerberos environment.
+/* Cleanup what was allocated for the Kerberos environment.
+ * You should call any kerberos_disconnect() before this.
  */
 bool kerberos_fini (void);
 

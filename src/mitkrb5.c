@@ -41,6 +41,27 @@
 // #endif
 
 
+/* The opaque data structure for a connection to the key store
+ * for a given client and service realm combination, and from
+ * either the client or service perspective.
+ */
+struct kerberos_dbcnx {
+	struct dercursor crealm;
+	struct dercursor srealm;
+	krb5_context kadm5_ctx;
+	void *kadm5_hdl;
+	krb5_principal kx_name;
+	kadm5_principal_ent_rec entry;
+	krb5_int16 key_idx;
+	krb5_key_data *key_arr;
+	pthread_t setup_thread;
+	kerberos_access_callback cb;
+	void *cbdata;
+	bool as_client;
+	bool got_entry;
+};
+
+
 
 /* Encryption types as standardised by IANA.
  * Source: https://www.iana.org/assignments/kerberos-parameters/kerberos-parameters.xhtml
@@ -437,6 +458,238 @@ bool kerberos_time_get_check_now (dercursor krbtime, time_t *out_tstamp) {
 }
 
 
+/* Internal procedure to load the key entry from the store.
+ *
+ * This used to be a synchronous or blocking procedure,
+ * but since it may take a while it is best isolated into
+ * a thread that runs while other actions are being taken.
+ *
+ * TODO: Actually make this a thread + cancel +libev signal.
+ */
+void load_key_entry (void *thread_data) {
+	struct kerberos_dbcnx *cnx= thread_data;
+	//
+	// Load the Kerberos configuration details
+	const struct kerberos_config *krb5cfg = kerberos_config ();
+	bool ok = (krb5cfg != NULL);
+	//
+	// Load the kdb5 entry for the realm crossover
+	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
+	if (ok) {
+DPRINTF ("Principal is 0x%016x\n", cnx->kx_name);
+		kadm5_ret_t extension = kadm5_get_principal (
+			kadm5_hdl, cnx->kx_name, &cnx->entry, query_mask);
+		if (extension == 0) {
+			/* Found, so we now have a filled entry */
+			cnx->got_entry = true;
+		} else if (extension == KADM5_UNK_PRINC) {
+			/* Not found, which means we can continue */
+DPRINTF ("No key found, but we can continue and add it (TODO: PERHAPS RIGHT NOW?)\n");
+			cnx->got_entry = false;
+		} else {
+			/* Other error... bail out */
+DPRINTF ("Failing kvno suggestion due to rejected lookup of principal name (extension is %d)\n", extension);
+			errno = EPERM;
+			ok = false;
+		}
+	}
+	//
+	// Assuming we got a principal entry, ensure that it ours to control
+	if (cnx->got_entry && (strcmp (cnx->entry.policy, "kxover") != 0)) {
+		/* The policy indicates other management */
+DPRINTF ("Failing kvno suggestion because the principal name falls under another policy, \"%s\"\n", cnx->entry.policy);
+		errno = EACCES;
+		ok = false;
+	}
+	//
+	// Connect to the kadmind -- which may take a few seconds
+	kadm5_config_params kadm5param;
+	memset (&kadm5param, 0, sizeof (kadm5param));
+	if (krb5cfg->kxover_realm != NULL) {
+DPRINTF ("Set kxover_realm to %s\n", krb5cfg->kxover_realm);
+		kadm5param.mask  |= KADM5_CONFIG_REALM;
+		kadm5param.realm  = krb5cfg->kxover_realm;
+	}
+	char *dbargs[] = { NULL };
+	if (ok && (kadm5_init_with_skey (kadm5_ctx,
+				krb5cfg->kxover_name,
+				krb5cfg->kxover_keytab,
+				NULL /* new style GSS-API auth, old was KADM5_ADMIN_SERVICE or "kadmin/admin" */,
+				&kadm5param,
+				KADM5_STRUCT_VERSION, KADM5_API_VERSION_4,
+				dbargs, &kadm5_hdl) != 0)) {
+DPRINTF ("Failed in kadm_init_with_skey()\n");
+		errno = EPERM;
+		ok = false;
+	}
+DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "(new-style,NULL)" /* OLD: KADM5_ADMIN_SERVICE or "kadmin/admin"*/, krb5cfg->kxover_name, krb5cfg->kxover_keytab);
+	//
+	// Report the result through the client's callback
+DPRINTF ("Invoking callback with ok=%d, so last_errno=%d\n", ok, ok ? 0 : errno);
+	cnx->cb (cnx, cnx->cbdata, ok ? 0 : errno);
+	//
+	// Signal the parent thread that the work is done
+	//TODO//ALT// wait until the parent lets us clean up
+	"TODO";
+}
+
+
+/* The opaque type of a kerberos database connection can
+ * be used for a combination of a client realm and a
+ * service realm.
+ * Because both client and service realm have the same
+ * crossovers keys, it is necessary to choose a role
+ * so that a connection can be made to the right side
+ * of the realm crossover game.
+ *
+ * Return true on success with out_connection set, or
+ * return false with errno set on failure, in which
+ * case out_connection will be set to NULL.  Assume
+ * that kerberos_disconnect never fails.
+ */
+struct kerberos_dbcnx;
+//
+bool kerberos_connect (struct dercursor crealm, struct dercursor srealm,
+				bool as_client,
+				struct kerberos_dbcnx **out_connection) {
+	//
+	// Allocate a structure for a new connection
+	struct kerberos_dbcnx *newcnx = calloc (1, sizeof (struct kerberos_dbcnx));
+	*out_connection = newcnx;
+	if (newcnx == NULL) {
+		errno = ENOMEM;
+		return false;
+	}
+	//
+	// Fill initial data structures
+	newcnx->crealm = crealm;
+	newcnx->srealm = srealm;
+	newcnx->as_client = as_client;
+	if (kadm5_init_krb5_context (&kadm5_ctx) != 0) {
+		errno = EACCES;
+		goto fail_free;
+	}
+	//
+	// Set kx_name to "krbtgt/SERVER.REALM@CLIENT.REALM"
+	if (!_krb5_handle_error (EINVAL, krb5_build_principal_ext (
+			kadm5_ctx, &newcnx->kx_name,
+			crealm.derlen, (char *) crealm.derptr,
+			6, "krbtgt",
+			srealm.derlen, (char *) srealm.derptr,
+			0))) {
+		errno = EINVAL;
+		goto fail_free;
+	}
+	//
+	// Return successfully
+	return true;
+fail_ext:
+	//TODO// free principal entry
+fail_free:
+	free (newcnx);
+	return false;
+}
+//
+void kerberos_disconnect (struct kerberos_dbcnx *togo) {
+	//
+	// Cleanup any active resources
+	//TODO// let the thread do all cleanup, to not block on phtread_join()
+	//TODO// use pthread_detach() to avoid the need for pthread_join()
+	//
+	// Free memory in use
+	//TODO// Do we have all these items / do the free()s ignore NULL?
+	kadm5_free_principal_ent (togo->kadm5_hdl, &togo->entry);
+	krb5_free_principal      (togo->kadm5_ctx, togo->kx_name);
+	//
+	// Free the kadm5 and krb5 connection
+	kadm5_flush       (togo->kadm5_hdl);
+	kadm5_destroy     (togo->kadm5_hdl);
+	krb5_free_context (togo->kadm5_ctx);
+	//
+	// Free the kerberos_dbcnx structure
+	free (togo);
+}
+
+
+/* Access for reading and/or writing.  This may or may
+ * not be a meaningful distinction to the underlying
+ * Kerberos implementation, depending on its idea of
+ * access control.  Later operations may therefore
+ * fail to write, even if write access was granted.
+ *
+ * This usually causes login to the local key store.
+ * Login may involve network traffic, like a GSS-API
+ * exchange, so we desire a callback when it is done.
+ * This call may be made from another thread!
+ *
+ * The login may take some time, up to seconds even.
+ * For this reason, the best use of this call is to
+ * invoke it as soon as the two realms and the local
+ * role (client or service realm) are known.  The
+ * idea is that the KXOVER progress can then happen
+ * in parallel with the Kerberos access setup.
+ *
+ * Return true on success, or false with errno on failure.
+ */
+bool kerberos_access (struct kerberos_dbcnx *cnx,
+				bool as_writer,
+				kerberos_access_callback cb,
+				void *cbdata) {
+	//
+	// Fill the connection object
+	assert ((cnx->cb == NULL) && (cnx->cbdata == NULL));
+	// ignore as_writer
+	cnx->cb = cb;
+	cnx->cbdata = cbdata;
+	//
+	// Start connecting in a separate thread
+	load_key_entry (cnx); //TODO// THREADED OPEN OF KADMIN CONNECTION
+	                      //TODO// THREAD CALLS BACK WITH CB AND CBDATA
+	return true;
+}
+
+
+/* Iterate over realm crossover keys.  Start without an
+ * entry, then call for the next entry to get the first,
+ * second and so on.  Data for the iterator is stored
+ * in the kerberos_dbcnx type and will be cleaned up
+ * during kerberos_disconnect().
+ *
+ * _reset() might report an error due to technical reasons
+ *          other than not finding a key;
+ * _next() reports a false result when no more keys are
+ *         available, which may be the case with the first
+ *         invocation (when no keys exist yet).
+ *
+ * Return true on succes, or false with errno on failure;
+ * only when nothing is found during _next() will errno
+ * be deliberately set to 0 for OK.
+ */
+bool kerberos_iter_reset (struct kerberos_dbcnx *cnx) {
+	if (cnx->got_entry) {
+		errno = ENOENT;
+		return false;
+	}
+	cnx->key_idx = 0;
+	cnx->key_arr = cnx->entry.key_data;
+	return true;
+}
+//
+bool kerberos_iter_next  (struct kerberos_dbcnx *cnx,
+				uint32_t *out_kvno,
+				int32_t *out_etype) {
+	if (cnx->key_idx >= cnx->entry.n_key_data) {
+		errno = 0;  /* success, but done */
+		return false;
+	}
+	//TODO// Silently remove expired entries
+	*out_kvno  = cnx->key_arr [cnx->key_idx].key_data_kvno;
+	*out_etype = cnx->key_arr [cnx->key_idx].key_data_type [0];
+	cnx->key_idx++;
+	return true;
+}
+
+
 /* Internal function to retrieve the most recent key with the
  * targeted kvno and etype.  The search is limited to relatively
  * recent keys, as the intention is to check if we have to ban
@@ -511,6 +764,8 @@ static krb5_key_data *_find_recent_key (kadm5_principal_ent_t entry,
  * corresponding rejection that a server would enforce.
  *
  * TODO: Function cleanup might be nicer with "ok" collection.
+ *
+ * TODO: OLD CODE.
  */
 bool kerberos_suggest_kvno (int32_t enctype,
 				struct dercursor *crealm, struct dercursor *srealm,
@@ -547,6 +802,7 @@ bool kerberos_suggest_kvno (int32_t enctype,
 	}
 	//
 	// Retrieve the database entry for the current principal name
+	//TODO// OLD CODE
 	kadm5_principal_ent_t entry = NULL;
 	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
 	kadm5_ret_t extension = kadm5_get_principal (
@@ -609,6 +865,7 @@ fail_princname:
 }
 
 
+#ifdef OLD_CODE_IS_LOVELY
 /* Internal function to import a keyblock for realm crossover
  * from client realm crealm to service realm srealm.  The
  * keyblock is initialised with random information exported
@@ -635,7 +892,8 @@ static bool _kxover_import_keyblock (krb5_keyblock *new_key,
 	//
 	// Find the krb5_principal and keys for kx_name
 	// We may check more than just _POLICY and _KEY_DATA
-	kadm5_principal_ent_t entry;
+	//TODO// OLD CODE
+	kadm5_principal_ent_t kentry;
 	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
 	kadm5_ret_t extension = kadm5_get_principal (
 			kadm5_hdl, kx_name, entry, query_mask);
@@ -721,6 +979,7 @@ fail_extension:
 	ok = false;
 	goto cleanup_extension;
 }
+#endif
 
 
 /* Retrieve the number of random bytes for a given encryption type.
@@ -741,6 +1000,7 @@ bool kerberos_random4key (uint32_t etype, size_t *random_len) {
 }
 
 
+#ifdef OLD_CODE_IS_LOVELY
 /* Load the number of random bytes required for a given
  * encryption type.  This will be used when exporting key
  * material from TLS.
@@ -795,6 +1055,7 @@ bool kerberos_random2key (uint32_t kvno, int32_t etype,
 	}
 	return ok;
 }
+#endif
 
 
 /* Setup what is desired for the Kerberos environment.
@@ -834,11 +1095,12 @@ DPRINTF ("Failed to initialise Kerberos context for basic use\n");
 	kerberos_init_etypes (krb5cfg->crossover_enctypes);
 	//
 	// Open a separate Kerberos context for kadm5
-	if (kadm5_init_krb5_context (&kadm5_ctx) != 0) {
+	if (kadm5_init_krb5_context (&kadm5_ctx) != 0) {	//TODO//NOTHERE//
 DPRINTF ("Failed to initialise Kerberos context for kadm5\n");
 		krb5_free_context (krb5_ctx);
 		return false;
 	}
+	//TODO//OLD_CODE_HEREORNOT?
 	kadm5_config_params kadm5param;
 	memset (&kadm5param, 0, sizeof (kadm5param));
 	if (krb5cfg->kxover_realm != NULL) {
@@ -862,6 +1124,7 @@ DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "(ne
 		krb5_free_context (krb5_ctx);
 		return false;
 	}
+	//TODO// Setup with no threads counted as running
 	//
 	// Success
 	return true;
@@ -871,7 +1134,8 @@ DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "(ne
 /* Cleanup what was allocated for the Kerberos environment.
  */
 bool kerberos_fini (void) {
-	krb5_free_context (kadm5_ctx);
+	//TODO// Wait until no more threads are running
+	krb5_free_context (kadm5_ctx);	//TODO//NOTHERE//
 	krb5_free_context (krb5_ctx);
 	return true;
 }
