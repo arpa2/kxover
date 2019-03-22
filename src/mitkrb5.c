@@ -231,8 +231,6 @@ static const struct kerberos_config default_config = {
 
 
 static krb5_context krb5_ctx;
-static krb5_context kadm5_ctx;
-static void *kadm5_hdl;
 
 
 /* Internal routine for error handling.  When no error has
@@ -473,22 +471,48 @@ void load_key_entry (void *thread_data) {
 	const struct kerberos_config *krb5cfg = kerberos_config ();
 	bool ok = (krb5cfg != NULL);
 	//
+	// Connect to the kadmind -- which may take a few seconds
+	kadm5_config_params kadm5param;
+	memset (&kadm5param, 0, sizeof (kadm5param));
+	if (krb5cfg->kxover_realm != NULL) {
+DPRINTF ("Set kxover_realm to %s\n", krb5cfg->kxover_realm);
+		kadm5param.mask  |= KADM5_CONFIG_REALM;
+		kadm5param.realm  = krb5cfg->kxover_realm;
+	}
+	char *dbargs[] = { NULL };
+	if (ok) {
+DPRINTF ("Calling kadm5_init_with_skey() with ctx=%d, name=%s, keytab=%s\n", cnx->kadm5_ctx, krb5cfg->kxover_name, krb5cfg->kxover_keytab);
+		kadm5_ret_t karet = kadm5_init_with_skey (cnx->kadm5_ctx,
+				krb5cfg->kxover_name,
+				krb5cfg->kxover_keytab,
+				NULL /* new style GSS-API auth, old was KADM5_ADMIN_SERVICE or "kadmin/admin" */,
+				&kadm5param,
+				KADM5_STRUCT_VERSION, KADM5_API_VERSION_4,
+				dbargs, &cnx->kadm5_hdl);
+		if (karet != 0) {
+DPRINTF ("Failed in kadm5_init_with_skey(): %d\n", karet);
+			errno = EPERM;
+			ok = false;
+		}
+	}
+	//
 	// Load the kdb5 entry for the realm crossover
 	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
 	if (ok) {
-DPRINTF ("Principal is 0x%016x\n", cnx->kx_name);
+DPRINTF ("Using kadm5_hdl=%d\n", cnx->kadm5_hdl);
 		kadm5_ret_t extension = kadm5_get_principal (
-			kadm5_hdl, cnx->kx_name, &cnx->entry, query_mask);
+			cnx->kadm5_hdl, cnx->kx_name, &cnx->entry, query_mask);
 		if (extension == 0) {
 			/* Found, so we now have a filled entry */
 			cnx->got_entry = true;
 		} else if (extension == KADM5_UNK_PRINC) {
 			/* Not found, which means we can continue */
-DPRINTF ("No key found, but we can continue and add it (TODO: PERHAPS RIGHT NOW?)\n");
+DPRINTF ("No key found, but we can add it when keys are inserted\n");
 			cnx->got_entry = false;
+			memset (&cnx->entry, 0, sizeof (cnx->entry));
 		} else {
 			/* Other error... bail out */
-DPRINTF ("Failing kvno suggestion due to rejected lookup of principal name (extension is %d)\n", extension);
+DPRINTF ("Failing to load key entry, extension is %d\n", extension);
 			errno = EPERM;
 			ok = false;
 		}
@@ -501,28 +525,7 @@ DPRINTF ("Failing kvno suggestion because the principal name falls under another
 		errno = EACCES;
 		ok = false;
 	}
-	//
-	// Connect to the kadmind -- which may take a few seconds
-	kadm5_config_params kadm5param;
-	memset (&kadm5param, 0, sizeof (kadm5param));
-	if (krb5cfg->kxover_realm != NULL) {
-DPRINTF ("Set kxover_realm to %s\n", krb5cfg->kxover_realm);
-		kadm5param.mask  |= KADM5_CONFIG_REALM;
-		kadm5param.realm  = krb5cfg->kxover_realm;
-	}
-	char *dbargs[] = { NULL };
-	if (ok && (kadm5_init_with_skey (kadm5_ctx,
-				krb5cfg->kxover_name,
-				krb5cfg->kxover_keytab,
-				NULL /* new style GSS-API auth, old was KADM5_ADMIN_SERVICE or "kadmin/admin" */,
-				&kadm5param,
-				KADM5_STRUCT_VERSION, KADM5_API_VERSION_4,
-				dbargs, &kadm5_hdl) != 0)) {
-DPRINTF ("Failed in kadm_init_with_skey()\n");
-		errno = EPERM;
-		ok = false;
-	}
-DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "(new-style,NULL)" /* OLD: KADM5_ADMIN_SERVICE or "kadmin/admin"*/, krb5cfg->kxover_name, krb5cfg->kxover_keytab);
+DPRINTF ("%s to initialise to kadm5 service %s as %s with keytab %s\n", ok ? "Succeeded" : "Failed", "(new-style,NULL)" /* OLD: KADM5_ADMIN_SERVICE or "kadmin/admin"*/, krb5cfg->kxover_name, krb5cfg->kxover_keytab);
 	//
 	// Report the result through the client's callback
 DPRINTF ("Invoking callback with ok=%d, so last_errno=%d\n", ok, ok ? 0 : errno);
@@ -565,14 +568,14 @@ bool kerberos_connect (struct dercursor crealm, struct dercursor srealm,
 	newcnx->crealm = crealm;
 	newcnx->srealm = srealm;
 	newcnx->as_client = as_client;
-	if (kadm5_init_krb5_context (&kadm5_ctx) != 0) {
+	if (kadm5_init_krb5_context (&newcnx->kadm5_ctx) != 0) {
 		errno = EACCES;
 		goto fail_free;
 	}
 	//
 	// Set kx_name to "krbtgt/SERVER.REALM@CLIENT.REALM"
 	if (!_krb5_handle_error (EINVAL, krb5_build_principal_ext (
-			kadm5_ctx, &newcnx->kx_name,
+			newcnx->kadm5_ctx, &newcnx->kx_name,
 			crealm.derlen, (char *) crealm.derptr,
 			6, "krbtgt",
 			srealm.derlen, (char *) srealm.derptr,
@@ -666,9 +669,10 @@ bool kerberos_access (struct kerberos_dbcnx *cnx,
  * be deliberately set to 0 for OK.
  */
 bool kerberos_iter_reset (struct kerberos_dbcnx *cnx) {
-	if (cnx->got_entry) {
-		errno = ENOENT;
-		return false;
+	if (!cnx->got_entry) {
+		/* maybe over the top; it is already zeroed */
+		cnx->entry.n_key_data = 0;
+		cnx->entry.key_data = NULL;
 	}
 	cnx->key_idx = 0;
 	cnx->key_arr = cnx->entry.key_data;
@@ -751,6 +755,7 @@ static krb5_key_data *_find_recent_key (kadm5_principal_ent_t entry,
 }
 
 
+#ifdef OLD_CODE_IS_LOVELY
 /* Suggest a new kvno, following the hard-coded policy for kvno
  * format MMDDS.  The output is based on a fairly recent key,
  * if any, and it assumes that all acceptable encryption types
@@ -793,7 +798,7 @@ bool kerberos_suggest_kvno (int32_t enctype,
 	// Set kx_name to "krbtgt/SERVER.REALM@CLIENT.REALM"
 	krb5_principal kx_name;
 	if (!_krb5_handle_error (EINVAL, krb5_build_principal_ext (
-			kadm5_ctx, &kx_name,
+			cnx->kadm5_ctx, &kx_name,
 			crealm->derlen, (char *) crealm->derptr,
 			6, "krbtgt",
 			srealm->derlen, (char *) srealm->derptr,
@@ -806,7 +811,7 @@ bool kerberos_suggest_kvno (int32_t enctype,
 	kadm5_principal_ent_t entry = NULL;
 	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
 	kadm5_ret_t extension = kadm5_get_principal (
-			kadm5_hdl, kx_name, entry, query_mask);
+			cnx->kadm5_hdl, kx_name, entry, query_mask);
 			//TODO// not &entry ?!?
 	if (extension == KADM5_UNK_PRINC) {
 		/* Not found, which means we can continue */
@@ -863,6 +868,7 @@ fail_extension:
 fail_princname:
 	return false;
 }
+#endif
 
 
 #ifdef OLD_CODE_IS_LOVELY
@@ -1093,37 +1099,6 @@ DPRINTF ("Failed to initialise Kerberos context for basic use\n");
 	//
 	// Calculate lists of encryption types
 	kerberos_init_etypes (krb5cfg->crossover_enctypes);
-	//
-	// Open a separate Kerberos context for kadm5
-	if (kadm5_init_krb5_context (&kadm5_ctx) != 0) {	//TODO//NOTHERE//
-DPRINTF ("Failed to initialise Kerberos context for kadm5\n");
-		krb5_free_context (krb5_ctx);
-		return false;
-	}
-	//TODO//OLD_CODE_HEREORNOT?
-	kadm5_config_params kadm5param;
-	memset (&kadm5param, 0, sizeof (kadm5param));
-	if (krb5cfg->kxover_realm != NULL) {
-DPRINTF ("Set kxover_realm to %s\n", krb5cfg->kxover_realm);
-		kadm5param.mask  |= KADM5_CONFIG_REALM;
-		kadm5param.realm  = krb5cfg->kxover_realm;
-	}
-	//
-	// Login: kadm5_init_with_skey() based on [kxover] configuration
-	//TODO// This may expire and therefore need to be refreshed regularly
-	char *dbargs[] = { NULL };
-	if (!_krb5_handle_error (EPERM, kadm5_init_with_skey (kadm5_ctx,
-				krb5cfg->kxover_name,
-				krb5cfg->kxover_keytab,
-				NULL /* new style GSS-API auth, old was KADM5_ADMIN_SERVICE or "kadmin/admin" */,
-				&kadm5param,
-				KADM5_STRUCT_VERSION, KADM5_API_VERSION_4,
-				dbargs, &kadm5_hdl))) {
-DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "(new-style,NULL)" /* OLD: KADM5_ADMIN_SERVICE or "kadmin/admin"*/, krb5cfg->kxover_name, krb5cfg->kxover_keytab);
-		krb5_free_context (kadm5_ctx);
-		krb5_free_context (krb5_ctx);
-		return false;
-	}
 	//TODO// Setup with no threads counted as running
 	//
 	// Success
@@ -1135,7 +1110,6 @@ DPRINTF ("Failed to initialise to kadm5 service %s as %s with keytab %s\n", "(ne
  */
 bool kerberos_fini (void) {
 	//TODO// Wait until no more threads are running
-	krb5_free_context (kadm5_ctx);	//TODO//NOTHERE//
 	krb5_free_context (krb5_ctx);
 	return true;
 }

@@ -144,10 +144,13 @@ int main (int argc, char *argv []) {
 	char *cmd    = (argc > 1) ? argv [1] : NULL;
 	char *srealm = (argc > 2) ? argv [2] : NULL;
 	char *crealm = (argc > 3) ? argv [3] : NULL;
-	if (ok && !kerberos_init ()) {
-		perror ("Failed to initialise Kerberos");
-		ok = false;
-		got_krb5 = true;
+	if (ok) {
+		if (kerberos_init ()) {
+			got_krb5 = true;
+		} else {
+			perror ("Failed to initialise Kerberos");
+			ok = false;
+		}
 	}
 	//
 	// Determine whether we are acting as a client or server

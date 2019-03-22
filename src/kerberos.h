@@ -155,17 +155,6 @@ const size_t kerberos_salt_bytes (void);
 bool kerberos_random4key (uint32_t etype, size_t *random_len);
 
 
-/* Load the number of random bytes required for a given
- * encryption type.  This will be used when exporting key
- * material from TLS.
- *
- * Return true in case of error, false with errno otherwise.
- */
-bool TODO_OLD_kerberos_random2key (uint32_t kvno, int32_t etype,
-				size_t random_len, uint8_t *random_bytes,
-				struct dercursor crealm, struct dercursor srealm);
-
-
 /* The opaque type of a kerberos database connection can
  * be used for a combination of a client realm and a
  * service realm.
@@ -249,6 +238,11 @@ bool kerberos_iter_next  (struct kerberos_dbcnx *cnx,
  * generally safe to remove keys while iteration is
  * in progress; as an exception, it is safe to delete
  * the key reported last by kerberos_iter_next().
+ *
+ * The implementation may insert the new principal for
+ * realm crossover if its last key is removed.
+ *
+ * Return true on success, false with errno otherwise.
  */
 bool kerberos_del_key (struct kerberos_dbcnx *cnx,
 				uint32_t kvno, int32_t etype);
@@ -265,7 +259,10 @@ bool kerberos_del_key (struct kerberos_dbcnx *cnx,
  * addition already exists, with the exact same data, and
  * silently ignore the addition request.
  *
- * Return true in case of error, false with errno otherwise.
+ * The implementation may insert the new principal for
+ * realm crossover if it does not exist yet.
+ *
+ * Return true on success, false with errno otherwise.
  */
 bool kerberos_add_key (struct kerberos_dbcnx *cnx,
 				uint32_t kvno, int32_t etype,

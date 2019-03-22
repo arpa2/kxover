@@ -52,6 +52,7 @@ X ubev example: https://github.com/openbsd/src/blob/master/sbin/unwind/resolver.
 - avoid that TGS tickets can be created through the KXOVER protocol
 - in mitkrb5.c move the kadm5 link for kerberos_access()     into a   thread
 - in mitkrb5.c move the kadm5 cleanups kerberos_disconnect() into the thread
+- setup for com_err reporting instead of sharing with codes from <errno.h>
 
 LARGER CHANGES:
 
