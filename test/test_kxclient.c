@@ -14,7 +14,6 @@
 
 #include <unistd.h>
 #include <signal.h>
-#include <errno.h>
 #include <time.h>
 
 #include "socket.h"
@@ -46,12 +45,12 @@ void cb_please_stop (EV_P_ ev_signal *evt, int revents) {
 }
 #endif
 
-void cb_kxover_done (void *cbdata, int result_errno,
+void cb_kxover_done (void *cbdata, kxerr_t result_errno,
 			struct dercursor client_realm,
 			struct dercursor service_realm) {
 	fprintf (stderr, "KXOVER finished for krbtgt/%.*s@%.*s\n", service_realm.derlen, service_realm.derptr, client_realm.derlen, client_realm.derptr);
 	if (result_errno != 0) {
-		fprintf (stderr, "KXOVER client failed: %d (%s)\n", result_errno, strerror (result_errno));
+		fprintf (stderr, "KXOVER client failed: %d (%s)\n", result_errno, error_message (result_errno));
 		sys_exit = 1;
 		ev_break (EV_A_ EVBREAK_ONE);
 		return;
@@ -63,6 +62,9 @@ void cb_prepare_flush (EV_P_ ev_prepare *evp, int revents) {
 	fflush (stderr);
 	fflush (stdout);
 }
+
+
+kxerr_t kxerrno = 0;
 
 
 int main (int argc, char *argv []) {
@@ -85,7 +87,7 @@ int main (int argc, char *argv []) {
 #if 0
 	struct sockaddr_storage sa_wrap;
 	if (!socket_parse (argv [1-TAKEN], argv [2-TAKEN], &sa_wrap)) {
-		perror ("TCP wrapper address/port failed to parse");
+		com_err (__FILE__, kxerrno, "TCP wrapper address/port failed to parse");
 		exit (1);
 	}
 #endif
@@ -101,7 +103,7 @@ int main (int argc, char *argv []) {
 	// Initialise the network sockets and accompanying event structures
 #if 0
 	if (!udpwrap_init (loop, &sa_wrap)) {
-		perror ("UDP wrapper failed to initialise");
+		com_err (__FILE__, kxerrno, "UDP wrapper failed to initialise");
 		exit (1);
 	}
 	printf ("Listening for UDP wrappables on ('%s', %s)\n", argv [1-TAKEN], argv [2-TAKEN]);
@@ -119,7 +121,7 @@ int main (int argc, char *argv []) {
 	// Initialise the Kerberos module
 printf ("kerberos_init ()...\n");
 	if (!kerberos_init ()) {
-		perror ("Kerberos initialisation failed");
+		com_err (__FILE__, kxerrno, "Kerberos initialisation failed");
 		exit (1);
 	}
 	static int c_k5init = 0; assert (c_k5init++ == 0);
@@ -157,7 +159,7 @@ printf ("kxover_client() starts now, for pid = %d, ppid = %d, at %d\n", getpid (
 	static int c_kxcli = 0; assert (c_kxcli++ == 0);
 	client_handle = kxover_client (cb_kxover_done, "cbdata", crealm, srealm);
 	if (!client_handle) {
-		perror ("Failed to start kxover_client");
+		com_err (__FILE__, kxerrno, "Failed to start kxover_client");
 		sys_exit = 1;
 	}
 

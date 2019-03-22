@@ -15,6 +15,15 @@
 
 #include <arpa/inet.h>
 
+#include <errno.h>
+#include <com_err.h>
+#include <errortable.h>
+
+
+/* Error codes for the entire KXOVER package, for com_err(), see src/errors.et */
+typedef long kxerr_t;
+extern kxerr_t kxerrno;
+
 
 /* Given a socket address, determine its length.
  *
@@ -43,7 +52,7 @@ bool socket_address (sa_family_t af, uint8_t *addr, uint16_t portnr, struct sock
  * IPv4 if we have to, but that fallback is deprecated.  The
  * port will be syntax-checked and range-checked.
  *
- * Return true on success, or false with errno set on error.
+ * Return true on success, or false with kxerrno set on error.
  */
 bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa);
 
@@ -54,7 +63,7 @@ bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa);
  *
  * The resulting socket is written to out_sox.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool socket_client (const struct sockaddr *peer, int contype, int *out_sox);
 
@@ -65,7 +74,7 @@ bool socket_client (const struct sockaddr *peer, int contype, int *out_sox);
  *
  * The resulting socket is written to out_sox.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool socket_server (const struct sockaddr *mine, int contype, int *out_sox);
 

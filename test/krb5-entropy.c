@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <assert.h>
 
-#include <errno.h>
-
 #include <krb5/krb5.h>
+
+#include <errno.h>
+#include <com_err.h>
+#include <errortable.h>
 
 
 #if 1
@@ -58,11 +60,13 @@ bool kerberos_prng (uint8_t *outptr, uint16_t outlen) {
 
 #endif
 
+kxerr_t kxerrno = 0;
+
 int main (int argc, char *argv[]) {
 	uint8_t salt [32];
 	assert (kerberos_init ());
 	if (!kerberos_prng (salt, sizeof (salt))) {
-		perror ("Entropy failure");
+		com_err (__FILE__, kxerrno, "Entropy failure");
 		exit (1);
 	}
 	char *comma = "";

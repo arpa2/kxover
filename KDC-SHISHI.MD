@@ -1,4 +1,4 @@
-# Using KXOVER with Shisi and Shisa
+# Using KXOVER with Shishi and Shisa
 
 To use this building target, set `Kerberos5_SYSTEM=shishi`
 during CMake configuration.  We have prepared a

@@ -8,8 +8,9 @@ enable_testing ()
 #
 
 set (SRC ${CMAKE_SOURCE_DIR}/src)
+set (ERR ${CMAKE_BINARY_DIR}/src)
 
-include_directories (${SRC})
+include_directories (${SRC} ${ERR})
 
 add_definitions (-DBACKEND_POOLSIZE=${BACKEND_POOLSIZE} ${Kerberos5_DEFINITIONS})
 
@@ -24,7 +25,7 @@ add_executable (krb5-entropy
 	krb5-entropy.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (krb5-entropy ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
+target_link_libraries (krb5-entropy ${com_err_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
 
 
 add_executable (test_udpwrap
@@ -33,7 +34,7 @@ add_executable (test_udpwrap
 	${SRC}/backend.c
 	${SRC}/udpwrap.c)
 
-target_link_libraries (test_udpwrap ev)
+target_link_libraries (test_udpwrap ${com_err_LIBRARIES} ev)
 
 
 add_executable (test_tcpwrap
@@ -45,7 +46,7 @@ add_executable (test_tcpwrap
 	${SRC}/tcpwrap.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (test_tcpwrap ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
+target_link_libraries (test_tcpwrap ${com_err_LIBRARIES} ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
 
 
 add_executable (test_kxclient
@@ -55,7 +56,7 @@ add_executable (test_kxclient
 	${SRC}/faketls.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (test_kxclient ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
+target_link_libraries (test_kxclient ${com_err_LIBRARIES} ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
 
 
 add_executable (test_kxserver
@@ -65,7 +66,7 @@ add_executable (test_kxserver
 	${SRC}/faketls.c
 	${SRC}/mitkrb5.c)
 
-target_link_libraries (test_kxserver ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
+target_link_libraries (test_kxserver ${com_err_LIBRARIES} ${Unbound_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES} ev)
 
 
 #

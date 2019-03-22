@@ -101,7 +101,7 @@ static void _setup_test_cb (faketls_test *ftt, bool test_result, starttls_cb_tes
 /* Initialise the starttls module.  This involves preparation of TLS
  * processing with the TLS Pool through its asynchronous API.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool starttls_init (EV_P) {
 	faketls_loop = loop;
@@ -125,7 +125,7 @@ bool starttls_init (EV_P) {
  * servers would provide just the latter.
  *
  * The callback is provided with the new file descriptor, or
- * -1 with errno set on error.  It is also given the data,
+ * -1 with kxerrno set on error.  It is also given the data,
  * which should suffice to reconstruct a byte pointer to the
  * data structure by subtraction of offsetof(struct,field).
  *
@@ -133,7 +133,7 @@ bool starttls_init (EV_P) {
  *
  *TODO* Can the TLS Pool handle/produce non-blocking sockets?
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  * This coincides with *tlsdata_outvar being non-NULL or NULL.
  */
 typedef void (*starttls_cb_fd_t) (void *cbdata, int fd_new);
@@ -143,7 +143,7 @@ bool starttls_handshake (int fd_old,
 			starttls_cb_fd_t cb, void *cbdata) {
 	faketls_data *tlsdata = calloc (1, sizeof (faketls_data));
 	if (tlsdata == 0) {
-		errno = ENOMEM;
+		kxerrno = ENOMEM;
 		return false;
 	}
 	*tlsdata_outvar = tlsdata;
@@ -239,7 +239,7 @@ bool starttls_remote_hostname_check_certificate (struct dercursor hostname,
  * This cannot be called before starttls_handshake() is done.
  *
  * The callback routine is called with true for success, or
- * false with errno set otherwise.
+ * false with kxerrno set otherwise.
  *
  * Return true when the callback was successfully initiated,
  * or false with errno set otherwise.
@@ -265,10 +265,10 @@ bool starttls_local_realm_check_certificate (struct dercursor localrealm,
  * This cannot be called before starttls_handshake() is done.
  *
  * The callback routine is called with true for success, or
- * false with errno set otherwise.
+ * false with kxerrno set otherwise.
  *
  * Return true when the callback was successfully initiated,
- * or false with errno set otherwise.
+ * or false with kxerrno set otherwise.
  */
 bool starttls_remote_realm_check_certificate (struct dercursor remoterealm,
 			struct starttls_data *tlsdata,
@@ -285,10 +285,10 @@ bool starttls_remote_realm_check_certificate (struct dercursor remoterealm,
  * same call, they would find the same key.
  *
  * The callback routine is called with true for success, or
- * false with errno set otherwise.
+ * false with kxerrno set otherwise.
  *
  * Return true when the callback was successfully initiated,
- * or false with errno set otherwise.
+ * or false with kxerrno set otherwise.
  */
 bool starttls_export_key (struct dercursor label, struct dercursor opt_ctxval,
 			uint16_t size_random, uint8_t *out_random,

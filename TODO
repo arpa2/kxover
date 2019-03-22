@@ -52,7 +52,9 @@ X ubev example: https://github.com/openbsd/src/blob/master/sbin/unwind/resolver.
 - avoid that TGS tickets can be created through the KXOVER protocol
 - in mitkrb5.c move the kadm5 link for kerberos_access()     into a   thread
 - in mitkrb5.c move the kadm5 cleanups kerberos_disconnect() into the thread
-- setup for com_err reporting instead of sharing with codes from <errno.h>
++ setup for com_err reporting instead of sharing with codes from <errno.h>
+- hash tables for general requests can avoid double handling in KXOVER _and_ MIT krb5
+- hash tables for crossover pairs seem less useful; DNS caching should help us here?
 
 LARGER CHANGES:
 

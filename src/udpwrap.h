@@ -48,8 +48,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include <errno.h>
-
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -64,7 +62,7 @@
  * Service starts immediately, so this should not be called before
  * the backend has been initialised.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool udpwrap_init (struct ev_loop *loop, struct sockaddr *ear);
 

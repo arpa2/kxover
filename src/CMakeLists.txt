@@ -27,6 +27,8 @@ endif(FAKE_TLS)
 
 set (KRB_SOURCE "${Kerberos5_SYSTEM}.c")
 
+add_com_err_table (errortable COM_ERR_SOURCE)
+
 # For now, kxover-daemon is a stand-alone program.  We may merge with the tool.
 # One way of doing this is a large shared library with small front-end programs.
 set (kxover-daemon_SRC
@@ -38,6 +40,7 @@ set (kxover-daemon_SRC
 	${KRB_SOURCE}
 	socket.c
 	main.c
+	${COM_ERR_SOURCE}
 )
 
 # For now, kxover-client holds mostly the same sources as kxover-daemon.
@@ -45,22 +48,24 @@ set (kxover-daemon_SRC
 set (kxover-client_SRC
 	tool.c
 	${KRB_SOURCE}
+	${COM_ERR_SOURCE}
 )
 
 # The kxover-service and kxover-client share code, but differentiate on name.
 set (kxover-service_SRC
 	tool.c
 	${KRB_SOURCE}
+	${COM_ERR_SOURCE}
 )
 
 add_executable (kxover-daemon ${kxover-daemon_SRC})
-target_link_libraries (kxover-daemon ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev) # (... tlspool)
+target_link_libraries (kxover-daemon ${com_err_LIBRARIES} ${Unbound_LIBRARIES} ${Quick-DER_LIBRARIES} ${Kerberos5_LIBRARIES} ev) # (... tlspool)
 
 add_executable (kxover-client ${kxover-client_SRC})
-target_link_libraries (kxover-client ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
+target_link_libraries (kxover-client ${com_err_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
 
 add_executable (kxover-service ${kxover-client_SRC})
-target_link_libraries (kxover-service ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
+target_link_libraries (kxover-service ${com_err_LIBRARIES} ${Kerberos5_LIBRARIES} ${Quick-DER_LIBRARIES})
 
 
 #

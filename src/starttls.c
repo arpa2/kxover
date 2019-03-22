@@ -164,7 +164,7 @@ static void cb_starttlspool_response (EV_P_ ev_io *evt, int revents) {
 /* Initialise the starttls module.  This involves preparation of TLS
  * processing with the TLS Pool through its asynchronous API.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool starttls_init (ev_loop *loop) {
 	/* Initialise the background timer; deferred so no failure */
@@ -190,7 +190,7 @@ bool starttls_init (ev_loop *loop) {
  * servers would provide just the latter.
  *
  * The callback is provided with the new file descriptor, or
- * -1 with errno set on error.  It is also given the data,
+ * -1 with kxerrno set on error.  It is also given the data,
  * which should suffice to reconstruct a byte pointer to the
  * data structure by subtraction of offsetof(struct,field).
  *
@@ -198,7 +198,7 @@ bool starttls_init (ev_loop *loop) {
  *
  *TODO* Can the TLS Pool handle/produce non-blocking sockets?
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  * This coincides with *tlsdata_outvar being non-NULL or NULL.
  */
 typedef void (*starttls_cb_fd_t) (void *cbdata, int fd_new);
@@ -210,18 +210,18 @@ bool starttls_handshake (int fd_old,
 	assert ( server_hostname.derptr != NULL);
 	assert (*server_hostname.derptr != '\0');
 	if (server_hostname.derlen > 127) {
-		errno = ERANGE;
+		kxerrno = ERANGE;
 		return NULL;
 	}
 	if (client_hostname.derptr != NULL) && (client_hostname.derlen > 127)) {
-		errno = ERANGE;
+		kxerrno = ERANGE;
 		return NULL;
 	}
 	/* Allocate and initialise tlsdata */
 	struct starttls_data *tlsdata = calloc (1, sizeof (struct starttls_data));
 	*tlsdata_outvar = tlsdata;
 	if (tlsdata == NULL) {
-		errno = ENOMEM;
+		kxerrno = ENOMEM;
 		return false;
 	}
 	//TODO// Initialise tlsdata: localid, remoteid, flags, command, ...
@@ -235,6 +235,7 @@ bool starttls_handshake (int fd_old,
 		return true;
 	} else {
 		/* The handshake failed, errno comes from TLS Pool */
+		kxerrno = errno;
 		cb (cbdata, -1);
 		free (tlsdata);
 		*tlsdata_outvar = NULL;
@@ -342,10 +343,10 @@ bool starttls_remote_hostname_check_certificate (struct dercursor hostname,
  * This cannot be called before starttls_handshake() is done.
  *
  * The callback routine is called with true for success, or
- * false with errno set otherwise.
+ * false with kxerrno set otherwise.
  *
  * Return true when the callback was successfully initiated,
- * or false with errno set otherwise.
+ * or false with kxerrno set otherwise.
  */
 typedef void (*starttls_cb_test) (void *cbdata, bool ok);
 bool starttls_local_realm_check_certificate (struct dercursor localrealm,
@@ -369,10 +370,10 @@ bool starttls_local_realm_check_certificate (struct dercursor localrealm,
  * This cannot be called before starttls_handshake() is done.
  *
  * The callback routine is called with true for success, or
- * false with errno set otherwise.
+ * false with kxerrno set otherwise.
  *
  * Return true when the callback was successfully initiated,
- * or false with errno set otherwise.
+ * or false with kxerrno set otherwise.
  */
 bool starttls_remote_realm_check_certificate (struct dercursor remoterealm,
 			struct starttls_data *tlsdata,
@@ -390,10 +391,10 @@ bool starttls_remote_realm_check_certificate (struct dercursor remoterealm,
  * same call, they would find the same key.
  *
  * The callback routine is called with true for success, or
- * false with errno set otherwise.
+ * false with kxerrno set otherwise.
  *
  * Return true when the callback was successfully initiated,
- * or false with errno set otherwise.
+ * or false with kxerrno set otherwise.
  */
 bool starttls_export_key (struct dercursor label, struct dercursor opt_ctxval,
 			uint16_t size_random, uint8_t *out_random,

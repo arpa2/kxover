@@ -58,6 +58,8 @@ void cb_prepare_flush (EV_P_ ev_prepare *evp, int revents) {
 }
 
 
+kxerr_t kxerrno = 0;
+
 int main (int argc, char *argv []) {
 
 	// Process the commandline arguments
@@ -68,13 +70,13 @@ int main (int argc, char *argv []) {
 
 	struct sockaddr_storage sa_wrap;
 	if (!socket_parse (argv [1], argv [2], (struct sockaddr *) &sa_wrap)) {
-		perror ("UDP wrapper address/port failed to parse");
+		com_err (__FILE__, kxerrno, "UDP wrapper address/port failed to parse");
 		exit (1);
 	}
 
 	struct sockaddr_storage sa_kdc;
 	if (!socket_parse (argv [3], argv [4], (struct sockaddr *) &sa_kdc)) {
-		perror ("KDC address/port failed to parse");
+		com_err (__FILE__, kxerrno, "KDC address/port failed to parse");
 		exit (1);
 	}
 
@@ -90,13 +92,13 @@ int main (int argc, char *argv []) {
 
 	// Initialise the network sockets and accompanying event structures
 	if (!udpwrap_init (EV_A_ (struct sockaddr *) &sa_wrap)) {
-		perror ("UDP wrapper failed to initialise");
+		com_err (__FILE__, kxerrno, "UDP wrapper failed to initialise");
 		exit (1);
 	}
 	printf ("Listening for UDP wrappables on ('%s', %s)\n", argv [1], argv [2]);
 
 	if (!backend_init (EV_A_ (struct sockaddr *) &sa_kdc)) {
-		perror ("KDC backend failed to initialise");
+		com_err (__FILE__, kxerrno, "KDC backend failed to initialise");
 		exit (1);
 	}
 	printf ("Listening for KDC answers from ('%s', %s)\n", argv [3], argv [4]);

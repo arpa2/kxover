@@ -61,6 +61,8 @@ void cb_prepare_flush (EV_P_ ev_prepare *evp, int revents) {
 }
 
 
+kxerr_t kxerrno = 0;
+
 int main (int argc, char *argv []) {
 
 	// Process the commandline arguments
@@ -71,13 +73,13 @@ int main (int argc, char *argv []) {
 
 	struct sockaddr_storage sa_wrap;
 	if (!socket_parse (argv [1], argv [2], (struct sockaddr *) &sa_wrap)) {
-		perror ("TCP wrapper address/port failed to parse");
+		com_err (__FILE__, kxerrno, "TCP wrapper address/port failed to parse");
 		exit (1);
 	}
 
 	struct sockaddr_storage sa_kdc;
 	if (!socket_parse (argv [3], argv [4], (struct sockaddr *) &sa_kdc)) {
-		perror ("KDC address/port failed to parse");
+		com_err (__FILE__, kxerrno, "KDC address/port failed to parse");
 		exit (1);
 	}
 
@@ -96,33 +98,33 @@ int main (int argc, char *argv []) {
 
 	// Initialise the Kerberos module
 	if (!kerberos_init ()) {
-		perror ("Kerberos initialisation failed");
+		com_err (__FILE__, kxerrno, "Kerberos initialisation failed");
 	}
 
 	// Initialise the KXOVER module (and Unbound)
 	if (!kxover_init (EV_A_ dnssec_rootkey_file, etc_hosts_file)) {
-		perror ("KXOVER initialisation failed");
+		com_err (__FILE__, kxerrno, "KXOVER initialisation failed");
 	}
 
 	// Initialise the network sockets and accompanying event structures
 	if (!tcpwrap_init (loop)) {
-		perror ("TCP wrapper failed to initialise");
+		com_err (__FILE__, kxerrno, "TCP wrapper failed to initialise");
 		exit (1);
 	}
 	if (!tcpwrap_service ((struct sockaddr *) &sa_wrap)) {
-		perror ("TCP wrapper failed to service port");
+		com_err (__FILE__, kxerrno, "TCP wrapper failed to service port");
 		exit (1);
 	}
 	printf ("Listening for TCP wrappables on ('%s', %s)\n", argv [1], argv [2]);
 
 	if (!backend_init (EV_A_ (struct sockaddr *) &sa_kdc)) {
-		perror ("KDC backend failed to initialise");
+		com_err (__FILE__, kxerrno, "KDC backend failed to initialise");
 		exit (1);
 	}
 	printf ("Listening for KDC answers from ('%s', %s)\n", argv [3], argv [4]);
 
 	if (!starttls_init (loop)) {
-		perror ("Failed to start TLS module");
+		com_err (__FILE__, kxerrno, "Failed to start TLS module");
 		exit (1);
 	}
 

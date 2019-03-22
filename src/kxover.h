@@ -31,6 +31,9 @@
 #include <netinet/in.h>
 
 #include <errno.h>
+#include <com_err.h>
+#include <errortable.h>
+
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -46,6 +49,11 @@
 /* Opaque declarations */
 struct kxover_data;
 struct starttls_data;
+
+
+/* Error codes for the entire KXOVER package, for com_err(), see src/errors.et */
+typedef long kxerr_t;
+extern kxerr_t kxerrno;
 
 
 /* The maximum number of bytes in a DERific Kerberos message */
@@ -71,7 +79,7 @@ typedef enum tcpkrb5 {
 
 
 /* Callback routines for reporting KXOVER success or failure
- * to the caller.  Success is reported with errno being zero.
+ * to the caller.  Success is reported with kxerrno being zero.
  * The same form is used for the client and server modes of
  * operation.
  *
@@ -89,7 +97,7 @@ typedef enum tcpkrb5 {
  * memory behind each realm's derptr.
  */
 typedef void (*cb_kxover_result) (void *cbdata,
-			int result_errno,
+			kxerr_t result_errno,
 			struct dercursor client_realm,
 			struct dercursor service_realm);
 
@@ -100,7 +108,7 @@ typedef void (*cb_kxover_result) (void *cbdata,
  * When opt_etc_hosts_file is not NULL, it is configured as
  * Unbound's source of ip/host mappings to report unsecurely.
  *
- * Return true on succes, or false with errno set on failure.
+ * Return true on succes, or false with kxerrno set on failure.
  */
 bool kxover_init (EV_P_ char *dnssec_rootkey_file, char *opt_etc_hosts_file);
 
@@ -144,7 +152,7 @@ tcpkrb5_t kxover_classify_kerberos_down (struct dercursor krb);
  *
  * This functions starts the KXOVER server process,
  * and returns an opaque object on success, or NULL
- * with errno set otherwise.  When an object is
+ * with kxerrno set otherwise.  When an object is
  * returned, the callback function will be called to
  * report the overall success or failure of the
  * KXOVER operation.
@@ -196,7 +204,7 @@ struct kxover_data *kxover_server (cb_kxover_result cb, void *cbdata,
  *
  * This functions starts the KXOVER client process,
  * and returns an opaque object on success, or NULL
- * with errno set otherwise.  When an object is
+ * with kxerrno set otherwise.  When an object is
  * returned, the callback function will be called to
  * report the overall success or failure of the
  * KXOVER operation.
@@ -231,7 +239,7 @@ struct kxover_data *kxover_client (cb_kxover_result cb, void *cbdata,
  *
  * The return value is either an opaque object as from
  * kxover_client() or it is NULL to indicate failure
- * to parse or setup the client, with detail in errno.
+ * to parse or setup the client, with detail in kxerrno.
  * This function will regularly fail, but it can be
  * freely tried.  Other errors or otherwise unfit
  * messages will simply return failure.

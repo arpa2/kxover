@@ -1,0 +1,88 @@
+error_table kxover
+
+error_code KXE_REALMSCHECK,
+	"Realm not supported by certificate"
+
+error_code KXE_DNSSEC_KDC,
+	"Bad KDC in _kerberos-tls._tcp SRV with DNSSEC"
+
+error_code KXE_DNSSEC_REALM,
+	"Bad REALM in _kerberos TXT with DNSSEC"
+
+error_code KXE_CONNECT,
+	"No connection to KXOVER server"
+
+error_code KXE_DNS_AAAA_A,
+	"Bad AAAA or A from DNS"
+
+error_code KXE_ERROR_EVENT,
+	"Error event"
+
+error_code KXE_DISCONNECTED,
+	"Disconnected"
+
+error_code KXE_SIZE_ERROR,
+	"TCP-prefix size error"
+
+error_code KXE_CLIENT_HOSTNAME,
+	"Client needs host name"
+
+error_code KXE_HOSTCHECK,
+	"Certified hostname not in SRV with DNSSEC"
+
+error_code KXE_KEY_STORING,
+	"Cannot store KXOVER key"
+
+error_code KXE_DNS_ERROR,
+	"Error using DNS"
+
+error_code KXE_DNS_TRUSTANCHOR,
+	"Cannot set trust anchor for DNSSEC"
+
+error_code KXE_DNS_HOSTSFILE,
+	"Cannot set hosts file for DNS"
+
+error_code KXE_DNS_EVENTHANDLE,
+	"DNS did not surrender event handle"
+
+error_code KXE_TRANSPORT,
+	"Malformed KXOVER message"
+
+error_code KXE_OFFER,
+	"Malformed KX-OFFER"
+
+error_code KXE_CANCELLED,
+	"KXOVER cancelled"
+
+error_code KXE_TIMEOUT,
+	"KXOVER timed out"
+
+error_code KXE_OFFER_PRINCIPAL,
+	"Bad principal in KX-OFFER"
+
+error_code KXE_OFFER_NAMETYPE,
+	"Bad name-type in principal in KX-OFFER"
+
+error_code KXE_OFFER_SERVICE,
+	"Bad service in principal in KX-OFFER"
+
+error_code KXE_OFFER_REALM,
+	"Bad REALM in KX-OFFER"
+
+error_code KXE_OFFER_TIMING,
+	"Bad timing in KX-OFFER"
+
+error_code KXE_MERGE_NAMETYPE,
+	"Badly merging KX-OFFER name-types"
+
+error_code KXE_MERGE_REALM,
+	"Badly merging KX-OFFER realms"
+
+error_code KXE_MERGE_PRINCIPAL,
+	"Badly merging KX-OFFER principals"
+
+error_code KXE_MERGE_TIMING,
+	"Badly merging KX-OFFER timing"
+
+end
+

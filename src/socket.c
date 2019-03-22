@@ -14,7 +14,6 @@
 
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h>
 
 
 #ifdef DEBUG
@@ -61,7 +60,7 @@ DPRINTF ("DEBUG: socket address (%d.%d.%d.%d, %d)\n", addr [0], addr [1], addr [
 	default:
 		break;
 	}
-	errno = EINVAL;
+	kxerrno = EINVAL;
 	return false;
 }
 
@@ -78,7 +77,7 @@ DPRINTF ("DEBUG: socket address (%d.%d.%d.%d, %d)\n", addr [0], addr [1], addr [
  * IPv4 if we have to, but that fallback is deprecated.  The
  * port will be syntax-checked and range-checked.
  *
- * Return true on success, or false with errno set on error.
+ * Return true on success, or false with kxerrno set on error.
  */
 bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa) {
 	//
@@ -87,11 +86,12 @@ bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa) {
 	if (opt_port != NULL) {
 		long p = strtol (opt_port, &opt_port, 10);
 		if (*opt_port != '\0') {
-			errno = EINVAL;
+			kxerrno = EINVAL;
 			return false;
 		}
 		if ((p == LONG_MIN) || (p == LONG_MAX) || (p <= 0) || (p > 65535)) {
 			/* errno is ERANGE */
+			kxerrno = errno;
 			return false;
 		}
 		portnr = (uint16_t) p;
@@ -119,7 +119,7 @@ bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa) {
 	}
 	//
 	// Report EINVAL as an error condition
-	errno = EINVAL;
+	kxerrno = EINVAL;
 	return false;
 }
 
@@ -130,7 +130,7 @@ bool socket_parse (char *addr, char *opt_port, struct sockaddr *out_sa) {
  *
  * The resulting socket is written to out_sox.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  * On error, *out_sox is set to -1.
  */
 bool socket_client (const struct sockaddr *peer, int contype, int *out_sox) {
@@ -163,7 +163,7 @@ fail:
  *
  * The resulting socket is written to out_sox.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  * On error, *out_sox is set to -1.
  */
 bool socket_server (const struct sockaddr *mine, int contype, int *out_sox) {

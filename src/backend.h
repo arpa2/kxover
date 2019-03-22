@@ -33,8 +33,11 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include <errno.h>
 #include <unistd.h>
+
+#include <errno.h>
+#include <com_err.h>
+#include <errortable.h>
 
 #include <ev.h>
 
@@ -53,6 +56,11 @@
 
 /* Opaque declarations */
 struct backend;
+
+
+/* Error codes for the entire KXOVER package, for com_err(), see src/errors.et */
+typedef long kxerr_t;
+extern kxerr_t kxerrno;
 
 
 /* The callback routines registered for writing and reading.
@@ -76,7 +84,7 @@ typedef bool (*backend_callback) (struct backend *beh, void *cbdata);
  * over UDP.  The address is assumed to be IPv6 formatted,
  * but that includes IPv4 prefixed with two colons.
  *
- * Return true on success, false on failure with errno set.
+ * Return true on success, false on failure with kxerrno set.
  */
 bool backend_init (struct ev_loop *loop, struct sockaddr *kdc);
 
@@ -93,7 +101,7 @@ bool backend_init (struct ev_loop *loop, struct sockaddr *kdc);
  * made during this call, so before the backend handle is
  * even shown to the calling environment.
  *
- * Return a handle on success, or NULL with errno set on failure.
+ * Return a handle on success, or NULL with kxerrno set on failure.
  */
 struct backend *backend_start (void *cbdata,
 			backend_callback cb_write_req,
@@ -118,7 +126,7 @@ void backend_stop (struct backend *beh);
  * a new backend structure, to be used in subsequent calls to this
  * module.
  *
- * Return false on failure with errno set, or true on success.
+ * Return false on failure with kxerrno set, or true on success.
  */
 bool backend_send (struct backend *beh,
 		uint8_t const *inptr, const uint32_t inlen);
@@ -132,7 +140,7 @@ bool backend_send (struct backend *beh,
  *
  * The backend must still be unlocked explicitly!
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool backend_recv (struct backend *beh,
 			uint8_t *outptr, uint32_t *outlen);

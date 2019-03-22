@@ -44,8 +44,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#include <errno.h>
-
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -59,7 +57,7 @@ struct backend;
 /* Initialise the TCP wrapper module.  This must be called
  * before the actual service is started with tcpwrap_service().
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool tcpwrap_init (struct ev_loop *loop);
 
@@ -76,7 +74,7 @@ bool tcpwrap_init (struct ev_loop *loop);
  * Service starts immediately, so this should not be called before
  * the backend has been initialised.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool tcpwrap_service (struct sockaddr *ear);
 

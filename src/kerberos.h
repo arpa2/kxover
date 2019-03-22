@@ -7,8 +7,16 @@
 #ifndef KXOVER_KERBEROS_H
 #define KXOVER_KERBEROS_H
 
+#include <errno.h>
+#include <com_err.h>
+#include <errortable.h>
 
 #include <quick-der/api.h>
+
+
+/* Error codes for the entire KXOVER package, for com_err(), see src/errors.et */
+typedef long kxerr_t;
+extern kxerr_t kxerrno;
 
 
 /* Encryption types as standardised by IANA.
@@ -56,14 +64,14 @@ const struct kerberos_config *kerberos_config (void);
 
 /* Use Kerberos to generate pseudo-random bytes.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_prng (uint8_t *outptr, uint16_t outlen);
 
 
 /* Install a new krbgtgt/SERVICE.REALM@CLIENT.REALM with the given key.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool install_crossover_key (int TODO);
 
@@ -94,7 +102,7 @@ const struct dercursor kerberos_localrealm2hostname (struct dercursor local_real
  *
  * Note that TZ=UTC thanks to kerberos_init().
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_time_set (time_t tstamp, dercursor out_krbtime);
 
@@ -105,7 +113,7 @@ bool kerberos_time_set (time_t tstamp, dercursor out_krbtime);
  *
  * Note that TZ=UTC thanks to kerberos_init().
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_time_get (dercursor krbtime, time_t *out_tstamp);
 
@@ -115,7 +123,7 @@ bool kerberos_time_get (dercursor krbtime, time_t *out_tstamp);
  * The tstamp value can be output, but it may be NULL if this
  * is not desired.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_time_set_now (time_t *opt_out_tstamp, dercursor out_krbtime);
 
@@ -125,7 +133,7 @@ bool kerberos_time_set_now (time_t *opt_out_tstamp, dercursor out_krbtime);
  * in practice meaning a window of about 5 minutes around the
  * system's idea of time.
  *
- * Return true on success, or false with errno set otherwise.
+ * Return true on success, or false with kxerrno set otherwise.
  */
 bool kerberos_time_get_check_now (dercursor krbtime, time_t *out_tstamp);
 
@@ -150,7 +158,7 @@ const size_t kerberos_salt_bytes (void);
 
 /* Retrieve the number of random bytes for a given encryption type.
  *
- * Return true on success, or false with errno set otherwise.
+ * Return true on success, or false with kxerrno set otherwise.
  */
 bool kerberos_random4key (uint32_t etype, size_t *random_len);
 
@@ -164,7 +172,7 @@ bool kerberos_random4key (uint32_t etype, size_t *random_len);
  * of the realm crossover game.
  *
  * Return true on success with out_connection set, or
- * return false with errno set on failure, in which
+ * return false with kxerrno set on failure, in which
  * case out_connection will be set to NULL.  Assume
  * that kerberos_disconnect never fails.
  */
@@ -195,7 +203,7 @@ void kerberos_disconnect (struct kerberos_dbcnx *togo);
  * idea is that the KXOVER progress can then happen
  * in parallel with the Kerberos access setup.
  *
- * Return true on success, or false with errno on failure.
+ * Return true on success, or false with kxerrno on failure.
  *
  * The callback function is called with last_errno set
  * to 0 on success, or an error number otherwise.
@@ -223,8 +231,8 @@ bool kerberos_access (struct kerberos_dbcnx *cnx,
  *         available, which may be the case with the first
  *         invocation (when no keys exist yet).
  *
- * Return true on succes, or false with errno on failure;
- * only when nothing is found during _next() will errno
+ * Return true on succes, or false with kxerrno on failure;
+ * only when nothing is found during _next() will kxerrno
  * be deliberately set to 0 for OK.
  */
 bool kerberos_iter_reset (struct kerberos_dbcnx *cnx);
@@ -242,7 +250,7 @@ bool kerberos_iter_next  (struct kerberos_dbcnx *cnx,
  * The implementation may insert the new principal for
  * realm crossover if its last key is removed.
  *
- * Return true on success, false with errno otherwise.
+ * Return true on success, false with kxerrno otherwise.
  */
 bool kerberos_del_key (struct kerberos_dbcnx *cnx,
 				uint32_t kvno, int32_t etype);
@@ -262,7 +270,7 @@ bool kerberos_del_key (struct kerberos_dbcnx *cnx,
  * The implementation may insert the new principal for
  * realm crossover if it does not exist yet.
  *
- * Return true on success, false with errno otherwise.
+ * Return true on success, false with kxerrno otherwise.
  */
 bool kerberos_add_key (struct kerberos_dbcnx *cnx,
 				uint32_t kvno, int32_t etype,

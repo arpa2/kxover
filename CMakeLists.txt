@@ -55,6 +55,7 @@ set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${ARPA2CM_MODULE_PATH})
 
 find_package (Unbound REQUIRED)
 find_package (Quick-DER REQUIRED)
+find_package (com_err REQUIRED)
 
 # Constrain the acceptable KERBEROS system names
 # to those that are supported in our source code

@@ -187,7 +187,7 @@ static void _listener_handler (struct ev_loop *loop, ev_io *evt, int _revents) {
  * Service starts immediately, so this should not be called before
  * the backend has been initialised.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool udpwrap_init (struct ev_loop *loop, struct sockaddr *ear) {
 	int sox = -1;
@@ -197,6 +197,7 @@ bool udpwrap_init (struct ev_loop *loop, struct sockaddr *ear) {
 	}
 	wd = calloc (1, sizeof (struct wrapdata));
 	if (wd == NULL) {
+		kxerrno = ENOMEM;
 		goto fail;
 	}
 	wd->socket = sox;

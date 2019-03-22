@@ -216,7 +216,7 @@ retry:
  * because it will be cleaned up after this call completes.
  */
 static void tcpwrap_cb_kxover_done (void *cbdata,
-			int result_errno,
+			kxerr_t result_errno,
 			struct dercursor client_realm,
 			struct dercursor service_realm) {
 	struct wrapdata *wd = cbdata;
@@ -226,7 +226,7 @@ service_realm.derlen, service_realm.derptr,
 client_realm.derlen, client_realm.derptr);
 	if (result_errno != 0) {
 		//TODO// Report failure to even setup the kxover_server
-DPRINTF ("DEBUG: Failed while running the kxover_server: %d (%s)\n", result_errno, strerror (result_errno));
+DPRINTF ("DEBUG: Failed while running the kxover_server: %d (%s)\n", result_errno, error_message (result_errno));
 		goto disconnect;
 	}
 	/* We kept wd->reqptr for the realm strings, but can clean now */

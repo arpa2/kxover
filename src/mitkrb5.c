@@ -237,12 +237,13 @@ static krb5_context krb5_ctx;
  * occurred, return true and do nothing.  When an error
  * did occur, print it and return false.
  */
-static bool _krb5_handle_error (int as_errno, krb5_error_code kerrno) {
+static bool _krb5_handle_error (kxerr_t as_errno, krb5_error_code kerrno) {
 	if (kerrno != 0) {
 		const char *kerrstr = krb5_get_error_message (krb5_ctx, kerrno);
 		fprintf (stderr, "ERROR: %s\n", kerrstr);
 		krb5_free_error_message (krb5_ctx, kerrstr);
-		errno = as_errno;
+		//TODO:OLD:PRE_COM_ERR// kxerrno = as_errno;
+		kxerrno = kerrno;
 		return false;
 	}
 	return true;
@@ -326,7 +327,7 @@ DPRINTF ("[kxover] kxover_realm              = \"%s\"\n", retval_config.kxover_r
 
 /* Use Kerberos to generate pseudo-random bytes.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_prng (uint8_t *outptr, uint16_t outlen) {
 	krb5_data data;
@@ -340,10 +341,10 @@ bool kerberos_prng (uint8_t *outptr, uint16_t outlen) {
 
 /* Install a new krbgtgt/SERVICE.REALM@CLIENT.REALM with the given key.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool install_crossover_key (int TODO) {
-	errno = ENOSYS;
+	kxerrno = ENOSYS;
 	return false;
 }
 
@@ -369,12 +370,12 @@ const struct dercursor kerberos_localrealm2hostname (struct dercursor local_real
  *
  * Note that TZ=UTC thanks to kerberos_init().
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_time_set (time_t tstamp, dercursor out_krbtime) {
 	struct tm tmp_tm;
 	if ((out_krbtime.derptr == NULL) || (out_krbtime.derlen != KERBEROS_TIME_STRLEN)) {
-		errno = EINVAL;
+		kxerrno = EINVAL;
 		return false;
 	}
 	localtime_r ((const time_t *) &tstamp, &tmp_tm);
@@ -390,12 +391,13 @@ bool kerberos_time_set (time_t tstamp, dercursor out_krbtime) {
  * The tstamp value can be output, but it may be NULL if this
  * is not desired.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_time_set_now (time_t *opt_out_tstamp, dercursor out_krbtime) {
 	time_t now = time (opt_out_tstamp);
 	if (now == (time_t) -1) {
 		/* errno is set to EOVERFLOW */
+		kxerrno = errno;
 		return false;
 	}
 	return kerberos_time_set (now, out_krbtime);
@@ -408,7 +410,7 @@ bool kerberos_time_set_now (time_t *opt_out_tstamp, dercursor out_krbtime) {
  *
  * Note that TZ=UTC thanks to kerberos_init().
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  */
 bool kerberos_time_get (dercursor krbtime, time_t *out_tstamp) {
 	char *strptime ();
@@ -426,7 +428,7 @@ bool kerberos_time_get (dercursor krbtime, time_t *out_tstamp) {
 	*out_tstamp = mktime (&tmp_tm);
 	return true;
 bailout_EINVAL:
-	errno = EINVAL;
+	kxerrno = EINVAL;
 	return false;
 }
 
@@ -436,7 +438,7 @@ bailout_EINVAL:
  * in practice meaning a window of about 5 minutes around the
  * system's idea of time.
  *
- * Return true on success, or false with errno set otherwise.
+ * Return true on success, or false with kxerrno set otherwise.
  */
 bool kerberos_time_get_check_now (dercursor krbtime, time_t *out_tstamp) {
 	if (!kerberos_time_get (krbtime, out_tstamp)) {
@@ -446,10 +448,11 @@ bool kerberos_time_get_check_now (dercursor krbtime, time_t *out_tstamp) {
 	now = time (NULL);
 	if (now == (time_t) -1) {
 		/* errno is set to EOVERFLOW */
+		kxerrno = errno;
 		return false;
 	}
 	if ((*out_tstamp < now - 2*60) || (*out_tstamp > now + 3*60)) {
-		errno = ETIMEDOUT;
+		kxerrno = ETIMEDOUT;
 		return false;
 	}
 	return true;
@@ -490,8 +493,8 @@ DPRINTF ("Calling kadm5_init_with_skey() with ctx=%d, name=%s, keytab=%s\n", cnx
 				KADM5_STRUCT_VERSION, KADM5_API_VERSION_4,
 				dbargs, &cnx->kadm5_hdl);
 		if (karet != 0) {
-DPRINTF ("Failed in kadm5_init_with_skey(): %d\n", karet);
-			errno = EPERM;
+DPRINTF ("Failed in kadm5_init_with_skey(): %s (%d)\n", error_message (karet), karet);
+			kxerrno = karet;
 			ok = false;
 		}
 	}
@@ -500,20 +503,20 @@ DPRINTF ("Failed in kadm5_init_with_skey(): %d\n", karet);
 	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
 	if (ok) {
 DPRINTF ("Using kadm5_hdl=%d\n", cnx->kadm5_hdl);
-		kadm5_ret_t extension = kadm5_get_principal (
+		kadm5_ret_t karet = kadm5_get_principal (
 			cnx->kadm5_hdl, cnx->kx_name, &cnx->entry, query_mask);
-		if (extension == 0) {
+		if (karet == 0) {
 			/* Found, so we now have a filled entry */
 			cnx->got_entry = true;
-		} else if (extension == KADM5_UNK_PRINC) {
+		} else if (karet == KADM5_UNK_PRINC) {
 			/* Not found, which means we can continue */
 DPRINTF ("No key found, but we can add it when keys are inserted\n");
 			cnx->got_entry = false;
 			memset (&cnx->entry, 0, sizeof (cnx->entry));
 		} else {
 			/* Other error... bail out */
-DPRINTF ("Failing to load key entry, extension is %d\n", extension);
-			errno = EPERM;
+DPRINTF ("Failing to load key entry, karet is %s (%d)\n", error_message (karet), karet);
+			kxerrno = karet;
 			ok = false;
 		}
 	}
@@ -522,14 +525,14 @@ DPRINTF ("Failing to load key entry, extension is %d\n", extension);
 	if (cnx->got_entry && (strcmp (cnx->entry.policy, "kxover") != 0)) {
 		/* The policy indicates other management */
 DPRINTF ("Failing kvno suggestion because the principal name falls under another policy, \"%s\"\n", cnx->entry.policy);
-		errno = EACCES;
+		kxerrno = EACCES;
 		ok = false;
 	}
 DPRINTF ("%s to initialise to kadm5 service %s as %s with keytab %s\n", ok ? "Succeeded" : "Failed", "(new-style,NULL)" /* OLD: KADM5_ADMIN_SERVICE or "kadmin/admin"*/, krb5cfg->kxover_name, krb5cfg->kxover_keytab);
 	//
 	// Report the result through the client's callback
-DPRINTF ("Invoking callback with ok=%d, so last_errno=%d\n", ok, ok ? 0 : errno);
-	cnx->cb (cnx, cnx->cbdata, ok ? 0 : errno);
+DPRINTF ("Invoking callback with ok=%d, so last_errno=%d\n", ok, ok ? 0 : kxerrno);
+	cnx->cb (cnx, cnx->cbdata, ok ? 0 : kxerrno);
 	//
 	// Signal the parent thread that the work is done
 	//TODO//ALT// wait until the parent lets us clean up
@@ -546,7 +549,7 @@ DPRINTF ("Invoking callback with ok=%d, so last_errno=%d\n", ok, ok ? 0 : errno)
  * of the realm crossover game.
  *
  * Return true on success with out_connection set, or
- * return false with errno set on failure, in which
+ * return false with kxerrno set on failure, in which
  * case out_connection will be set to NULL.  Assume
  * that kerberos_disconnect never fails.
  */
@@ -560,7 +563,7 @@ bool kerberos_connect (struct dercursor crealm, struct dercursor srealm,
 	struct kerberos_dbcnx *newcnx = calloc (1, sizeof (struct kerberos_dbcnx));
 	*out_connection = newcnx;
 	if (newcnx == NULL) {
-		errno = ENOMEM;
+		kxerrno = ENOMEM;
 		return false;
 	}
 	//
@@ -568,8 +571,9 @@ bool kerberos_connect (struct dercursor crealm, struct dercursor srealm,
 	newcnx->crealm = crealm;
 	newcnx->srealm = srealm;
 	newcnx->as_client = as_client;
-	if (kadm5_init_krb5_context (&newcnx->kadm5_ctx) != 0) {
-		errno = EACCES;
+	kadm5_ret_t karet = kadm5_init_krb5_context (&newcnx->kadm5_ctx);
+	if (karet != 0) {
+		kxerrno = karet;
 		goto fail_free;
 	}
 	//
@@ -580,7 +584,7 @@ bool kerberos_connect (struct dercursor crealm, struct dercursor srealm,
 			6, "krbtgt",
 			srealm.derlen, (char *) srealm.derptr,
 			0))) {
-		errno = EINVAL;
+		/* kxerrno has been set */
 		goto fail_free;
 	}
 	//
@@ -632,7 +636,7 @@ void kerberos_disconnect (struct kerberos_dbcnx *togo) {
  * idea is that the KXOVER progress can then happen
  * in parallel with the Kerberos access setup.
  *
- * Return true on success, or false with errno on failure.
+ * Return true on success, or false with kxerrno on failure.
  */
 bool kerberos_access (struct kerberos_dbcnx *cnx,
 				bool as_writer,
@@ -664,8 +668,8 @@ bool kerberos_access (struct kerberos_dbcnx *cnx,
  *         available, which may be the case with the first
  *         invocation (when no keys exist yet).
  *
- * Return true on succes, or false with errno on failure;
- * only when nothing is found during _next() will errno
+ * Return true on succes, or false with kxerrno on failure;
+ * only when nothing is found during _next() will kxerrno
  * be deliberately set to 0 for OK.
  */
 bool kerberos_iter_reset (struct kerberos_dbcnx *cnx) {
@@ -683,7 +687,7 @@ bool kerberos_iter_next  (struct kerberos_dbcnx *cnx,
 				uint32_t *out_kvno,
 				int32_t *out_etype) {
 	if (cnx->key_idx >= cnx->entry.n_key_data) {
-		errno = 0;  /* success, but done */
+		kxerrno = 0;  /* success, but done */
 		return false;
 	}
 	//TODO// Silently remove expired entries
@@ -761,7 +765,7 @@ static krb5_key_data *_find_recent_key (kadm5_principal_ent_t entry,
  * if any, and it assumes that all acceptable encryption types
  * should agree.
  *
- * Return true on success, or false with errno set on failure.
+ * Return true on success, or false with kxerrno set on failure.
  *
  * Normally, *not_before is set to 0, but it may be set higher
  * to advise waiting a while before trying.  The pressing reason
@@ -783,7 +787,7 @@ bool kerberos_suggest_kvno (int32_t enctype,
 	time_t now;
 	if (time (&now) == (time_t) -1) {
 		/* unsure if errno is already set */
-		errno = EOVERFLOW;
+		kxerrno = EOVERFLOW;
 		return false;
 	}
 	//
@@ -791,6 +795,7 @@ bool kerberos_suggest_kvno (int32_t enctype,
 	struct tm scatter;
 	if (gmtime_r (&now, &scatter) == NULL) {
 		/* errno is set */
+		kxerrno = errno;
 		return false;
 	}
 	uint32_t current = scatter.tm_mon * 1000 + scatter.tm_mday * 10;
@@ -810,24 +815,24 @@ bool kerberos_suggest_kvno (int32_t enctype,
 	//TODO// OLD CODE
 	kadm5_principal_ent_t entry = NULL;
 	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
-	kadm5_ret_t extension = kadm5_get_principal (
+	kadm5_ret_t karet = kadm5_get_principal (
 			cnx->kadm5_hdl, kx_name, entry, query_mask);
 			//TODO// not &entry ?!?
-	if (extension == KADM5_UNK_PRINC) {
+	if (karet == KADM5_UNK_PRINC) {
 		/* Not found, which means we can continue */
-		goto success_no_extension;
-	} else if (extension != 0) {
+		goto success_no_karet;
+	} else if (karet != 0) {
 		/* Other error... bail out */
 DPRINTF ("Failing kvno suggestion due to failed lookup of principal name\n");
-		errno = EPERM;
-		goto fail_extension;
+		kxerrno = karet;
+		goto fail_karet;
 	}
 	/* The principal exists.  Is it ours? */
 	if (strcmp (entry->policy, "kxover") != 0) {
 		/* The policy indicates other management */
 DPRINTF ("Failing kvno suggestion because the principal name falls under another policy, \"%s\"\n", entry->policy);
-		errno = EACCES;
-		goto fail_extension;
+		kxerrno = EACCES;
+		goto fail_karet;
 	}
 	//
 	// Find recent keys and see if they suggest changes
@@ -858,11 +863,11 @@ DPRINTF ("Returning suggested kvno = %d not before timestamp %d (now is %d)\n", 
 	kadm5_free_principal_ent (kadm5_hdl, entry);
 	//
 	// Return the suggested kvno (and defer_seconds)
-success_no_extension:
+success_no_karet:
 	krb5_free_principal (kadm5_ctx, kx_name);
 	*suggestion = current;
 	return true;
-fail_extension:
+fail_karet:
 	kadm5_free_principal_ent (kadm5_hdl, entry);
 	krb5_free_principal (kadm5_ctx, kx_name);
 fail_princname:
@@ -878,7 +883,7 @@ fail_princname:
  * from TLS and based on the keyinfo that reflects both the
  * KX-OFFER structures.
  *
- * Return true on success, or false with errno set otherwise.
+ * Return true on success, or false with kxerrno set otherwise.
  */
 static bool _kxover_import_keyblock (krb5_keyblock *new_key,
 			struct dercursor crealm, struct dercursor srealm,
@@ -901,22 +906,22 @@ static bool _kxover_import_keyblock (krb5_keyblock *new_key,
 	//TODO// OLD CODE
 	kadm5_principal_ent_t kentry;
 	long query_mask = KADM5_POLICY | KADM5_KEY_DATA;
-	kadm5_ret_t extension = kadm5_get_principal (
+	kadm5_ret_t karet = kadm5_get_principal (
 			kadm5_hdl, kx_name, entry, query_mask);
 			//TODO// not &entry ?!?
-	if (extension == KADM5_UNK_PRINC) {
+	if (karet == KADM5_UNK_PRINC) {
 		/* Not found, we shall create from scratch */
 		;
-	} else if (extension != 0) {
+	} else if (karet != 0) {
 		/* Other error... bail out */
-		errno = EPERM;
-		goto fail_extension;
+		kxerrno = karet;
+		goto fail_karet;
 	} else {
 		/* The principal exists.  Is it ours? */
 		if (strcmp (entry->policy, "kxover") != 0) {
 			/* The policy indicates other management */
-			errno = EACCES;
-			goto fail_extension;
+			kxerrno = EACCES;
+			goto fail_karet;
 		}
 		// Look for recent keys, covering at least the longest wait
 		krb5_key_data *most_recent = _find_recent_key (entry, kvno, new_key->enctype);
@@ -928,7 +933,7 @@ static bool _kxover_import_keyblock (krb5_keyblock *new_key,
 					(memcmp (most_recent->key_data_contents [0],
 					         new_key->contents,
 			                         new_key->length) == 0)) {
-				goto cleanup_extension;
+				goto cleanup_karet;
 			}
 			/* serial-dependent delay: xxxx0 -> 10s, xxxx9 -> 24h
 			 * this is a local policy, but currently hard-coded;
@@ -940,37 +945,39 @@ static bool _kxover_import_keyblock (krb5_keyblock *new_key,
 			assert (krb5_timeofday (krb5_ctx, &now) == 0);
 			if (first_ok < now) {
 				/* There are too many calls, slow down */
-				errno = EBUSY;
-				goto fail_extension;
+				kxerrno = EBUSY;
+				goto fail_karet;
 			}
 		}
 	}
 	//
 	// If not found yet, create the principal TODO:without key
-	if (extension == KADM5_UNK_PRINC) {
+	if (karet == KADM5_UNK_PRINC) {
 		// TODO: rather not kadm5_create_principal/_3() but kadm5_setkey_principal/_3()
 		// NOTE: use KADM5_KEY_DATA in mask, and set keys as desired (or do it later?)
 		// NOTE: use KADM5_POLICY in mask, but not KADM5_POLICY_CLR
 		// NOTE: use a NULL password -> it is just there to check
 		long create_mask = (KADM5_PRINCIPAL | KADM5_POLICY);
 		char *nullpw_nocheck = NULL;
-		if (kadm5_create_principal (kadm5_hdl, entry, create_mask, nullpw_nocheck) != 0) {
+		kadm5_ret_t karet2 = kadm5_create_principal (kadm5_hdl, entry, create_mask, nullpw_nocheck);
+		if (karet2 != 0) {
 			/* Somehow failed to create the principal */
-			errno = EACCES;
-			goto fail_extension;
+			kxerrno = karet2;
+			goto fail_karet;
 		}
 	}
 	//
 	// We now add the desired key; we keep any existing keys
-	if (!kadm5_setkey_principal (kadm5_hdl, kx_name, new_key, 1) != 0) {
+	kadm5_ret_t karet3 = kadm5_setkey_principal (kadm5_hdl, kx_name, new_key, 1);
+	if (karet3 != 0) {
 		/* Somehow failed to create the principal's new key */
-		errno = EACCES;
-		goto fail_extension;
+		kxerrno = karet3;
+		goto fail_karet;
 	}
 	//
 	// Cleanup
-cleanup_extension:
-	if (extension == 0) {
+cleanup_karet:
+	if (karet == 0) {
 		kadm5_free_principal_ent (kadm5_hdl, entry);
 	}
 	if (got_kx_name) {
@@ -981,16 +988,16 @@ cleanup_extension:
 	return ok;
 	//
 	// Failures, including cleanup.
-fail_extension:
+fail_karet:
 	ok = false;
-	goto cleanup_extension;
+	goto cleanup_karet;
 }
 #endif
 
 
 /* Retrieve the number of random bytes for a given encryption type.
  *
- * Return true on success, or false with errno set otherwise.
+ * Return true on success, or false with kxerrno set otherwise.
  */
 bool kerberos_random4key (uint32_t etype, size_t *random_len) {
 	int eti;
@@ -1001,7 +1008,7 @@ bool kerberos_random4key (uint32_t etype, size_t *random_len) {
 		}
 	}
 	/* Error "not implemented" seems appropriate */
-	errno = ENOSYS;
+	kxerrno = ENOSYS;
 	return false;
 }
 
@@ -1011,7 +1018,7 @@ bool kerberos_random4key (uint32_t etype, size_t *random_len) {
  * encryption type.  This will be used when exporting key
  * material from TLS.
  *
- * Return true in case of error, false with errno otherwise.
+ * Return true in case of error, false with kxerrno otherwise.
  */
 bool kerberos_random2key (uint32_t kvno, int32_t etype,
 				size_t random_len, uint8_t *random_bytes,
@@ -1032,7 +1039,7 @@ bool kerberos_random2key (uint32_t kvno, int32_t etype,
 		}
 	}
 	if (!ok) {
-		errno = ENOENT;
+		kxerrno = ENOENT;
 		return false;
 	}
 	//
@@ -1080,6 +1087,7 @@ DPRINTF ("kerberos_init() called with pid=%d / ppid=%d\n", getpid (), getppid ()
 		if (setenv ("TZ", "UTC", 1) == -1) {
 DPRINTF ("Failed to set TZ=UTC in the environment\n");
 			/* errno is set by setenv() */
+			kxerrno = errno;
 			return false;
 		}
 	}
