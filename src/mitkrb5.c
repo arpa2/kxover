@@ -522,9 +522,10 @@ DPRINTF ("Failing to load key entry, karet is %s (%d)\n", error_message (karet),
 	}
 	//
 	// Assuming we got a principal entry, ensure that it ours to control
-	if (cnx->got_entry && (strcmp (cnx->entry.policy, "kxover") != 0)) {
+	if ((cnx->entry.policy == NULL) || (cnx->got_entry && (strcmp (cnx->entry.policy, "kxover") != 0))) {
 		/* The policy indicates other management */
-DPRINTF ("Failing kvno suggestion because the principal name falls under another policy, \"%s\"\n", cnx->entry.policy);
+DPRINTF ("Failing kvno suggestion because the principal name falls under another policy, \"%s\"\n",
+					(cnx->entry.policy != NULL) ? ">>UNDEFINED<<" : cnx->entry.policy);
 		kxerrno = EACCES;
 		ok = false;
 	}
