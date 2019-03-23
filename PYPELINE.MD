@@ -124,6 +124,16 @@ The resource names that are replaced with textual values are:
     is used to replace this resource name.  The file will
     removed when `pypeline` exits.
 
+  * `RNDHEX:<key>` inserts at least 128 bits of random data,
+     where `<key>` serves to identify the data.  The form
+     `RNDHEX` indicates representation in hexadecimal form.
+     We might add other forms, sharing the `<key>` to access
+     the underlying binary data.  The intent is of course to
+     raise the fact that arbitrary data can be passed above
+     the level of any suspicion of being accidentally the
+     same; if 128 bits can convince cryptographers, then it
+     should do the same for testers.
+
 
 ## Example uses in CMakeLists.txt
 
