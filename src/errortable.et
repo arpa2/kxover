@@ -1,4 +1,13 @@
-error_table kxover
+# This table generates globally "unique" error codes that
+# fit in 32-bit integers.  Extensions should only be made
+# at the end if interoperability is to survive.
+#
+# The output consists of a .h and .c file.
+#
+# From: <rick@openfortress.nl>
+
+
+error_table KXov
 
 error_code KXE_REALMSCHECK,
 	"Realm not supported by certificate"
