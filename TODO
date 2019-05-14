@@ -9,11 +9,11 @@
 + do not drop out with EADDRNOTAVAIL 99 when IPv6 is not available (or...?)
 + consider using socket.c in the kxover_client code: ub2sockaddr and socket/connect
 + build localhost.demo.arpa2.org A override option into simple-client test
-- pypeline should try to detect early termination of programs in arbitrary order
++ pypeline should try to detect early termination of programs in arbitrary order
 
 + Have a KXOVER protocol client (in test mode)
-- Have a KXOVER protocol server (in test mode)
-- Actually exchange KX-OFFER messages -- and validate them
++ Have a KXOVER protocol server (in test mode)
++ Actually exchange KX-OFFER messages -- and validate them
 - Implement key agreement and storage as Kerberos crossover keys
 - Protect the exchange with real TLS
 

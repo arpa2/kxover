@@ -91,7 +91,7 @@ static void _setup_test_cb (faketls_test *ftt, bool test_result, starttls_cb_tes
 	ftt->test_cbdata = test_cbdata;
 	ftt->test_result = test_result;
 	ev_idle_init (&ftt->ev_test, _fire_test_cb);
-	ev_idle_start (EV_A_ &ftt->ev_test);
+	ev_idle_start (faketls_loop, &ftt->ev_test);
 }
 
 

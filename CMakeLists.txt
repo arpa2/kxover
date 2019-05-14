@@ -17,16 +17,22 @@ macro_ensure_out_of_source_build("Do not build KXOVER in the source directory.")
 set (CMAKE_MACOSX_RPATH 0)
 
 option (DEBUG
-        "Produce verbose about Petri net processing"
+        "Produce verbose output to support code development"
         OFF)
 
 if (DEBUG)
 	add_compile_options (-DDEBUG -ggdb3 -O0)
+else()
+	message (WARNING "Consider the DEBUG option to reduce compiler errors from sloppy test prints")
 endif()
 
 option (FAKE_TLS
 	"Bypass TLS for now; use plain TCP and claim OK on any tests"
 	OFF)
+
+if (NOT FAKE_TLS)
+	message (SEND_ERROR "Use the FAKE_TLS \"option\" -- we have no actual TLS support yet")
+endif ()
 
 
 #
