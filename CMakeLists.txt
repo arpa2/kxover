@@ -1,3 +1,5 @@
+message(FATAL_ERROR "This repository has moved to GitLab\n\nGet KXOVER from\n\thttps://gitlab.com/arpa2/kxover/\n")
+
 #
 # CMakeLists.txt for KXOVER
 #
